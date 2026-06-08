@@ -1,36 +1,242 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# نظام إدارة الشاشات الرقمية
 
-## Getting Started
+نظام شامل لإدارة وعرض الإعلانات على شاشات متعددة بشكل محلي بدون الحاجة لخادم خلفي.
 
-First, run the development server:
+## 🎯 المميزات
+
+### ✅ إدارة الإعلانات
+
+- رفع الصور (JPG, PNG, GIF, WebP) والفيديوهات (MP4, WebM, MOV)
+- معاينة الملفات قبل الحفظ
+- السحب والإفلات لرفع الملفات
+- تحديد مدة عرض الصور
+- ربط الإعلانات بالشاشات (1-5)
+- تعديل وحذف الإعلانات
+- البحث والفلترة حسب الشاشة
+
+### 📺 عرض الشاشات
+
+- عرض 5 شاشات مستقلة
+- وضع ملء الشاشة التلقائي
+- تشغيل الفيديوهات تلقائياً مع التكرار
+- مؤقت للصور مع عرض الوقت المتبقي
+- التحديث التلقائي كل 5 ثوان
+
+### 📊 لوحة التحكم
+
+- إحصائيات شاملة (عدد الشاشات، الإعلانات، الصور، الفيديوهات)
+- مراقبة حالة الشاشات (نشط/خامل)
+- واجهة عربية كاملة مع دعم RTL
+- تصميم حديث وسهل الاستخدام
+
+## 🚀 التشغيل
+
+### المتطلبات
+
+- Node.js 18 أو أحدث
+- npm أو yarn
+
+### التثبيت
 
 ```bash
+# تثبيت المكتبات
+npm install
+
+# تشغيل الاختبارات
+npm test
+
+# تشغيل المشروع في وضع التطوير
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# بناء المشروع للإنتاج
+npm run build
+
+# تشغيل المشروع في وضع الإنتاج
+npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📖 كيفية الاستخدام
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 1. إضافة إعلان جديد
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. افتح الصفحة الرئيسية: `http://localhost:3000`
+2. انقر على "إضافة إعلان"
+3. أدخل اسم الإعلان
+4. اسحب الملف أو انقر لاختياره
+5. اختر الشاشة المطلوبة (1-5)
+6. إذا كان الملف صورة، حدد مدة العرض بالثواني
+7. انقر "حفظ الإعلان"
 
-## Learn More
+### 2. عرض الإعلان على الشاشة
 
-To learn more about Next.js, take a look at the following resources:
+1. افتح صفحة "عرض الشاشات"
+2. انقر على الشاشة المطلوبة
+3. سيتم فتح الشاشة في وضع ملء الشاشة
+4. الإعلان سيعرض تلقائياً
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3. إدارة الإعلانات
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. افتح صفحة "إدارة الإعلانات"
+2. يمكنك:
+   - البحث عن إعلان بالاسم
+   - الفلترة حسب الشاشة
+   - تغيير شاشة الإعلان من القائمة المنسدلة
+   - حذف الإعلان (انقر مرتين للتأكيد)
 
-## Deploy on Vercel
+## 🏗️ البنية التقنية
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### التقنيات المستخدمة
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Next.js 16** - إطار عمل React
+- **TypeScript** - لغة البرمجة
+- **Tailwind CSS** - تصميم الواجهات
+- **IndexedDB** - تخزين الملفات الكبيرة
+- **LocalStorage** - تخزين البيانات الصغيرة
+- **Vitest** - اختبار الوحدات
+- **fast-check** - اختبارات property-based
+
+### هيكل المشروع
+
+```
+digital-signage/
+├── app/                      # صفحات Next.js
+│   ├── page.tsx             # الصفحة الرئيسية
+│   ├── ads/                 # صفحات الإعلانات
+│   │   ├── page.tsx        # قائمة الإعلانات
+│   │   └── new/page.tsx    # إضافة إعلان
+│   └── screens/             # صفحات الشاشات
+│       ├── page.tsx        # قائمة الشاشات
+│       └── [id]/page.tsx   # عرض شاشة منفصلة
+├── components/              # المكونات
+│   ├── AdForm.tsx          # نموذج الإعلان
+│   ├── AdList.tsx          # قائمة الإعلانات
+│   ├── ScreenPlayer.tsx    # مشغل الإعلانات
+│   └── ScreenGrid.tsx      # شبكة الشاشات
+├── lib/                     # المكتبات والخدمات
+│   ├── services/           # الخدمات
+│   │   ├── adService.ts    # خدمة الإعلانات
+│   │   ├── screenService.ts # خدمة الشاشات
+│   │   └── storageService.ts # خدمة التخزين
+│   ├── storage/            # طبقة التخزين
+│   │   ├── indexedDB.ts    # IndexedDB
+│   │   └── localStorage.ts # LocalStorage
+│   ├── hooks/              # React Hooks
+│   │   ├── useAdvertisements.ts
+│   │   └── useScreens.ts
+│   └── types/              # تعريفات TypeScript
+│       └── index.ts
+└── tests/                   # الاختبارات
+```
+
+## 🧪 الاختبارات
+
+المشروع يحتوي على 33 اختبار شامل:
+
+### اختبارات LocalStorage (11 اختبار)
+
+- حفظ واستعادة البيانات
+- معالجة الأخطاء
+- التحقق من صحة البيانات
+
+### اختبارات IndexedDB (10 اختبارات)
+
+- حفظ الملفات الكبيرة
+- حفظ اللقطات
+- معالجة الأخطاء
+
+### اختبارات AdService (12 اختبار)
+
+- إنشاء وتحديث وحذف الإعلانات
+- ربط الإعلانات بالشاشات
+- التحقق من صيغ الملفات
+- التحقق من حجم الملفات
+
+```bash
+# تشغيل جميع الاختبارات
+npm test
+
+# تشغيل الاختبارات مع التغطية
+npm test -- --coverage
+
+# تشغيل اختبار محدد
+npm test -- adService.test.ts
+```
+
+## 📝 الملاحظات المهمة
+
+### التخزين المحلي
+
+- جميع البيانات تُخزن محلياً في المتصفح
+- الملفات الكبيرة (صور وفيديوهات) تُخزن في IndexedDB
+- البيانات الصغيرة (معلومات الإعلانات والشاشات) تُخزن في LocalStorage
+- الحد الأقصى لحجم الملف: 100 ميجابايت
+
+### الشاشات
+
+- النظام يدعم 5 شاشات (1-5)
+- كل شاشة يمكن أن تعرض إعلان واحد فقط
+- الشاشات تُحدث تلقائياً كل 5 ثوان
+- يُنصح بفتح كل شاشة في نافذة متصفح منفصلة
+
+### الصيغ المدعومة
+
+**الصور:**
+
+- JPG/JPEG
+- PNG
+- GIF
+- WebP
+
+**الفيديوهات:**
+
+- MP4
+- WebM
+- MOV
+
+## 🎨 التصميم
+
+- واجهة عربية كاملة مع دعم RTL
+- خط Cairo للنصوص العربية
+- ألوان حديثة ومريحة للعين
+- تصميم متجاوب يعمل على جميع الأجهزة
+- رسوم متحركة سلسة
+
+## 🔧 التطوير
+
+### إضافة ميزة جديدة
+
+1. أنشئ الخدمة في `lib/services/`
+2. أنشئ الاختبارات في نفس المجلد
+3. أنشئ المكون في `components/`
+4. أنشئ الصفحة في `app/`
+5. شغل الاختبارات للتأكد من عمل كل شيء
+
+### معايير الكود
+
+- استخدم TypeScript لجميع الملفات
+- اكتب اختبارات لجميع الخدمات
+- استخدم التعليقات العربية
+- اتبع معايير ESLint
+
+## 📄 الترخيص
+
+هذا المشروع مفتوح المصدر ومتاح للاستخدام الحر.
+
+## 🤝 المساهمة
+
+المساهمات مرحب بها! يرجى:
+
+1. عمل Fork للمشروع
+2. إنشاء فرع للميزة الجديدة
+3. كتابة الاختبارات
+4. إرسال Pull Request
+
+## 📞 الدعم
+
+إذا واجهت أي مشاكل أو لديك اقتراحات، يرجى فتح Issue في GitHub.
+
+---
+
+**تم التطوير بواسطة:** Kiro AI
+**الإصدار:** 1.0.0
+**التاريخ:** 2026

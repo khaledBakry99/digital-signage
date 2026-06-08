@@ -1,0 +1,73 @@
+# ============================================
+# Docker Build Context Exclusions
+# ============================================
+# This file specifies which files/folders to exclude from the Docker build context
+# This reduces build time and image size by not copying unnecessary files
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Development dependencies and artifacts
+node_modules
+npm-debug.log
+npm-error.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Next.js build artifacts (will be rebuilt in Docker)
+.next
+out
+dist
+build
+
+# Environment files (use docker-compose.yml for environment variables instead)
+.env
+.env.local
+.env.*.local
+.env.production.local
+
+# IDE and editor configurations
+.vscode
+.idea
+*.swp
+*.swo
+*.swn
+.DS_Store
+.editorconfig
+
+# Documentation
+README.md
+QUICKSTART.md
+QUICK_START.md
+CAMERA_SYSTEM.md
+CAMPAIGN_SCREEN_ASSIGNMENT_GUIDE.md
+SCREEN_ASSIGNMENT_GUIDE.md
+PROJECT_SUMMARY.md
+STATUS.md
+CLAUDE.md
+AGENTS.md
+
+# Testing and coverage
+coverage
+.nyc_output
+*.lcov
+
+# CI/CD configuration
+.github
+.gitlab-ci.yml
+.circleci
+
+# Kiro specifications (development only)
+.kiro
+
+# Vercel configuration (deployment-specific)
+.vercel
+
+# Miscellaneous
+*.md
+.cache
+temp
+tmp

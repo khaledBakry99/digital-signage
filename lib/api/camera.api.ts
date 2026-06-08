@@ -1,0 +1,62 @@
+import { apiClient } from './client';
+
+export type CameraState = 'Active' | 'Inactive';
+
+export interface BackendCamera {
+  id: number;
+  clientId: number;
+  name: string;
+  location: string;
+  cameraDeviceName: string;
+  state: CameraState;
+  timeToScreenshot: number;
+  createdAtUtc: string;
+  screenIds: number[];
+}
+
+export interface CreateCameraInput {
+  clientId: number;
+  name: string;
+  location: string;
+  cameraDeviceName: string;
+  timeToScreenshot: number;
+}
+
+export interface UpdateCameraInput {
+  name: string;
+  location: string;
+  cameraDeviceName: string;
+  timeToScreenshot: number;
+}
+
+class CameraApi {
+  async getAll(params?: { clientId?: number; state?: CameraState; search?: string }): Promise<BackendCamera[]> {
+    return apiClient.get<BackendCamera[]>('/api/Cameras', params);
+  }
+
+  async getById(id: number): Promise<BackendCamera> {
+    return apiClient.get<BackendCamera>(`/api/Cameras/${id}`);
+  }
+
+  async create(data: CreateCameraInput): Promise<BackendCamera> {
+    return apiClient.post<BackendCamera>('/api/Cameras', data);
+  }
+
+  async update(id: number, data: UpdateCameraInput): Promise<BackendCamera> {
+    return apiClient.put<BackendCamera>(`/api/Cameras/${id}`, data);
+  }
+
+  async delete(id: number): Promise<void> {
+    return apiClient.delete<void>(`/api/Cameras/${id}`);
+  }
+
+  async activate(id: number): Promise<BackendCamera> {
+    return apiClient.post<BackendCamera>(`/api/Cameras/${id}/activate`);
+  }
+
+  async deactivate(id: number): Promise<BackendCamera> {
+    return apiClient.post<BackendCamera>(`/api/Cameras/${id}/deactivate`);
+  }
+}
+
+export const cameraApi = new CameraApi();

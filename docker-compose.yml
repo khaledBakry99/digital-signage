@@ -1,0 +1,104 @@
+# ============================================
+# Docker Compose Configuration
+# ============================================
+# This file orchestrates the Digital Signage application container
+# Usage: docker-compose up -d (start) / docker-compose down (stop)
+
+version: '3.8'
+
+services:
+  # Main application service
+  digital-signage:
+    # Build the image from the Dockerfile in the current directory
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    # Container name for easy reference
+    container_name: digital-signage-app
+    
+    # Port mapping: expose port 3000 from container to host
+    ports:
+      - "3000:3000"
+    
+    # Environment variables for the application
+    environment:
+      # Set Node environment to production for optimal performance
+      NODE_ENV: production
+      # Optional: Add custom API URLs, secrets, or other configuration here
+      # API_URL: http://localhost:3000
+      # NEXT_PUBLIC_API_URL: http://localhost:3000
+    
+    # Restart policy: automatically restart the container if it crashes
+    # Options: no, always, on-failure, unless-stopped
+    restart: unless-stopped
+    
+    # Health check configuration
+    healthcheck:
+      # Command to check if the application is healthy
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      # How often to run the health check (in seconds)
+      interval: 30s
+      # Timeout for each health check (in seconds)
+      timeout: 3s
+      # How long to wait before starting health checks (in seconds)
+      start_period: 40s
+      # Number of consecutive failed checks before marking unhealthy
+      retries: 3
+    
+    # Optional: resource limits
+    # Uncomment to limit CPU and memory usage
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '1'
+    #       memory: 512M
+    #     reservations:
+    #       cpus: '0.5'
+    #       memory: 256M
+    
+    # Optional: logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ============================================
+# Optional Services (Uncomment if needed)
+# ============================================
+
+# For production with reverse proxy (Nginx)
+# nginx:
+#   image: nginx:alpine
+#   ports:
+#     - "80:80"
+#     - "443:443"
+#   volumes:
+#     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+#   depends_on:
+#     - digital-signage
+
+# ============================================
+# Usage Instructions:
+# ============================================
+#
+# Start the application:
+#   docker-compose up -d
+#
+# View logs:
+#   docker-compose logs -f
+#
+# Stop the application:
+#   docker-compose down
+#
+# Rebuild and start (if Dockerfile changed):
+#   docker-compose up -d --build
+#
+# View service status:
+#   docker-compose ps
+#
+# Execute command in running container:
+#   docker-compose exec digital-signage npm run test
+#
+# ============================================
