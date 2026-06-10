@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import ScreenPlayer from "@/components/ScreenPlayer";
 import { screenApi } from "@/lib/api/screen.api";
@@ -14,6 +14,7 @@ export default function ScreenPage() {
   const [loading, setLoading] = useState(true);
   const [activeScenario, setActiveScenario] = useState<string>("جاري التحقق...");
   const [campaignName, setCampaignName] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // تحميل الإعلان وتطبيق السيناريوهات كل 5 ثوانٍ بالكامل من الـ API
   useEffect(() => {

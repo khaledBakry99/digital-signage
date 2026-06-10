@@ -25,9 +25,12 @@ export class ScreenshotService {
       logging: false,
       ignoreElements: (el) => {
         // تخطي العناصر التي لا يمكن تحميلها
-        return el.tagName === 'IMG' && (el as HTMLImageElement).src && !(el as HTMLImageElement).complete;
+        if (el.tagName === 'IMG') {
+          const img = el as HTMLImageElement;
+          return !img.complete || !img.src;
+        }
+        return false;
       },
-      timeout: 10000, // 10 ثواني maximum
     });
 
     const canvas = await capturePromise;    // تحويل Canvas إلى Blob
