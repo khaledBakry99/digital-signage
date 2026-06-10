@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import ScreenPlayer from "@/components/ScreenPlayer";
 import { screenApi } from "@/lib/api/screen.api";
 import { mediaAssetApi } from "@/lib/api/mediaAsset.api";
-import { screenshotService } from "@/lib/services/screenshotService";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
-
-const SCREENSHOT_INTERVAL = 10_000; // 10 ثوانٍ
 
 export default function ScreenPage() {
   const params = useParams();
@@ -17,7 +14,6 @@ export default function ScreenPage() {
   const [loading, setLoading] = useState(true);
   const [activeScenario, setActiveScenario] = useState<string>("جاري التحقق...");
   const [campaignName, setCampaignName] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // تحميل الإعلان وتطبيق السيناريوهات كل 5 ثوانٍ بالكامل من الـ API
   useEffect(() => {
@@ -104,27 +100,8 @@ export default function ScreenPage() {
     return () => clearInterval(interval);
   }, [screenId]);
 
-  // التقاط لقطة شاشة دورية وإرسالها للخادم
-  useEffect(() => {
-    if (!advertisement) return;
-
-    const capture = async () => {
-      if (!containerRef.current) return;
-      try {
-        await screenshotService.captureElement(containerRef.current, screenId);
-      } catch (err) {
-        console.error(`فشل التقاط وإرسال لقطة الشاشة ${screenId}:`, err);
-      }
-    };
-
-    const firstCapture = setTimeout(capture, 3_000);
-    const interval = setInterval(capture, SCREENSHOT_INTERVAL);
-
-    return () => {
-      clearTimeout(firstCapture);
-      clearInterval(interval);
-    };
-  }, [advertisement, screenId]);
+  // التقاط لقطة شاشة دورية وإرسالها للخادم - تم حذفها
+  // Screenshot يجب أن يكون فقط من الكاميرات للـ AI وليس من شاشات الإعلانات
 
   const handleClick = async () => {
     try {

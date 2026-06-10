@@ -17,14 +17,20 @@ export class ScreenshotService {
     // استيراد html2canvas ديناميكياً (client-side فقط)
     const html2canvas = (await import("html2canvas")).default;
 
-    const canvas = await html2canvas(element, {
+    // Timeout wrapper - إذا استغرقت أكثر من 10 ثواني، توقف
+    const capturePromise = html2canvas(element, {
       useCORS: true,
       allowTaint: true,
       scale: 0.5, // تصغير الحجم لتوفير المساحة
       logging: false,
+      ignoreElements: (el) => {
+        // تخطي العناصر التي لا يمكن تحميلها
+        return el.tagName === 'IMG' && (el as HTMLImageElement).src && !(el as HTMLImageElement).complete;
+      },
+      timeout: 10000, // 10 ثواني maximum
     });
 
-    // تحويل Canvas إلى Blob
+    const canvas = await capturePromise;    // تحويل Canvas إلى Blob
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
         (b) => (b ? resolve(b) : reject(new Error("فشل تحويل اللقطة"))),

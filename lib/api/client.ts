@@ -78,6 +78,18 @@ export class ApiClient {
     return localStorage.getItem('accessToken');
   }
 
+  // Dynamic timeout setter based on camera screenshot interval
+  setDynamicTimeout(screenshotIntervalSeconds: number): void {
+    // Set timeout to 3x the screenshot interval, minimum 60 seconds
+    const calculatedTimeout = Math.max(screenshotIntervalSeconds * 3 * 1000, 60000);
+    this.timeout = calculatedTimeout;
+  }
+
+  // Reset to default timeout
+  resetTimeout(): void {
+    this.timeout = API_CONFIG.TIMEOUT;
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}

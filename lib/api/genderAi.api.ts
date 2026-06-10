@@ -21,6 +21,16 @@ class GenderAiApi {
 
     return apiClient.postFormData<GenderAiResponse>(`${this.basePath}/GetGenderAi`, formData);
   }
+
+  // دالة مساعدة: إرسال صورة من الكاميرا للـ AI
+  async detectGender(cameraId: number, imageFile: File): Promise<GenderAiResponse> {
+    return this.analyze({
+      cameraId,
+      image: imageFile,
+      niqabThreshold: 0.55,
+      childConfThreshold: 0.55,
+    });
+  }
 }
 
 export const genderAiApi = new GenderAiApi();

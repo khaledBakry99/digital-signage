@@ -17,6 +17,82 @@ function dataURLtoFile(dataurl: string, filename: string): File {
   return new File([u8arr], filename, { type: mime });
 }
 
+// ============================================
+// 📋 LOGGING FUNCTIONS
+// ============================================
+const logStyles = {
+  camera: 'background: #4F46E5; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+  capture: 'background: #06B6D4; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+  send: 'background: #F59E0B; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+  ai: 'background: #8B5CF6; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+  screen: 'background: #10B981; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+  error: 'background: #EF4444; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+};
+
+function logCamera(cameraId: string, cameraName: string, msg: string) {
+  console.log(
+    `%c🎥 CAMERA%c [${cameraName}#${cameraId}] ${msg}`,
+    logStyles.camera,
+    'color: inherit; font-weight: normal;'
+  );
+}
+
+function logCapture(cameraName: string, timestamp: string) {
+  console.log(
+    `%c📸 CAPTURE%c [${cameraName}] صورة ملتقطة في ${timestamp}`,
+    logStyles.capture,
+    'color: inherit; font-weight: normal;'
+  );
+}
+
+function logSend(cameraName: string, fileName: string) {
+  console.log(
+    `%c📤 SEND%c [${cameraName}] إرسال إلى AI: ${fileName}`,
+    logStyles.send,
+    'color: inherit; font-weight: normal;'
+  );
+}
+
+function logAI(cameraName: string, aiResponse: any) {
+  const detected = aiResponse?.detectedGender || 'غير محدد';
+  const screens = aiResponse?.screensToUpdate?.length || 0;
+  console.log(
+    `%c🤖 AI DETECTION%c [${cameraName}] الفئة المكتشفة: %c${detected}%c | عدد الشاشات: %c${screens}`,
+    logStyles.ai,
+    'color: inherit; font-weight: normal;',
+    'background: #7C3AED; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+    'color: inherit; font-weight: normal;',
+    'background: #3B82F6; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;'
+  );
+  console.log('%cAI Response Details:', 'font-weight: bold; color: #8B5CF6;', aiResponse);
+}
+
+function logScreen(cameraName: string, screenUpdates: any) {
+  if (screenUpdates?.screensToUpdate && Array.isArray(screenUpdates.screensToUpdate)) {
+    screenUpdates.screensToUpdate.forEach((screen: any, idx: number) => {
+      console.log(
+        `%c📺 SCREEN UPDATE%c [${idx + 1}/${screenUpdates.screensToUpdate.length}] الشاشة #${screen.id}`,
+        logStyles.screen,
+        'color: inherit; font-weight: normal;'
+      );
+      console.log(`   - اسم الشاشة: %c${screen.name}`, 'color: #10B981; font-weight: bold;');
+      console.log(`   - الإعلان الجديد: %c${screen.mediaAssetName || 'افتراضي'}`, 'color: #34D399;');
+      console.log(`   - ID الإعلان: %c${screen.mediaAssetId}`, 'color: #6EE7B7;');
+      if (screen.mediaAssetUrl) {
+        console.log(`   - رابط الإعلان: %c${screen.mediaAssetUrl}`, 'color: #6EE7B7; font-size: 11px;');
+      }
+    });
+  }
+}
+
+function logError(cameraName: string, error: string) {
+  console.error(
+    `%c❌ ERROR%c [${cameraName}] ${error}`,
+    logStyles.error,
+    'color: inherit; font-weight: normal;'
+  );
+}
+
 export interface CameraScreenshot {
   cameraId: string;
   cameraName: string;
@@ -77,7 +153,7 @@ class ScreenshotService {
       const ctx = canvas.getContext("2d");
 
       if (!ctx) {
-        console.error("Failed to get canvas context");
+        logError(cameraName, "Failed to get canvas context");
         return;
       }
 
@@ -107,29 +183,70 @@ class ScreenshotService {
       // Store screenshot in memory (for live viewing in dashboard if needed)
       this.addScreenshot(cameraId, screenshot);
 
+      // ============================================
+      // 📸 LOG CAPTURE
+      // ============================================
+      const timestamp = new Date().toLocaleString('ar-SA');
+      logCapture(cameraName, timestamp);
+
       // Send directly to the AI backend API instead of saving locally!
       try {
         const numericId = Number(cameraId);
         if (!Number.isFinite(numericId) || numericId <= 0) {
-          console.warn(`[AI Event] Skipping AI analyze for non-backend camera id: ${cameraId}`);
+          logError(cameraName, `معرف كاميرا غير صحيح: ${cameraId}`);
           return;
         }
 
-        const file = dataURLtoFile(dataUrl, `camera-${cameraId}-${Date.now()}.jpg`);
+        const fileName = `camera-${cameraId}-${Date.now()}.jpg`;
+        
+        // ============================================
+        // 📤 LOG SEND TO AI
+        // ============================================
+        logSend(cameraName, fileName);
+
+        const file = dataURLtoFile(dataUrl, fileName);
         genderAiApi
           .analyze({ cameraId: numericId, image: file })
           .then((response) => {
-            console.log(`[AI Event] Screen and camera updated by AI:`, response);
+            // ============================================
+            // 🤖 LOG AI DETECTION
+            // ============================================
+            logAI(cameraName, response);
+
+            // ============================================
+            // 📺 LOG SCREEN UPDATES
+            // ============================================
+            logScreen(cameraName, response);
+
+            // ============================================
+            // 📊 SUMMARY LOG
+            // ============================================
+            console.log(
+              '%c═════════════════════════════════════════',
+              'color: #10B981; font-weight: bold;'
+            );
+            console.log(
+              '%c✅ عملية شاملة مكتملة بنجاح',
+              'background: #10B981; color: white; padding: 4px 8px; border-radius: 3px; font-weight: bold; font-size: 14px;'
+            );
+            console.log(
+              '%c═════════════════════════════════════════',
+              'color: #10B981; font-weight: bold;'
+            );
           })
           .catch((err) => {
             const msg = (err && (err.message || err.detail)) ? `${err.message}${err.detail ? ' - ' + err.detail : ''}` : JSON.stringify(err || {});
-            console.error(`[AI Event Error] Failed to process image with GenderAi API: ${msg}`);
+            
+            // ============================================
+            // ❌ LOG ERROR
+            // ============================================
+            logError(cameraName, msg);
           });
       } catch (fileErr) {
-        console.error("Failed to convert canvas to file:", fileErr);
+        logError(cameraName, `خطأ في تحويل الصورة: ${String(fileErr)}`);
       }
     } catch (error) {
-      console.error("Failed to capture screenshot:", error);
+      logError(cameraName, `خطأ عام: ${String(error)}`);
     }
   }
 

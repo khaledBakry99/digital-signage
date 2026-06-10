@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Camera } from "@/lib/types/camera";
 import { useCameraStream } from "@/lib/cameras/hooks/useCameraStream";
 import { useReconnect } from "@/lib/cameras/hooks/useReconnect";
+import { cameraScreenshotService } from "@/lib/services/cameraScreenshotService";
 
 interface CameraPlayerProps {
   camera: Camera;
@@ -57,28 +58,51 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
           reconnect(element);
         }
       });
-    }
 
-    return () => {
-      stopStream();
-
-      // Notify background service that camera tab is closed
-      if (typeof window !== "undefined") {
-        // For same-window communication, directly call the service
-        if (camera.type === "local") {
-          import("@/lib/cameras/services/backgroundCameraService").then(
-            ({ backgroundCameraService }) => {
-              backgroundCameraService.resumeCamera(camera.id);
-            },
+      // ✅ بدء التقاط لقطات الكاميرا وإرسالها للـ AI
+      let stopCapture: (() => void) | null = null;
+      if (
+        element instanceof HTMLVideoElement &&
+        (camera.type === "local" || camera.type === "hls" || camera.type === "rtsp")
+      ) {
+        try {
+          stopCapture = cameraScreenshotService.startPeriodicCapture(
+            element,
+            Number(camera.id),
+            camera.timeToScreenshot || 30, // الفاصل الزمني من إعدادات الكاميرا
           );
+          console.log(`✅ تم بدء التقاط لقطات الكاميرا ${camera.id} كل ${camera.timeToScreenshot || 30} ثانية`);
+        } catch (error) {
+          console.error(`❌ فشل بدء التقاط لقطات الكاميرا ${camera.id}:`, error);
+        }
+      }
+
+      return () => {
+        stopStream();
+
+        // ✅ إيقاف التقاط اللقطات
+        if (stopCapture) {
+          stopCapture();
         }
 
-        // For cross-tab communication, use localStorage
-        localStorage.setItem("camera-tab-close", camera.id);
-        localStorage.removeItem("camera-tab-close");
-        localStorage.setItem("camera-tab-close", camera.id);
-      }
-    };
+        // Notify background service that camera tab is closed
+        if (typeof window !== "undefined") {
+          // For same-window communication, directly call the service
+          if (camera.type === "local") {
+            import("@/lib/cameras/services/backgroundCameraService").then(
+              ({ backgroundCameraService }) => {
+                backgroundCameraService.resumeCamera(camera.id);
+              },
+            );
+          }
+
+          // For cross-tab communication, use localStorage
+          localStorage.setItem("camera-tab-close", camera.id);
+          localStorage.removeItem("camera-tab-close");
+          localStorage.setItem("camera-tab-close", camera.id);
+        }
+      };
+    }
   }, [camera, autoStart, startStream, stopStream, startMonitoring, reconnect]);
 
   const handleFullscreen = () => {
