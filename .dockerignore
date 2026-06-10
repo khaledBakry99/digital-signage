@@ -60,8 +60,7 @@ coverage
 .gitlab-ci.yml
 .circleci
 
-# Kiro specifications (development only)
-.kiro
+
 
 # Vercel configuration (deployment-specific)
 .vercel
