@@ -8,23 +8,23 @@ interface ScreenPlayerProps {
   screenId: number;
 }
 
-// دالة ذكية لمعالجة الروابط
+// Helper to normalize media URLs
 function resolveMediaUrl(url: string, type?: string): string {
   if (!url) return "";
   
-  // 1. إذا كان رابطاً نسبياً، نربطه مع السيرفر الحقيقي
+  // 1) If it's relative, prefix with the backend host
   if (url.startsWith("/")) {
     return `https://backend-42316129731.europe-west1.run.app${url}`;
   }
   
-  // 2. إذا كان نطاقاً وهمياً غير موجود (مثل cdn.example.com) نقم بالتبديل التلقائي لوسائط حقيقية جذابة للعرض التجريبي
+  // 2) If the domain is a placeholder, swap to demo-friendly media
   if (url.includes("example.com") || url.includes("cdn.example.com")) {
     const isVideo = url.toLowerCase().match(/\.(mp4|webm|mov|m4v)/) || type?.toLowerCase() === "video";
     if (isVideo) {
-      // فيديو تجريدي رائع مخصص للشاشات الرقمية
+      // Abstract video for demo screens
       return "https://assets.mixkit.co/videos/preview/mixkit-abstract-laser-lights-background-32025-large.mp4";
     } else {
-      // صورة جمالية تجريدية رائعة بدقة عالية للشاشات الرقمية
+      // High-quality abstract image for demo screens
       return "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1920";
     }
   }
@@ -47,7 +47,7 @@ export default function ScreenPlayer({
     setError(null);
   }, [advertisement]);
 
-  // تشغيل الفيديو تلقائياً بعد التحميل
+  // Autoplay video after load
   useEffect(() => {
     const isVideo = advertisement?.type?.toLowerCase() === "video";
     if (isVideo && videoRef.current && resolvedUrl) {
@@ -58,10 +58,10 @@ export default function ScreenPlayer({
     }
   }, [advertisement, resolvedUrl]);
 
-  // مؤقت الصور
+  // Image countdown timer
   useEffect(() => {
     const isImage = advertisement?.type?.toLowerCase() === "image";
-    const duration = advertisement?.durationSeconds || 10; // افتراضي 10 ثوانٍ إذا لم توجد مدة
+    const duration = advertisement?.durationSeconds || 10; // default 10s if not provided
 
     if (isImage) {
       setCurrentTime(0);
@@ -82,7 +82,7 @@ export default function ScreenPlayer({
     }
   }, [advertisement]);
 
-  // لا يوجد إعلان
+  // No advertisement
   if (!advertisement) {
     return (
       <div className="w-full h-screen bg-gray-950 flex items-center justify-center">
@@ -95,7 +95,7 @@ export default function ScreenPlayer({
     );
   }
 
-  // خطأ في التشغيل
+  // Playback error
   if (error) {
     return (
       <div className="w-full h-screen bg-red-950 flex items-center justify-center p-4">
@@ -112,7 +112,7 @@ export default function ScreenPlayer({
   const isImage = advertisement.type?.toLowerCase() === "image";
   const duration = advertisement.durationSeconds || 10;
 
-  // عرض الصورة
+  // Render image
   if (isImage) {
     return (
       <div className="w-full h-screen bg-black relative">
@@ -122,15 +122,11 @@ export default function ScreenPlayer({
           className="w-full h-full object-contain"
           onError={() => setError("فشل تحميل الصورة من الخادم")}
         />
-        {/* مؤشر الوقت */}
-        <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md text-white px-4 py-2 rounded-xl text-sm font-semibold border border-white/5">
-          {currentTime} / {duration} ثانية
-        </div>
       </div>
     );
   }
 
-  // عرض الفيديو
+  // Render video
   return (
     <div className="w-full h-screen bg-black">
       <video

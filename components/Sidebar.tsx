@@ -177,7 +177,7 @@ export default function Sidebar() {
               <button
                 key={item.href}
                 onClick={() => handleNavigation(item.href)}
-                className={`nav-link ${isActive(item.href) ? "active" : ""} animate-slide-in`}
+                className={`nav-link ${isActive(item.href) ? "active" : ""} animate-slide-in cursor-pointer`}
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 {item.icon}
@@ -209,7 +209,7 @@ export default function Sidebar() {
               <button
                 key={item.href}
                 onClick={() => handleNavigation(item.href)}
-                className={`nav-link ${isActive(item.href) ? "active" : ""} animate-slide-in`}
+                className={`nav-link ${isActive(item.href) ? "active" : ""} animate-slide-in cursor-pointer`}
                 style={{ animationDelay: `${(index + adNavItems.length) * 50}ms` }}
               >
                 {item.icon}
@@ -241,7 +241,7 @@ export default function Sidebar() {
                 key={id}
                 onClick={() => handleNavigation(`/screens/${id}`)}
                 title={screen?.name || `شاشة ${id}`}
-                className="rounded-xl py-3 text-sm font-bold transition-all duration-300 hover:scale-110 hover:-translate-y-1 group relative overflow-hidden"
+                className="rounded-xl py-3 text-sm font-bold transition-all duration-300 hover:scale-110 hover:-translate-y-1 group relative overflow-hidden cursor-pointer"
                 style={{
                   background: active 
                     ? "linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.1))" 
@@ -280,7 +280,7 @@ export default function Sidebar() {
         </div>
         <button
           onClick={handleLogout}
-          className="w-full rounded-xl py-2.5 px-4 text-sm font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2 group"
+          className="w-full rounded-xl py-2.5 px-4 text-sm font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2 group cursor-pointer"
           style={{
             background: "linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05))",
             border: "1px solid rgba(239, 68, 68, 0.3)",

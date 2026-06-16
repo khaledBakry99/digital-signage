@@ -13,6 +13,23 @@ export default function CameraViewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Activate the camera on mount and deactivate on unmount
+  useEffect(() => {
+    const id = Number(params.id);
+    
+    // Activate camera
+    cameraApi.activate(id)
+      .then(() => console.log(`✅ تم تفعيل الكاميرا ${id}`))
+      .catch((err) => console.error(`❌ فشل تفعيل الكاميرا ${id}:`, err));
+
+    // Deactivate camera on cleanup
+    return () => {
+      cameraApi.deactivate(id)
+        .then(() => console.log(`🔴 تم تعطيل الكاميرا ${id}`))
+        .catch((err) => console.error(`❌ فشل تعطيل الكاميرا ${id}:`, err));
+    };
+  }, [params.id]);
+
   useEffect(() => {
     const loadCamera = async () => {
       try {
@@ -26,7 +43,7 @@ export default function CameraViewPage() {
           return;
         }
 
-        // Map backend camera to frontend format
+        // Map backend camera to UI shape
         const cameraData: Camera = {
           id: String(backendCamera.id),
           name: backendCamera.name,

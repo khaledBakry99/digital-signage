@@ -230,8 +230,11 @@ export function CameraForm({ camera, onSubmit, onCancel }: CameraFormProps) {
       {/* Time to Screenshot with Preset Grid */}
       <div>
         <label className={labelClass}>
-          معدل التقاط لقطات الشاشة تلقائياً *
+          مهلة الكشف والتقاط الصور (Mediapipe + API) *
         </label>
+        <p className="text-xs text-slate-500 mb-3 text-right leading-relaxed">
+          المدة الزمنية بين كل عملية كشف وتحليل للوجوه عبر Mediapipe. إذا لم يتم اكتشاف أي وجه خلال هذه المهلة، سيتم عرض الفيديو الافتراضي تلقائياً.
+        </p>
 
         {/* Preset Chips */}
         <div className="grid grid-cols-2 gap-2 mb-3">

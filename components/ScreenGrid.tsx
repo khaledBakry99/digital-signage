@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useAdvertisements } from "@/lib/hooks/useAdvertisements";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { indexedDBService } from "@/lib/storage/indexedDB";
 import type { Screen } from "@/lib/types/screen";
 
@@ -11,7 +11,7 @@ interface ScreenGridProps {
 }
 
 /**
- * تحويل indexeddb:// URL إلى Blob URL قابل للعرض
+ * Convert indexeddb:// URLs to displayable blob URLs.
  */
 async function resolveBlobUrl(fileUrl: string): Promise<string> {
   if (!fileUrl.startsWith("indexeddb://")) return fileUrl;
@@ -99,6 +99,50 @@ function ScreenPreview({
 export default function ScreenGrid({ screens }: ScreenGridProps) {
   const router = useRouter();
   const { advertisements } = useAdvertisements();
+  const [openCameraTabs, setOpenCameraTabs] = useState<Set<number>>(new Set());
+
+  // Track opened camera tabs via localStorage
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const stored = localStorage.getItem('openCameraTabs');
+      if (stored) {
+        try {
+          const ids = JSON.parse(stored);
+          setOpenCameraTabs(new Set(ids));
+        } catch {
+          setOpenCameraTabs(new Set());
+        }
+      }
+    };
+
+    handleStorageChange();
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleStorageChange);
+
+    const interval = setInterval(handleStorageChange, 1000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const openCamera = useCallback((cameraId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Update local list of open tabs
+    const stored = localStorage.getItem('openCameraTabs');
+    const currentOpen = stored ? JSON.parse(stored) : [];
+    if (!currentOpen.includes(cameraId)) {
+      currentOpen.push(cameraId);
+      localStorage.setItem('openCameraTabs', JSON.stringify(currentOpen));
+      setOpenCameraTabs(new Set(currentOpen));
+    }
+
+    // Open camera in a new tab
+    window.open(`/cameras/${cameraId}`, '_blank');
+  }, []);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 stagger">
@@ -209,17 +253,58 @@ export default function ScreenGrid({ screens }: ScreenGridProps) {
               )}
             </div>
 
-            {/* Open button */}
-            <div
-              className="w-full py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))",
-                border: "1px solid rgba(99,102,241,0.2)",
-                color: "#818cf8",
-              }}
-            >
-              فتح الشاشة ←
+            {/* Buttons */}
+            <div className="flex gap-2">
+              {/* Open Screen Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(`/screens/${screen.id}`, "_blank");
+                }}
+                className="flex-1 py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100 cursor-pointer hover:scale-105 active:scale-95"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))",
+                  border: "1px solid rgba(99,102,241,0.2)",
+                  color: "#818cf8",
+                }}
+                title="فتح الشاشة في تبويب جديد"
+              >
+                فتح الشاشة ←
+              </button>
+
+              {/* Open Camera Button */}
+              {screen.cameraId && (
+                <button
+                  onClick={(e) => openCamera(screen.cameraId!, e)}
+                  disabled={openCameraTabs.has(screen.cameraId)}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:scale-105 active:scale-95 cursor-pointer"
+                  style={{
+                    background: openCameraTabs.has(screen.cameraId)
+                      ? "rgba(100,116,139,0.15)"
+                      : "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.1))",
+                    border: openCameraTabs.has(screen.cameraId)
+                      ? "1px solid rgba(100,116,139,0.2)"
+                      : "1px solid rgba(16,185,129,0.3)",
+                    color: openCameraTabs.has(screen.cameraId) ? "#94a3b8" : "#34d399",
+                  }}
+                  title={openCameraTabs.has(screen.cameraId) ? "الكاميرا مفتوحة بالفعل" : "فتح الكاميرا المربوطة"}
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         );

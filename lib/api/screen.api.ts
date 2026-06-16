@@ -101,6 +101,16 @@ class ScreenApi {
   async clearAllMedia(id: number): Promise<ScreenMediaSlots> {
     return apiClient.delete<ScreenMediaSlots>(`${this.basePath}/${id}/assign-media`);
   }
+
+  // تفعيل الشاشة (عند فتحها)
+  async activate(id: number): Promise<Screen> {
+    return apiClient.post<Screen>(`${this.basePath}/${id}/activate`, {});
+  }
+
+  // تعطيل الشاشة (عند إغلاقها)
+  async deactivate(id: number): Promise<Screen> {
+    return apiClient.post<Screen>(`${this.basePath}/${id}/deactivate`, {});
+  }
 }
 
 export const screenApi = new ScreenApi();
