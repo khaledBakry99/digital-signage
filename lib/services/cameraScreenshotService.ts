@@ -1,10 +1,12 @@
 import { genderAiApi } from "@/lib/api/genderAi.api";
+import { mediapipeService } from "@/lib/services/mediapipeService";
 
 /**
  * Capture camera frames and send them to the AI endpoint.
  * Used on camera pages only (not advertisement screens).
  */
 export class CameraScreenshotService {
+  private readonly REQUIRED_STABLE_FRAMES = 3;
   /**
    * Capture a frame from the video element and send it to AI.
    * @param videoElement - target video element
@@ -107,38 +109,79 @@ export class CameraScreenshotService {
     }
   }
 
-  /**
-   * Start periodic frame capture from the camera.
-   * @param videoElement - source video element
-   * @param cameraId - camera identifier
-   * @param intervalSeconds - interval between captures in seconds
-   * @returns cleanup function to stop captures
-   */
-  startPeriodicCapture(
+  startObjectDetectionCapture(
     videoElement: HTMLVideoElement,
     cameraId: number,
-    intervalSeconds: number = 30,
+    sendToAi: boolean = true,
   ): () => void {
-    // Kick off the first capture after a short delay
-    const initialTimeout = setTimeout(() => {
-      this.captureAndSendToAi(videoElement, cameraId).catch((error) => {
-        console.error("خطأ في اللقطة الأولية:", error);
-      });
-    }, 3000);
+    let stopped = false;
+    let animationFrame: number | null = null;
+    let lastStablePersonCount = 0;
+    let candidatePersonCount = 0;
+    let candidateStableFrames = 0;
+    let analyzing = false;
 
-    // Schedule recurring captures
-    const interval = setInterval(() => {
-      // Swallow periodic capture errors to keep the loop alive
-      this.captureAndSendToAi(videoElement, cameraId).catch((error) => {
-        console.error("خطأ في لقطة دورية:", error);
-      });
-    }, intervalSeconds * 1000);
+    const detect = async () => {
+      if (stopped || analyzing) return;
 
-    // Cleanup: stop timers
+      analyzing = true;
+
+      try {
+        const result = await mediapipeService.detectFromVideo(videoElement);
+        const currentPersonCount = result.personsDetected;
+
+        if (currentPersonCount === candidatePersonCount) {
+          candidateStableFrames += 1;
+        } else {
+          candidatePersonCount = currentPersonCount;
+          candidateStableFrames = 1;
+        }
+
+        if (
+          candidateStableFrames >= this.REQUIRED_STABLE_FRAMES &&
+          currentPersonCount !== lastStablePersonCount
+        ) {
+          const previousCount = lastStablePersonCount;
+          lastStablePersonCount = currentPersonCount;
+          console.log(`👥 تغير عدد البشر في الكاميرا ${cameraId}: ${previousCount} -> ${currentPersonCount}`);
+
+          const event = new CustomEvent("person-count-changed", {
+            detail: {
+              cameraId,
+              previousCount,
+              currentCount: currentPersonCount,
+              timestamp: new Date(),
+            },
+          });
+          window.dispatchEvent(event);
+
+          if (currentPersonCount > 0 && sendToAi) {
+            await this.captureAndSendToAi(videoElement, cameraId);
+          } else if (currentPersonCount > 0) {
+            console.log(`👥 الكاميرا ${cameraId}: تم كشف بشر، لكن صفحة المعاينة لا ترسل لقطات للـ AI`);
+          } else {
+            console.log(`🚶 الكاميرا ${cameraId}: لا يوجد بشر، لن يتم إرسال لقطة للـ AI`);
+          }
+        }
+      } catch (error) {
+        console.error("خطأ في كشف البشر عبر ObjectDetector:", error);
+      } finally {
+        analyzing = false;
+        if (!stopped) {
+          animationFrame = window.requestAnimationFrame(detect);
+        }
+      }
+    };
+
+    animationFrame = window.requestAnimationFrame(detect);
+    console.log(`✅ تم بدء ObjectDetector للكاميرا ${cameraId} بدون مؤقت`);
+
     return () => {
-      clearTimeout(initialTimeout);
-      clearInterval(interval);
-      console.log(`تم إيقاف التقاط لقطات الكاميرا ${cameraId}`);
+      stopped = true;
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      console.log(`تم إيقاف ObjectDetector للكاميرا ${cameraId}`);
     };
   }
 }

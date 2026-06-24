@@ -6,42 +6,33 @@ import type { MediaAsset } from "@/lib/types/mediaAsset";
 interface ScreenPlayerProps {
   advertisement: MediaAsset | null;
   screenId: number;
+  onEnded?: () => void;
 }
 
-// Helper to normalize media URLs
-function resolveMediaUrl(url: string, type?: string): string {
+// Helper to normalize media URLs from backend
+function resolveMediaUrl(url: string): string {
   if (!url) return "";
   
-  // 1) If it's relative, prefix with the backend host
+  // If it's relative, prefix with the backend host
   if (url.startsWith("/")) {
     return `https://backend-42316129731.europe-west1.run.app${url}`;
   }
   
-  // 2) If the domain is a placeholder, swap to demo-friendly media
-  if (url.includes("example.com") || url.includes("cdn.example.com")) {
-    const isVideo = url.toLowerCase().match(/\.(mp4|webm|mov|m4v)/) || type?.toLowerCase() === "video";
-    if (isVideo) {
-      // Abstract video for demo screens
-      return "https://assets.mixkit.co/videos/preview/mixkit-abstract-laser-lights-background-32025-large.mp4";
-    } else {
-      // High-quality abstract image for demo screens
-      return "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1920";
-    }
-  }
-  
+  // Return URL as-is from backend
   return url;
 }
 
 export default function ScreenPlayer({
   advertisement,
   screenId,
+  onEnded,
 }: ScreenPlayerProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const imageTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const resolvedUrl = advertisement ? resolveMediaUrl(advertisement.url, advertisement.type) : "";
+  const resolvedUrl = advertisement ? resolveMediaUrl(advertisement.url) : "";
 
   useEffect(() => {
     setError(null);
@@ -68,6 +59,10 @@ export default function ScreenPlayer({
       imageTimerRef.current = setInterval(() => {
         setCurrentTime((prev) => {
           if (prev >= duration) {
+            // Image duration ended, trigger callback
+            if (onEnded) {
+              onEnded();
+            }
             return 0;
           }
           return prev + 1;
@@ -80,7 +75,7 @@ export default function ScreenPlayer({
         }
       };
     }
-  }, [advertisement]);
+  }, [advertisement, onEnded]);
 
   // No advertisement
   if (!advertisement) {
@@ -135,10 +130,11 @@ export default function ScreenPlayer({
         className="w-full h-full object-contain"
         controls={false}
         autoPlay
-        loop
+        loop={false}
         muted
         playsInline
         onError={() => setError("فشل تحميل أو تشغيل ملف الفيديو")}
+        onEnded={onEnded}
       />
     </div>
   );

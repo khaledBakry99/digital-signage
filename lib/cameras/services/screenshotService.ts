@@ -3,6 +3,7 @@
  * Captures screenshots from camera streams at regular intervals
  */
 import { genderAiApi } from "@/lib/api/genderAi.api";
+import { mediapipeService } from "@/lib/services/mediapipeService";
 
 // تحويل رابط dataURL المرمز بـ Base64 إلى كائن File لإرساله عبر الـ API
 function dataURLtoFile(dataurl: string, filename: string): File {
@@ -101,10 +102,20 @@ export interface CameraScreenshot {
 }
 
 class ScreenshotService {
-  private intervals: Map<string, NodeJS.Timeout> = new Map();
+  private animationFrames: Map<string, number> = new Map();
+  private lastStablePersonCounts: Map<string, number> = new Map();
+  private candidatePersonCounts: Map<string, number> = new Map();
+  private candidateStableFrames: Map<string, number> = new Map();
+  private analyzingCameras: Set<string> = new Set();
   private screenshots: Map<string, CameraScreenshot[]> = new Map();
+  private lastCaptureAt: Map<string, number> = new Map();
+  private cooldownUntil: Map<string, number> = new Map();
   private readonly MAX_SCREENSHOTS_PER_CAMERA = 100;
-  private readonly SCREENSHOT_INTERVAL = 30000; // 30 seconds
+  private readonly REQUIRED_STABLE_FRAMES = 3;
+  private readonly ZERO_REQUIRED_STABLE_FRAMES = 5;
+  private readonly MIN_CAPTURE_INTERVAL_MS = 4000;
+  private readonly PLAYING_CAPTURE_INTERVAL_MS = 8000;
+  private readonly ERROR_COOLDOWN_MS = 15000;
 
   /**
    * Start capturing screenshots for a camera
@@ -113,30 +124,121 @@ class ScreenshotService {
     cameraId: string,
     cameraName: string,
     videoElement: HTMLVideoElement | HTMLImageElement,
-    intervalMs: number = this.SCREENSHOT_INTERVAL,
+    intervalMs?: number,
   ): void {
-    // Stop existing capture if any
     this.stopCapture(cameraId);
+    this.lastStablePersonCounts.set(cameraId, 0);
+    this.candidatePersonCounts.set(cameraId, 0);
+    this.candidateStableFrames.set(cameraId, 0);
+    this.lastCaptureAt.set(cameraId, 0);
+    this.cooldownUntil.set(cameraId, 0);
 
-    // Create interval for capturing
-    const interval = setInterval(() => {
-      this.captureScreenshot(cameraId, cameraName, videoElement);
-    }, intervalMs);
+    const detect = async () => {
+      if (!this.animationFrames.has(cameraId)) return;
 
-    this.intervals.set(cameraId, interval);
+      await this.detectPersonCountChange(cameraId, cameraName, videoElement);
 
-    // Capture first screenshot immediately
-    this.captureScreenshot(cameraId, cameraName, videoElement);
+      if (this.animationFrames.has(cameraId)) {
+        const frame = window.requestAnimationFrame(detect);
+        this.animationFrames.set(cameraId, frame);
+      }
+    };
+
+    const frame = window.requestAnimationFrame(detect);
+    this.animationFrames.set(cameraId, frame);
+    logCamera(cameraId, cameraName, "ObjectDetector يعمل بدون مؤقت، وسيتم أخذ اللقطة عند تغير عدد البشر فقط");
   }
 
   /**
    * Stop capturing screenshots for a camera
    */
   stopCapture(cameraId: string): void {
-    const interval = this.intervals.get(cameraId);
-    if (interval) {
-      clearInterval(interval);
-      this.intervals.delete(cameraId);
+    const frame = this.animationFrames.get(cameraId);
+    if (frame) {
+      window.cancelAnimationFrame(frame);
+      this.animationFrames.delete(cameraId);
+    }
+    this.lastStablePersonCounts.delete(cameraId);
+    this.candidatePersonCounts.delete(cameraId);
+    this.candidateStableFrames.delete(cameraId);
+    this.analyzingCameras.delete(cameraId);
+    this.lastCaptureAt.delete(cameraId);
+    this.cooldownUntil.delete(cameraId);
+  }
+
+  private async detectPersonCountChange(
+    cameraId: string,
+    cameraName: string,
+    element: HTMLVideoElement | HTMLImageElement,
+  ): Promise<void> {
+    if (this.analyzingCameras.has(cameraId)) return;
+    if (!(element instanceof HTMLVideoElement)) return;
+
+    this.analyzingCameras.add(cameraId);
+
+    try {
+      const result = await mediapipeService.detectFromVideo(element);
+      const currentCount = result.personsDetected;
+      const candidateCount = this.candidatePersonCounts.get(cameraId) ?? 0;
+      const stableFrames = this.candidateStableFrames.get(cameraId) ?? 0;
+      const lastStableCount = this.lastStablePersonCounts.get(cameraId) ?? 0;
+
+      if (currentCount === candidateCount) {
+        this.candidateStableFrames.set(cameraId, stableFrames + 1);
+      } else {
+        this.candidatePersonCounts.set(cameraId, currentCount);
+        this.candidateStableFrames.set(cameraId, 1);
+      }
+
+      const nextStableFrames = this.candidateStableFrames.get(cameraId) ?? 0;
+      const requiredFrames = currentCount === 0 ? this.ZERO_REQUIRED_STABLE_FRAMES : this.REQUIRED_STABLE_FRAMES;
+      if (nextStableFrames < requiredFrames || currentCount === lastStableCount) return;
+
+      this.lastStablePersonCounts.set(cameraId, currentCount);
+      console.log(`👥 ObjectDetector [${cameraName}] تغير عدد البشر: ${lastStableCount} -> ${currentCount}`);
+
+      const event = new CustomEvent("person-count-changed", {
+        detail: {
+          cameraId: Number(cameraId),
+          previousCount: lastStableCount,
+          currentCount,
+          timestamp: new Date(),
+        },
+      });
+      window.dispatchEvent(event);
+
+      if (currentCount === 0) {
+        console.log(`🚶 ObjectDetector [${cameraName}] لا يوجد بشر، لن يتم إرسال لقطة للـ AI`);
+        return;
+      }
+
+      const now = Date.now();
+      const cooldownUntil = this.cooldownUntil.get(cameraId) ?? 0;
+      if (cooldownUntil > now) {
+        const remaining = Math.max(0, cooldownUntil - now);
+        console.log(`🛑 Skipping capture for ${cameraName} (cooldown ${(remaining / 1000).toFixed(1)}s remaining)`);
+        return;
+      }
+
+      const lastCapture = this.lastCaptureAt.get(cameraId) ?? 0;
+      const screenState = this.getScreenState(cameraId);
+      const dynamicInterval = screenState === "PLAYING"
+        ? this.PLAYING_CAPTURE_INTERVAL_MS
+        : this.MIN_CAPTURE_INTERVAL_MS;
+
+      if (now - lastCapture < dynamicInterval) {
+        console.log(
+          `⏳ Skipping capture for ${cameraName} (state=${screenState}, ${(dynamicInterval - (now - lastCapture)).toFixed(0)}ms remaining)`,
+        );
+        return;
+      }
+
+      this.lastCaptureAt.set(cameraId, now);
+      this.captureScreenshot(cameraId, cameraName, element);
+    } catch (error) {
+      logError(cameraName, `خطأ ObjectDetector: ${String(error)}`);
+    } finally {
+      this.analyzingCameras.delete(cameraId);
     }
   }
 
@@ -219,6 +321,24 @@ class ScreenshotService {
             logScreen(cameraName, response);
 
             // ============================================
+            // 🎯 DISPATCH AI DETECTION EVENT
+            // ============================================
+            if (response?.audience) {
+              const event = new CustomEvent('ai-detection', {
+                detail: {
+                  audience: response.audience,
+                  selectedSlot: response.selectedSlot,
+                  cameraId: numericId,
+                  gender: response.gender,
+                  ageGroup: response.ageGroup,
+                  timestamp: new Date()
+                }
+              });
+              window.dispatchEvent(event);
+              console.log('🎯 AI Detection Event dispatched:', response.audience);
+            }
+
+            // ============================================
             // 📊 SUMMARY LOG
             // ============================================
             console.log(
@@ -241,6 +361,14 @@ class ScreenshotService {
             // ❌ LOG ERROR
             // ============================================
             logError(cameraName, msg);
+
+            if (this.shouldThrottleAfterError(err)) {
+              const resumeAt = Date.now() + this.ERROR_COOLDOWN_MS;
+              this.cooldownUntil.set(cameraId, resumeAt);
+              console.warn(
+                `⏱️ Camera ${cameraName} entering cooldown for ${(this.ERROR_COOLDOWN_MS / 1000).toFixed(0)}s due to AI rate limit / network issue`,
+              );
+            }
           });
       } catch (fileErr) {
         logError(cameraName, `خطأ في تحويل الصورة: ${String(fileErr)}`);
@@ -336,15 +464,34 @@ class ScreenshotService {
    * Stop all captures
    */
   stopAllCaptures(): void {
-    this.intervals.forEach((interval) => clearInterval(interval));
-    this.intervals.clear();
+    this.animationFrames.forEach((frame) => window.cancelAnimationFrame(frame));
+    this.animationFrames.clear();
+    this.lastStablePersonCounts.clear();
+    this.candidatePersonCounts.clear();
+    this.candidateStableFrames.clear();
+    this.analyzingCameras.clear();
   }
 
   /**
    * Get all active captures
    */
   getActiveCaptures(): string[] {
-    return Array.from(this.intervals.keys());
+    return Array.from(this.animationFrames.keys());
+  }
+
+  private getScreenState(cameraId: string): "DETECTING" | "PLAYING" {
+    if (typeof window === "undefined") return "DETECTING";
+    const key = `screen_state_${cameraId}`;
+    const value = window.sessionStorage.getItem(key);
+    return value === "PLAYING" ? "PLAYING" : "DETECTING";
+  }
+
+  private shouldThrottleAfterError(error: unknown): boolean {
+    if (!error) return false;
+    const status = (error as any)?.status ?? (error as any)?.response?.status;
+    if (status === 429) return true;
+    const message = String((error as any)?.message ?? error ?? "").toLowerCase();
+    return message.includes("429") || message.includes("too many requests") || message.includes("failed to fetch");
   }
 }
 

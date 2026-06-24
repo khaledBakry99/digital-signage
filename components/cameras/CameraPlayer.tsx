@@ -59,21 +59,20 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
         }
       });
 
-      // ✅ بدء التقاط لقطات الكاميرا وإرسالها للـ AI
+      // ✅ بدء ObjectDetector وإرسال اللقطة فقط عند تغير عدد البشر
       let stopCapture: (() => void) | null = null;
       if (
         element instanceof HTMLVideoElement &&
         (camera.type === "local" || camera.type === "hls" || camera.type === "rtsp")
       ) {
         try {
-          stopCapture = cameraScreenshotService.startPeriodicCapture(
+          stopCapture = cameraScreenshotService.startObjectDetectionCapture(
             element,
             Number(camera.id),
-            camera.timeToScreenshot || 30, // الفاصل الزمني من إعدادات الكاميرا
+            false,
           );
-          console.log(`✅ تم بدء التقاط لقطات الكاميرا ${camera.id} كل ${camera.timeToScreenshot || 30} ثانية`);
         } catch (error) {
-          console.error(`❌ فشل بدء التقاط لقطات الكاميرا ${camera.id}:`, error);
+          console.error(`❌ فشل بدء ObjectDetector للكاميرا ${camera.id}:`, error);
         }
       }
 

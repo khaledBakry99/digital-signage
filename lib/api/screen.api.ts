@@ -69,9 +69,14 @@ class ScreenApi {
     return apiClient.delete<Screen>(`${this.basePath}/${id}/camera`);
   }
 
-  // تفعيل/تعطيل الذكاء الاصطناعي
-  async toggleAI(id: number, aiEnabled: boolean): Promise<Screen> {
-    return apiClient.put<Screen>(`${this.basePath}/${id}`, { aiEnabled });
+  // تفعيل/تعطيل الذكاء الاصطناعي (مع تمرير الحقول المطلوبة)
+  async toggleAI(id: number, aiEnabled: boolean, extraFields?: UpdateScreenInput): Promise<Screen> {
+    const payload: UpdateScreenInput = {
+      ...extraFields,
+      aiEnabled,
+    };
+
+    return this.update(id, payload);
   }
 
   // تعيين إعلان لـ slot معين

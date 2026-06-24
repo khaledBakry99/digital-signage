@@ -65,7 +65,6 @@ class BackgroundCameraService {
   private activeElements: Map<string, HTMLVideoElement | HTMLImageElement> =
     new Map();
   private container: HTMLDivElement | null = null;
-  private pausedCameras: Set<string> = new Set();
 
   /**
    * Initialize the background service
@@ -171,12 +170,6 @@ class BackgroundCameraService {
 
       // Check if already running
       if (this.activeElements.has(camera.id)) {
-        return;
-      }
-
-      // Check if camera is paused (opened in a tab)
-      if (this.pausedCameras.has(camera.id)) {
-        logPause(camera.name);
         return;
       }
 
@@ -306,8 +299,6 @@ class BackgroundCameraService {
    */
   pauseCamera(cameraId: string): void {
     logPause(cameraId);
-    this.pausedCameras.add(cameraId);
-    this.stopCamera(cameraId);
   }
 
   /**
@@ -315,7 +306,6 @@ class BackgroundCameraService {
    */
   async resumeCamera(cameraId: string): Promise<void> {
     logResume(cameraId);
-    this.pausedCameras.delete(cameraId);
 
     // Check if container is initialized
     if (!this.container) {

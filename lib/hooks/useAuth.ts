@@ -16,7 +16,48 @@ export function useAuth() {
       setLoading(false);
     };
     loadAuthState();
+
+    window.addEventListener('auth:token-updated', loadAuthState);
+    return () => {
+      window.removeEventListener('auth:token-updated', loadAuthState);
+    };
   }, []);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setAuthState({ user: null, accessToken: null, expiresAtUtc: null });
+    };
+
+    window.addEventListener('auth:session-expired', handleSessionExpired);
+    return () => {
+      window.removeEventListener('auth:session-expired', handleSessionExpired);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authState.expiresAtUtc) {
+      return;
+    }
+
+    const expiresAt = new Date(authState.expiresAtUtc).getTime();
+    if (Number.isNaN(expiresAt)) {
+      return;
+    }
+
+    const msUntilExpiry = expiresAt - Date.now();
+    if (msUntilExpiry <= 0) {
+      window.dispatchEvent(new CustomEvent('auth:session-expired'));
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('auth:session-expired'));
+    }, msUntilExpiry);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [authState.expiresAtUtc]);
 
   const login = async (email: string, password: string) => {
     const result = await authService.login(email, password);
