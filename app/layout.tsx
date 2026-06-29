@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import CameraBackgroundService from "@/components/CameraBackgroundService";
+import SessionExpiryToast from "@/components/SessionExpiryToast";
+import CameraTabStateSync from "@/components/CameraTabStateSync";
 
 export const metadata: Metadata = {
   title: "نظام إدارة الشاشات الرقمية",
@@ -17,7 +19,9 @@ export default function RootLayout({
     <html lang="ar" dir="rtl">
       <body suppressHydrationWarning>
         <AppShell>{children}</AppShell>
+        <SessionExpiryToast />
         <CameraBackgroundService />
+        <CameraTabStateSync />
       </body>
     </html>
   );

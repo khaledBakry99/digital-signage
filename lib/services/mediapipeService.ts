@@ -1,22 +1,25 @@
 /**
  * Mediapipe utility for capturing and analyzing camera frames.
- * Uses Mediapipe Face Detection to detect presence in front of the screen.
+ * Uses Mediapipe Object Detection to detect persons in front of the screen.
  */
 
-import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
+import { ObjectDetector, FilesetResolver } from "@mediapipe/tasks-vision";
 
 export interface MediapipeDetectionResult {
-  facesDetected: number;
+  personsDetected: number;
   timestamp: number;
   confidence: number;
 }
 
 class MediapipeService {
-  private faceDetector: FaceDetector | null = null;
+  private objectDetector: ObjectDetector | null = null;
   private initialized = false;
   private initializationPromise: Promise<void> | null = null;
+  private readonly MIN_PERSON_CONFIDENCE = 0.8;
+  private readonly MIN_BOX_AREA_RATIO = 0.05;
+  private readonly MAX_BOX_AREA_RATIO = 0.9;
 
-  /** Initialize the Mediapipe Face Detector. */
+  /** Initialize the Mediapipe Object Detector. */
   async initialize(): Promise<void> {
     if (this.initialized) return;
     if (this.initializationPromise) return this.initializationPromise;
@@ -27,18 +30,20 @@ class MediapipeService {
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
         );
 
-        this.faceDetector = await FaceDetector.createFromOptions(vision, {
+        this.objectDetector = await ObjectDetector.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+              "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
             delegate: "GPU",
           },
           runningMode: "VIDEO",
-          minDetectionConfidence: 0.5,
+          maxResults: 10,
+          scoreThreshold: this.MIN_PERSON_CONFIDENCE,
+          categoryAllowlist: ["person"],
         });
 
         this.initialized = true;
-        console.log("✅ Mediapipe Face Detector initialized successfully");
+        console.log("✅ Mediapipe Object Detector initialized successfully");
       } catch (error) {
         console.error("❌ Failed to initialize Mediapipe:", error);
         throw error;
@@ -52,46 +57,59 @@ class MediapipeService {
   async detectFromVideo(
     videoElement: HTMLVideoElement
   ): Promise<MediapipeDetectionResult> {
-    if (!this.initialized || !this.faceDetector) {
+    if (!this.initialized || !this.objectDetector) {
       await this.initialize();
     }
 
-    if (!this.faceDetector) {
-      throw new Error("Face detector not initialized");
+    if (!this.objectDetector) {
+      throw new Error("Object detector not initialized");
     }
 
     try {
       // Ensure the video is ready and playing
       if (!videoElement || videoElement.paused || videoElement.ended) {
-        console.warn("⏸️ Mediapipe: الفيديو متوقف، تخطي التحليل");
-        return { facesDetected: 0, timestamp: Date.now(), confidence: 0 };
+        console.warn("⏸️ Mediapipe: video paused, skipping analysis");
+        return { personsDetected: 0, timestamp: Date.now(), confidence: 0 };
       }
 
       if (videoElement.readyState < 2) {
         console.warn(`⏳ Mediapipe: video not ready yet (readyState: ${videoElement.readyState})`);
-        return { facesDetected: 0, timestamp: Date.now(), confidence: 0 };
+        return { personsDetected: 0, timestamp: Date.now(), confidence: 0 };
       }
 
       if (videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
         console.warn(`📐 Mediapipe: invalid video dimensions (${videoElement.videoWidth}x${videoElement.videoHeight})`);
-        return { facesDetected: 0, timestamp: Date.now(), confidence: 0 };
+        return { personsDetected: 0, timestamp: Date.now(), confidence: 0 };
       }
 
       // Analyze the current frame
       const timestamp = performance.now();
-      const detections = this.faceDetector.detectForVideo(videoElement, timestamp);
+      const detections = this.objectDetector.detectForVideo(videoElement, timestamp);
+      const videoArea = videoElement.videoWidth * videoElement.videoHeight;
+      const personDetections = detections.detections.filter((d) => {
+        const category = d.categories[0];
+        const box = d.boundingBox;
+        if (!category || !box) return false;
+        const areaRatio = (box.width * box.height) / videoArea;
+        return (
+          category.categoryName === "person" &&
+          (category.score || 0) >= this.MIN_PERSON_CONFIDENCE &&
+          areaRatio >= this.MIN_BOX_AREA_RATIO &&
+          areaRatio <= this.MAX_BOX_AREA_RATIO
+        );
+      });
 
-      const facesDetected = detections.detections.length;
+      const personsDetected = personDetections.length;
       const confidence =
-        facesDetected > 0
-          ? detections.detections.reduce(
+        personsDetected > 0
+          ? personDetections.reduce(
               (sum, d) => sum + (d.categories[0]?.score || 0),
               0
-            ) / facesDetected
+            ) / personsDetected
           : 0;
 
       return {
-        facesDetected,
+        personsDetected,
         timestamp: Date.now(),
         confidence,
       };
@@ -105,29 +123,42 @@ class MediapipeService {
   async detectFromCanvas(
     canvas: HTMLCanvasElement
   ): Promise<MediapipeDetectionResult> {
-    if (!this.initialized || !this.faceDetector) {
+    if (!this.initialized || !this.objectDetector) {
       await this.initialize();
     }
 
-    if (!this.faceDetector) {
-      throw new Error("Face detector not initialized");
+    if (!this.objectDetector) {
+      throw new Error("Object detector not initialized");
     }
 
     try {
       const timestamp = performance.now();
-      const detections = this.faceDetector.detect(canvas);
+      const detections = this.objectDetector.detect(canvas);
+      const canvasArea = canvas.width * canvas.height;
+      const personDetections = detections.detections.filter((d) => {
+        const category = d.categories[0];
+        const box = d.boundingBox;
+        if (!category || !box) return false;
+        const areaRatio = (box.width * box.height) / canvasArea;
+        return (
+          category.categoryName === "person" &&
+          (category.score || 0) >= this.MIN_PERSON_CONFIDENCE &&
+          areaRatio >= this.MIN_BOX_AREA_RATIO &&
+          areaRatio <= this.MAX_BOX_AREA_RATIO
+        );
+      });
 
-      const facesDetected = detections.detections.length;
+      const personsDetected = personDetections.length;
       const confidence =
-        facesDetected > 0
-          ? detections.detections.reduce(
+        personsDetected > 0
+          ? personDetections.reduce(
               (sum, d) => sum + (d.categories[0]?.score || 0),
               0
-            ) / facesDetected
+            ) / personsDetected
           : 0;
 
       return {
-        facesDetected,
+        personsDetected,
         timestamp: Date.now(),
         confidence,
       };
@@ -188,9 +219,9 @@ class MediapipeService {
 
   /** Release Mediapipe resources. */
   dispose(): void {
-    if (this.faceDetector) {
-      this.faceDetector.close();
-      this.faceDetector = null;
+    if (this.objectDetector) {
+      this.objectDetector.close();
+      this.objectDetector = null;
     }
     this.initialized = false;
     this.initializationPromise = null;

@@ -13,6 +13,7 @@ export class AuthApi {
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('expiresAtUtc', response.expiresAtUtc);
       localStorage.setItem('user', JSON.stringify(response.user));
+      window.dispatchEvent(new CustomEvent('auth:token-updated'));
     }
     
     return response;
@@ -26,6 +27,7 @@ export class AuthApi {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('expiresAtUtc');
     localStorage.removeItem('user');
+    window.dispatchEvent(new CustomEvent('auth:token-updated'));
   }
 
   getStoredAuth(): {

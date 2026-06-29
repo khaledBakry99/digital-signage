@@ -78,6 +78,18 @@ export class ApiClient {
     return localStorage.getItem('accessToken');
   }
 
+  private handleUnauthorized(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('expiresAtUtc');
+    localStorage.removeItem('user');
+
+    window.dispatchEvent(new CustomEvent('auth:session-expired'));
+  }
+
   // Dynamic timeout setter based on camera screenshot interval
   setDynamicTimeout(screenshotIntervalSeconds: number): void {
     // Set timeout to 3x the screenshot interval, minimum 60 seconds
@@ -125,6 +137,9 @@ export class ApiClient {
           errorData = { message: responseText };
         }
         const errMsg = errorData.message || errorData.title || (typeof errorData === 'string' ? errorData : responseText) || response.statusText || 'حدث خطأ في الاتصال';
+        if (response.status === 401) {
+          this.handleUnauthorized();
+        }
         throw {
           message: errMsg,
           status: response.status,
@@ -226,6 +241,9 @@ export class ApiClient {
           errorData = { message: responseText };
         }
         const errMsg = errorData.message || errorData.title || (typeof errorData === 'string' ? errorData : responseText) || response.statusText || 'حدث خطأ في الاتصال';
+        if (response.status === 401) {
+          this.handleUnauthorized();
+        }
         throw {
           message: errMsg,
           status: response.status,

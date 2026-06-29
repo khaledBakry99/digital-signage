@@ -1,9 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useState, useCallback } from "react";
 import type { Camera } from "@/lib/types/camera";
 import { CameraCard } from "./CameraCard";
 import { MAX_CAMERAS } from "@/lib/cameras/constants";
+import { cameraApi } from "@/lib/api/camera.api";
+import { registerOpenCameraTab } from "@/lib/cameras/utils/openCameraTabs";
 
 interface CameraGridProps {
   cameras: Camera[];
@@ -20,11 +22,40 @@ export function CameraGrid({
   onAdd,
   onToggleActivate,
 }: CameraGridProps) {
-  const router = useRouter();
+  const [activatingCameraIds, setActivatingCameraIds] = useState<Set<number>>(new Set());
+
+  const toggleActivating = useCallback((cameraId: number, isActive: boolean) => {
+    setActivatingCameraIds((prev) => {
+      const next = new Set(prev);
+      if (isActive) {
+        next.add(cameraId);
+      } else {
+        next.delete(cameraId);
+      }
+      return next;
+    });
+  }, []);
 
   const handleViewCamera = (camera: Camera) => {
-    // Open camera in new tab
-    window.open(`/cameras/${camera.id}`, "_blank");
+    const cameraId = Number(camera.id);
+    if (!Number.isFinite(cameraId) || cameraId <= 0) {
+      console.error("❌ رقم كاميرا غير صالح", camera.id);
+      return;
+    }
+
+    const newTab = window.open(`/cameras/${cameraId}`, "_blank");
+    if (!newTab) {
+      console.error("❌ لم يتم فتح تبويب الكاميرا - ربما تم منع النوافذ المنبثقة");
+      return;
+    }
+
+    registerOpenCameraTab(cameraId);
+    toggleActivating(cameraId, true);
+    cameraApi
+      .activate(cameraId)
+      .then(() => console.log(`✅ تم تفعيل الكاميرا ${cameraId} من صفحة الكاميرات`))
+      .catch((err) => console.error(`❌ فشل تفعيل الكاميرا ${cameraId} من صفحة الكاميرات:`, err))
+      .finally(() => toggleActivating(cameraId, false));
   };
 
   const canAddMore = cameras.length < MAX_CAMERAS;
@@ -127,6 +158,7 @@ export function CameraGrid({
               onEdit={onEdit}
               onDelete={onDelete}
               onToggleActivate={onToggleActivate}
+              activatingCameraIds={activatingCameraIds}
             />
           ))}
         </div>

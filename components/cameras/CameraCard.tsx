@@ -8,6 +8,7 @@ interface CameraCardProps {
   onEdit?: (camera: Camera) => void;
   onDelete?: (camera: Camera) => void;
   onToggleActivate?: (camera: Camera) => Promise<void>;
+  activatingCameraIds?: Set<number>;
 }
 
 export function CameraCard({
@@ -16,8 +17,11 @@ export function CameraCard({
   onEdit,
   onDelete,
   onToggleActivate,
+  activatingCameraIds,
 }: CameraCardProps) {
   const isConnected = camera.status === "connected";
+  const numericId = Number(camera.id);
+  const isOpening = Number.isFinite(numericId) && activatingCameraIds?.has(numericId);
 
   const getStatusText = () => {
     return isConnected ? "متصلة" : "غير متصلة";
@@ -262,11 +266,14 @@ export function CameraCard({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onView(camera);
+              if (!isOpening) {
+                onView(camera);
+              }
             }}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white py-2.5 px-6 transition-all duration-150 rounded-xl text-xs font-bold text-center cursor-pointer select-none shadow-lg shadow-indigo-600/10 hover:shadow-indigo-500/20"
+            disabled={isOpening}
+            className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:opacity-70 disabled:cursor-not-allowed active:scale-95 text-white py-2.5 px-6 transition-all duration-150 rounded-xl text-xs font-bold text-center cursor-pointer select-none shadow-lg shadow-indigo-600/10 hover:shadow-indigo-500/20"
           >
-            عرض البث
+            {isOpening ? "جاري التفعيل..." : "عرض البث"}
           </button>
         </div>
       </div>

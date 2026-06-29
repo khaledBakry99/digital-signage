@@ -47,9 +47,11 @@ export interface CreateScreenInput {
 }
 
 export interface UpdateScreenInput {
+  clientId?: number;
   name?: string;
   externalId?: string;
   locationName?: string;
+  location?: string;
   city?: string;
   connectionStatus?: ConnectionStatus;
   operationalStatus?: OperationalStatus;

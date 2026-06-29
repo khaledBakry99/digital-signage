@@ -99,6 +99,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
         return true;
       } catch (err) {
         setError(extractApiError(err));
+        console.error("❌ Toggle AI failed", err);
         return false;
       }
     },
@@ -266,9 +267,36 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
   // Toggle AI
   const toggleAI = useCallback(
     async (enabled: boolean): Promise<boolean> => {
+      if (!screen) {
+        setError('لا يمكن تبديل حالة الذكاء الاصطناعي قبل تحميل بيانات الشاشة');
+        return false;
+      }
+
       try {
         setError(null);
-        const updatedScreen = await screenApi.toggleAI(screenId, enabled);
+        const fallbackName = screen.name?.trim() || `Screen ${screen.id}`;
+        const fallbackLocationName = screen.locationName?.trim() || fallbackName;
+        const fallbackCity = screen.city?.trim() || fallbackLocationName;
+        const fallbackLocation = screen.locationName?.trim() || screen.city?.trim() || fallbackName;
+        const fallbackCampaignIds = Array.isArray(screen.campaignIds) ? screen.campaignIds : [];
+        const payload = {
+          clientId: screen.clientId,
+          name: fallbackName,
+          externalId: screen.externalId,
+          locationName: fallbackLocationName,
+          location: fallbackLocation,
+          city: fallbackCity,
+          connectionStatus: screen.connectionStatus,
+          operationalStatus: screen.operationalStatus,
+          cameraEnabled: screen.cameraEnabled,
+          cameraId: screen.cameraId,
+          currentCampaignId: screen.currentCampaignId ?? undefined,
+          campaignIds: fallbackCampaignIds,
+        };
+
+        console.log("⚙️ Toggle AI request", { screenId, enabled, payload });
+        const updatedScreen = await screenApi.toggleAI(screenId, enabled, payload);
+        console.log("✅ Toggle AI response", updatedScreen);
         setScreen(updatedScreen);
         
         // Refresh current media
@@ -281,7 +309,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
         return false;
       }
     },
-    [screenId]
+    [screen, screenId]
   );
 
   // Refresh all data
