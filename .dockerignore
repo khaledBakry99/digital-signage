@@ -14,7 +14,6 @@ node_modules
 npm-debug.log
 npm-error.log
 yarn-error.log
-package-lock.json
 yarn.lock
 
 # Next.js build artifacts (will be rebuilt in Docker)

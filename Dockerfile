@@ -36,8 +36,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install only production dependencies
-# The --production flag excludes devDependencies like vitest, typescript, tailwindcss, etc.
-RUN npm ci --production
+# Omit devDependencies like vitest, typescript, tailwindcss, etc.
+RUN npm ci --omit=dev
 
 # Copy the built application from the builder stage
 COPY --from=builder /app/.next ./.next
