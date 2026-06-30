@@ -7,17 +7,19 @@ interface ScreenPlayerProps {
   advertisement: MediaAsset | null;
   screenId: number;
   onEnded?: () => void;
+  shouldLoop?: boolean;
+  onPlaybackError?: (error: unknown) => void;
 }
 
 // Helper to normalize media URLs from backend
 function resolveMediaUrl(url: string): string {
   if (!url) return "";
-  
+
   // If it's relative, prefix with the backend host
   if (url.startsWith("/")) {
     return `https://backend-42316129731.europe-west1.run.app${url}`;
   }
-  
+
   // Return URL as-is from backend
   return url;
 }
@@ -26,28 +28,233 @@ export default function ScreenPlayer({
   advertisement,
   screenId,
   onEnded,
+  shouldLoop = false,
+  onPlaybackError,
 }: ScreenPlayerProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const imageTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const videoRetryRef = useRef(0);
+  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hiddenAtRef = useRef<number | null>(null);
+  const endedRef = useRef(false);
+  const imageEndedRef = useRef(false);
+  const imageStartedAtRef = useRef<number>(Date.now());
+  const videoAnchorWallAtRef = useRef<number>(Date.now());
+  const videoAnchorMediaAtRef = useRef<number>(0);
 
   const resolvedUrl = advertisement ? resolveMediaUrl(advertisement.url) : "";
 
+  const isVideo = advertisement?.type?.toLowerCase() === "video" || (advertisement?.url ? /\.(mp4|webm|ogg)$/i.test(advertisement.url) : false);
+  const inferredVideoType = (() => {
+    const lower = resolvedUrl.toLowerCase();
+    if (lower.endsWith(".mp4")) return "video/mp4";
+    if (lower.endsWith(".webm")) return "video/webm";
+    if (lower.endsWith(".ogg") || lower.endsWith(".ogv")) return "video/ogg";
+    return undefined;
+  })();
+
+  const clearErrorTimer = () => {
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = null;
+    }
+  };
+
+  const clearImageTimer = () => {
+    if (imageTimerRef.current) {
+      clearInterval(imageTimerRef.current);
+      imageTimerRef.current = null;
+    }
+  };
+
+  const scheduleError = (message: string) => {
+    clearErrorTimer();
+    errorTimeoutRef.current = setTimeout(() => {
+      setError(message);
+    }, 800);
+  };
+
+  const tryPlay = (videoElement: HTMLVideoElement) => {
+    return videoElement.play().then(() => {
+      clearErrorTimer();
+      setError(null);
+      videoAnchorWallAtRef.current = Date.now();
+      videoAnchorMediaAtRef.current = videoElement.currentTime || 0;
+    });
+  };
+
   useEffect(() => {
     setError(null);
+    videoRetryRef.current = 0;
+    clearErrorTimer();
+    clearImageTimer();
+    endedRef.current = false;
+    imageEndedRef.current = false;
+    hiddenAtRef.current = null;
+    imageStartedAtRef.current = Date.now();
+    videoAnchorWallAtRef.current = Date.now();
+    videoAnchorMediaAtRef.current = 0;
+    return () => {
+      clearErrorTimer();
+    };
   }, [advertisement]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const syncOnResume = () => {
+      if (!advertisement) return;
+      if (document.hidden) {
+        hiddenAtRef.current = Date.now();
+        return;
+      }
+
+      const now = Date.now();
+      const hiddenForMs = hiddenAtRef.current ? now - hiddenAtRef.current : 0;
+      hiddenAtRef.current = null;
+
+      const isImage = advertisement.type?.toLowerCase() === "image";
+      const durationSeconds = advertisement.durationSeconds || 10;
+
+      if (isImage) {
+        if (imageEndedRef.current) return;
+        if (hiddenForMs > 3000) {
+          const elapsedSeconds = (now - imageStartedAtRef.current) / 1000;
+          if (elapsedSeconds >= durationSeconds) {
+            imageEndedRef.current = true;
+            clearImageTimer();
+            onEnded?.();
+          }
+        }
+        return;
+      }
+
+      const videoElement = videoRef.current;
+      if (!videoElement) return;
+      if (endedRef.current) return;
+
+      const durationFromElement = Number.isFinite(videoElement.duration) && videoElement.duration > 0 ? videoElement.duration : null;
+      const finalDurationSeconds = durationFromElement ?? (advertisement.durationSeconds || null);
+
+      if (finalDurationSeconds && hiddenForMs > 3000) {
+        const estimatedMediaTime = videoAnchorMediaAtRef.current + (now - videoAnchorWallAtRef.current) / 1000;
+        const nearEnd = estimatedMediaTime >= Math.max(0, finalDurationSeconds - 0.2);
+
+        if (nearEnd) {
+          if (shouldLoop) {
+            try {
+              videoElement.currentTime = 0;
+            } catch {
+            }
+          } else {
+            endedRef.current = true;
+            onEnded?.();
+            return;
+          }
+        }
+      }
+
+      if (videoElement.ended) {
+        if (shouldLoop) {
+          try {
+            videoElement.currentTime = 0;
+          } catch {
+          }
+          void tryPlay(videoElement).catch((err) => {
+            if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
+              return;
+            }
+            onPlaybackError?.(err);
+          });
+        } else {
+          endedRef.current = true;
+          onEnded?.();
+        }
+        return;
+      }
+
+      const estimatedNow = videoAnchorMediaAtRef.current + (now - videoAnchorWallAtRef.current) / 1000;
+      const driftSeconds = Math.max(0, estimatedNow - (videoElement.currentTime || 0));
+
+      if (driftSeconds > 1.5) {
+        try {
+          if (Number.isFinite(videoElement.duration) && videoElement.duration > 0) {
+            videoElement.currentTime = Math.min(estimatedNow, Math.max(0, videoElement.duration - 0.25));
+          }
+        } catch {
+        }
+      }
+
+      void tryPlay(videoElement).catch((err) => {
+        if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
+          return;
+        }
+        onPlaybackError?.(err);
+      });
+    };
+
+    document.addEventListener("visibilitychange", syncOnResume);
+    window.addEventListener("focus", syncOnResume);
+
+    return () => {
+      document.removeEventListener("visibilitychange", syncOnResume);
+      window.removeEventListener("focus", syncOnResume);
+    };
+  }, [advertisement, onEnded, onPlaybackError, shouldLoop]);
 
   // Autoplay video after load
   useEffect(() => {
-    const isVideo = advertisement?.type?.toLowerCase() === "video";
     if (isVideo && videoRef.current && resolvedUrl) {
-      videoRef.current.play().catch((err) => {
+      const videoElement = videoRef.current;
+      videoElement.muted = false;
+      videoElement.volume = 1;
+      videoElement.currentTime = 0;
+
+      tryPlay(videoElement).catch((err) => {
+        if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
+          return;
+        }
         console.error("فشل تشغيل الفيديو:", err);
-        setError("فشل تشغيل الفيديو من الخادم");
+        if (videoRetryRef.current < 1) {
+          videoRetryRef.current += 1;
+          try {
+            videoElement.load();
+          } catch {
+            // ignore
+          }
+          setTimeout(() => {
+            tryPlay(videoElement).catch(() => {
+              scheduleError("فشل تشغيل الفيديو من الخادم");
+              onPlaybackError?.(err);
+            });
+          }, 250);
+          return;
+        }
+        scheduleError("فشل تشغيل الفيديو من الخادم");
+        onPlaybackError?.(err);
       });
     }
-  }, [advertisement, resolvedUrl]);
+  }, [advertisement, resolvedUrl, isVideo, onPlaybackError]);
+
+  useEffect(() => {
+    if (!shouldLoop) return;
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+    if (!resolvedUrl) return;
+    if (videoElement.ended) {
+      videoElement.currentTime = 0;
+      videoElement.play().catch((err) => {
+        if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
+          return;
+        }
+        console.error("فشل تشغيل الفيديو:", err);
+        scheduleError("فشل تشغيل الفيديو من الخادم");
+        onPlaybackError?.(err);
+      });
+    }
+  }, [resolvedUrl, shouldLoop, onPlaybackError]);
 
   // Image countdown timer
   useEffect(() => {
@@ -56,11 +263,17 @@ export default function ScreenPlayer({
 
     if (isImage) {
       setCurrentTime(0);
+      imageStartedAtRef.current = Date.now();
       imageTimerRef.current = setInterval(() => {
         setCurrentTime((prev) => {
+          if (imageEndedRef.current) {
+            return prev;
+          }
           if (prev >= duration) {
             // Image duration ended, trigger callback
             if (onEnded) {
+              imageEndedRef.current = true;
+              clearImageTimer();
               onEnded();
             }
             return 0;
@@ -70,9 +283,7 @@ export default function ScreenPlayer({
       }, 1000);
 
       return () => {
-        if (imageTimerRef.current) {
-          clearInterval(imageTimerRef.current);
-        }
+        clearImageTimer();
       };
     }
   }, [advertisement, onEnded]);
@@ -126,16 +337,62 @@ export default function ScreenPlayer({
     <div className="w-full h-screen bg-black">
       <video
         ref={videoRef}
-        src={resolvedUrl}
         className="w-full h-full object-contain"
         controls={false}
         autoPlay
-        loop={false}
-        muted
+        loop={shouldLoop}
         playsInline
-        onError={() => setError("فشل تحميل أو تشغيل ملف الفيديو")}
-        onEnded={onEnded}
-      />
+        preload="auto"
+        onLoadedMetadata={() => {
+          const v = videoRef.current;
+          if (!v) return;
+          videoAnchorWallAtRef.current = Date.now();
+          videoAnchorMediaAtRef.current = v.currentTime || 0;
+        }}
+        onTimeUpdate={() => {
+          const v = videoRef.current;
+          if (!v) return;
+          videoAnchorWallAtRef.current = Date.now();
+          videoAnchorMediaAtRef.current = v.currentTime || 0;
+        }}
+        onPlaying={() => {
+          clearErrorTimer();
+          setError(null);
+          const v = videoRef.current;
+          if (!v) return;
+          videoAnchorWallAtRef.current = Date.now();
+          videoAnchorMediaAtRef.current = v.currentTime || 0;
+        }}
+        onError={() => {
+          const err = videoRef.current?.error;
+          console.error("Video element error:", err);
+          if (videoRetryRef.current < 1 && videoRef.current) {
+            videoRetryRef.current += 1;
+            try {
+              videoRef.current.load();
+            } catch {
+              // ignore
+            }
+            setTimeout(() => {
+              if (videoRef.current) {
+                tryPlay(videoRef.current).catch(() => {
+                  scheduleError("فشل تحميل أو تشغيل ملف الفيديو");
+                  onPlaybackError?.(err);
+                });
+              }
+            }, 250);
+            return;
+          }
+          scheduleError("فشل تحميل أو تشغيل ملف الفيديو");
+          onPlaybackError?.(err);
+        }}
+        onEnded={() => {
+          endedRef.current = true;
+          onEnded?.();
+        }}
+      >
+        <source src={resolvedUrl} type={inferredVideoType} />
+      </video>
     </div>
   );
 }

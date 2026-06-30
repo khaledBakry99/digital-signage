@@ -22,6 +22,11 @@ export { genderAiApi } from './genderAi.api';
 export { dashboardApi } from './dashboard.api';
 export type { ClientDashboardStats } from './dashboard.api';
 
+// Super Admin APIs
+export { superAdminDashboardApi } from './superAdminDashboard.api';
+export { superAdminUsersApi } from './superAdminUsers.api';
+export { superAdminClientsApi } from './superAdminClients.api';
+
 // Camera API
 export { cameraApi } from './camera.api';
 export type { BackendCamera, CreateCameraInput, UpdateCameraInput, CameraState } from './camera.api';

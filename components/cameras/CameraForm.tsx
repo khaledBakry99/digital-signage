@@ -11,6 +11,7 @@ interface CameraFormProps {
     source: string; // represent cameraDeviceName
     timeToScreenshot?: number;
   };
+  usedWebcamDeviceIds?: string[];
   onSubmit: (data: {
     name: string;
     location: string;
@@ -51,7 +52,12 @@ const PRESETS = [
   { value: 60, label: "60 ثانية", desc: "توفير موارد البث" },
 ];
 
-export function CameraForm({ camera, onSubmit, onCancel }: CameraFormProps) {
+export function CameraForm({
+  camera,
+  usedWebcamDeviceIds = [],
+  onSubmit,
+  onCancel,
+}: CameraFormProps) {
   const [name, setName] = useState(camera?.name || "");
   const [location, setLocation] = useState(camera?.location || "");
   const [sourceType, setSourceType] = useState<SourceType>(
@@ -75,9 +81,6 @@ export function CameraForm({ camera, onSubmit, onCancel }: CameraFormProps) {
         if (sourceType === "webcam") {
           const availableDevices = await localCameraHandler.getDevices();
           setDevices(availableDevices);
-          if (!cameraDeviceName && availableDevices.length > 0) {
-            setCameraDeviceName(availableDevices[0].deviceId);
-          }
         } else {
           setDevices([]);
         }
@@ -88,7 +91,19 @@ export function CameraForm({ camera, onSubmit, onCancel }: CameraFormProps) {
       }
     }
     loadDevices();
-  }, [cameraDeviceName, sourceType]);
+  }, [sourceType]);
+
+  useEffect(() => {
+    if (sourceType !== "webcam") return;
+    if (cameraDeviceName) return;
+    if (!devices.length) return;
+
+    const usedByOthers = new Set(
+      usedWebcamDeviceIds.filter((id) => !!id && id !== camera?.source),
+    );
+    const firstUnused = devices.find((d) => !usedByOthers.has(d.deviceId));
+    setCameraDeviceName(firstUnused?.deviceId ?? devices[0].deviceId);
+  }, [camera?.source, cameraDeviceName, devices, sourceType, usedWebcamDeviceIds]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,6 +121,21 @@ export function CameraForm({ camera, onSubmit, onCancel }: CameraFormProps) {
     if (sourceType !== "webcam" && !cameraDeviceName.trim()) {
       setError("رابط البث مطلوب");
       return;
+    }
+
+    if (sourceType === "webcam" && devices.length > 0 && !cameraDeviceName.trim()) {
+      setError("الرجاء اختيار كاميرا الويب");
+      return;
+    }
+
+    if (sourceType === "webcam" && cameraDeviceName.trim()) {
+      const usedByOthers = new Set(
+        usedWebcamDeviceIds.filter((id) => !!id && id !== camera?.source),
+      );
+      if (usedByOthers.has(cameraDeviceName.trim())) {
+        setError("هذه الكاميرا مستخدمة بالفعل في كاميرا أخرى داخل التطبيق");
+        return;
+      }
     }
 
     try {
@@ -169,8 +199,8 @@ export function CameraForm({ camera, onSubmit, onCancel }: CameraFormProps) {
               setSourceType(v);
               if (v !== "webcam") {
                 setCameraDeviceName("");
-              } else if (!cameraDeviceName && devices.length > 0) {
-                setCameraDeviceName(devices[0].deviceId);
+              } else {
+                setCameraDeviceName("");
               }
             }}
             className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all bg-slate-950/50 border border-white/10 text-slate-100 focus:border-indigo-500/50 focus:shadow-[0_0_12px_rgba(99,102,241,0.15)] appearance-none cursor-pointer text-right pr-4 pl-10"
@@ -209,21 +239,51 @@ export function CameraForm({ camera, onSubmit, onCancel }: CameraFormProps) {
         <div>
           <label className={labelClass}>
             {sourceType === "webcam"
-              ? "معرّف الكاميرا (اتركه فارغاً للكاميرا الافتراضية)"
+              ? "اختيار كاميرا الويب"
               : "رابط البث *"}
           </label>
-          <input
-            type={sourceType === "webcam" ? "text" : "url"}
-            value={cameraDeviceName}
-            onChange={(e) => setCameraDeviceName(e.target.value)}
-            placeholder={
-              sourceType === "webcam"
-                ? "اختياري: يمكنك ترك هذا الحقل فارغاً لاستخدام الكاميرا الافتراضية"
-                : urlPlaceholder(sourceType)
-            }
-            className={inputClass}
-            required={sourceType !== "webcam"}
-          />
+          {sourceType === "webcam" ? (
+            <div className="relative">
+              <select
+                value={cameraDeviceName}
+                onChange={(e) => setCameraDeviceName(e.target.value)}
+                disabled={loadingDevices}
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all bg-slate-950/50 border border-white/10 text-slate-100 focus:border-indigo-500/50 focus:shadow-[0_0_12px_rgba(99,102,241,0.15)] appearance-none cursor-pointer text-right pr-4 pl-10"
+              >
+                <option value="" disabled className="bg-slate-900 text-slate-100">
+                  {loadingDevices ? "جاري تحميل الكاميرات..." : "اختر كاميرا"}
+                </option>
+                {devices.map((d, idx) => (
+                  <option
+                    key={d.deviceId}
+                    value={d.deviceId}
+                    className="bg-slate-900 text-slate-100"
+                  >
+                    {d.label || `كاميرا ${idx + 1}`}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+            </div>
+          ) : (
+            <input
+              type="url"
+              value={cameraDeviceName}
+              onChange={(e) => setCameraDeviceName(e.target.value)}
+              placeholder={urlPlaceholder(sourceType)}
+              className={inputClass}
+              required
+            />
+          )}
         </div>
       </div>
 
@@ -245,11 +305,10 @@ export function CameraForm({ camera, onSubmit, onCancel }: CameraFormProps) {
                 key={preset.value}
                 type="button"
                 onClick={() => setTimeToScreenshot(preset.value)}
-                className={`text-right p-3 rounded-xl border transition-all cursor-pointer select-none ${
-                  isSelected
-                    ? "bg-indigo-500/10 border-indigo-500 text-indigo-300 shadow-[0_0_12px_rgba(99,102,241,0.1)]"
-                    : "bg-slate-950/20 border-white/5 hover:border-white/10 text-slate-400 hover:text-slate-200"
-                }`}
+                className={`text-right p-3 rounded-xl border transition-all cursor-pointer select-none ${isSelected
+                  ? "bg-indigo-500/10 border-indigo-500 text-indigo-300 shadow-[0_0_12px_rgba(99,102,241,0.1)]"
+                  : "bg-slate-950/20 border-white/5 hover:border-white/10 text-slate-400 hover:text-slate-200"
+                  }`}
               >
                 <div className="font-bold text-xs flex items-center justify-between">
                   <span>{preset.label}</span>

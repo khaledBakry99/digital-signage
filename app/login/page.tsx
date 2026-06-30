@@ -21,7 +21,8 @@ export default function LoginPage() {
     try {
       const result = await login(email, password);
       if (result.success) {
-        router.push("/");
+        const destination = result.user?.role === "SuperAdmin" ? "/super-admin" : "/";
+        router.push(destination);
       } else {
         setError(result.error || "فشل تسجيل الدخول");
       }

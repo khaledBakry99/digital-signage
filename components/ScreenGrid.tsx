@@ -301,9 +301,14 @@ function ScreenCard({
   const adTitle = freshLiveMedia?.name || ad?.name || (effectiveMediaId ? `المادة ${effectiveMediaId}` : undefined);
   const previewAvailable = !!previewSource;
 
+  const openScreenInNewTab = useCallback(() => {
+    if (typeof window === "undefined") return;
+    window.open(`/screens/${screen.id}`, "_blank", "noopener,noreferrer");
+  }, [screen.id]);
+
   return (
     <div
-      onClick={() => router.push(`/screens/${screen.id}`)}
+      onClick={openScreenInNewTab}
       className="glass glass-hover animate-fade-in cursor-pointer p-6 group"
       style={{ animationDelay: `${order * 60}ms` }}
     >
@@ -326,9 +331,9 @@ function ScreenCard({
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
               {screen.lastHeartbeatAtUtc
                 ? new Date(screen.lastHeartbeatAtUtc).toLocaleTimeString("ar-SA", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
                 : "غير متصل"}
             </p>
           </div>
@@ -398,7 +403,7 @@ function ScreenCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            window.open(`/screens/${screen.id}`, "_blank");
+            openScreenInNewTab();
           }}
           className="flex-1 py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100 cursor-pointer hover:scale-105 active:scale-95"
           style={{
@@ -415,9 +420,8 @@ function ScreenCard({
           <button
             onClick={(e) => onOpenCamera(screen.cameraId!, e)}
             disabled={isCameraOpen || isCameraActivating}
-            className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer ${
-              isCameraOpen || isCameraActivating ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
-            }`}
+            className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer ${isCameraOpen || isCameraActivating ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
+              }`}
             style={{
               background: isCameraOpen || isCameraActivating
                 ? "rgba(100,116,139,0.15)"

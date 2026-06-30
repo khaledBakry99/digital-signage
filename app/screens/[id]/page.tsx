@@ -16,16 +16,25 @@ type ScreenState = "DETECTING" | "PLAYING";
 
 type PendingMediaUpdate = {
   mediaAssetId: number;
-  source: "ai-detection" | "signalr";
+  source: "signalr";
   selectedSlot?: string;
 };
 
-const ZERO_CLEAR_DELAY_MS = 10000;
+const isVideoMediaAsset = (asset?: MediaAsset | null) => {
+  if (!asset) return false;
+  if (asset.type) {
+    return asset.type.toLowerCase().includes("video");
+  }
+  if (asset.url) {
+    return /\.(mp4|webm|ogg)$/i.test(asset.url);
+  }
+  return false;
+};
 
 export default function ScreenPage() {
   const params = useParams();
   const screenId = Number(params.id);
-  
+
   // State management
   const [advertisement, setAdvertisement] = useState<MediaAsset | null>(null);
   const [fallbackAd, setFallbackAd] = useState<MediaAsset | null>(null);
@@ -35,11 +44,11 @@ export default function ScreenPage() {
   const [linkedCameraId, setLinkedCameraId] = useState<number | null>(null);
   const [currentCampaignId, setCurrentCampaignId] = useState<number | null>(null);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
-  
+
   // State machine
   const [screenState, setScreenState] = useState<ScreenState>("DETECTING");
-  const [lastPersonCount, setLastPersonCount] = useState<number>(0);
-  
+  const [playerNonce, setPlayerNonce] = useState(0);
+
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
   const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -55,9 +64,6 @@ export default function ScreenPage() {
   }
   const campaignRef = useRef<Campaign | null>(null);
   const latestDetectionRef = useRef<PendingMediaUpdate | null>(null);
-  const lastPersonCountRef = useRef<number>(0);
-  const zeroClearTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const zeroGraceActiveRef = useRef(false);
 
   useEffect(() => {
     screenStateRef.current = screenState;
@@ -68,35 +74,8 @@ export default function ScreenPage() {
   }, [campaign]);
 
   useEffect(() => {
-    lastPersonCountRef.current = lastPersonCount;
-  }, [lastPersonCount]);
-
-  useEffect(() => {
     linkedCameraIdRef.current = linkedCameraId;
-    if (typeof window !== "undefined" && linkedCameraId) {
-      window.sessionStorage.setItem(`screen_state_${linkedCameraId}`, screenStateRef.current);
-    }
   }, [linkedCameraId]);
-
-  useEffect(() => {
-    if (!linkedCameraId) return;
-
-    cameraApi.activate(linkedCameraId)
-      .then(() => console.log(`✅ Camera ${linkedCameraId} activated for screen view`))
-      .catch((err) => console.error(`❌ Failed to activate camera ${linkedCameraId}:`, err));
-
-    return () => {
-      cameraApi.deactivate(linkedCameraId)
-        .then(() => console.log(`🔴 Camera ${linkedCameraId} deactivated after screen view`))
-        .catch((err) => console.error(`❌ Failed to deactivate camera ${linkedCameraId}:`, err));
-    };
-  }, [linkedCameraId]);
-
-  useEffect(() => () => {
-    if (zeroClearTimeoutRef.current) {
-      clearTimeout(zeroClearTimeoutRef.current);
-    }
-  }, []);
 
   // Resolve fallback asset
   const resolveFallbackAsset = useCallback(async (preferredIds: number[] = []): Promise<MediaAsset | null> => {
@@ -125,11 +104,11 @@ export default function ScreenPage() {
   const loadFallbackAd = useCallback(async () => {
     try {
       const screenData = await screenApi.getById(screenId);
-      
+
       console.log("🔍 Screen Data:", screenData);
       console.log("📷 Camera ID:", screenData?.cameraId);
       console.log("📋 Campaign ID:", screenData?.currentCampaignId);
-      
+
       setLinkedCameraId(screenData?.cameraId ?? null);
 
       // Load camera settings
@@ -148,7 +127,7 @@ export default function ScreenPage() {
 
       // Load campaign media assets
       let fallbackIds: number[] = [];
-      
+
       if (screenData?.currentCampaignId) {
         try {
           const campaign = await campaignApi.getById(screenData.currentCampaignId);
@@ -156,7 +135,7 @@ export default function ScreenPage() {
           setCurrentCampaignId(campaign.id);
           setCampaign(campaign);
           campaignRef.current = campaign;
-          
+
           // Use campaign's default media asset as fallback
           fallbackIds = [campaign.defaultMediaAssetId].filter(Boolean) as number[];
         } catch (err) {
@@ -173,9 +152,9 @@ export default function ScreenPage() {
         setCampaign(null);
         campaignRef.current = null;
       }
-      
+
       const resolvedFallback = await resolveFallbackAsset(fallbackIds);
-      
+
       if (resolvedFallback) {
         setFallbackAd(resolvedFallback);
         setAdvertisement(resolvedFallback);
@@ -190,49 +169,10 @@ export default function ScreenPage() {
     }
   }, [screenId, resolveFallbackAsset]);
 
-  const dispatchScreenStateChange = useCallback((state: ScreenState) => {
-    if (typeof window === "undefined") return;
-    const cameraId = linkedCameraIdRef.current;
-    if (!cameraId) return;
-    window.sessionStorage.setItem(`screen_state_${cameraId}`, state);
-    window.dispatchEvent(
-      new CustomEvent("screen-state-changed", {
-        detail: { cameraId, state },
-      }),
-    );
-  }, []);
-
   const updateScreenState = useCallback((state: ScreenState) => {
     screenStateRef.current = state;
     setScreenState(state);
-    dispatchScreenStateChange(state);
-  }, [dispatchScreenStateChange]);
-
-  const clearLatestDetection = useCallback(() => {
-    latestDetectionRef.current = null;
-    zeroGraceActiveRef.current = false;
-    if (screenStateRef.current !== "PLAYING") {
-      if (fallbackAd) {
-        setAdvertisement(fallbackAd);
-      }
-      updateScreenState("DETECTING");
-    }
-  }, [fallbackAd, updateScreenState]);
-
-  const scheduleZeroClear = useCallback(() => {
-    if (zeroClearTimeoutRef.current) {
-      clearTimeout(zeroClearTimeoutRef.current);
-    }
-    zeroGraceActiveRef.current = true;
-    zeroClearTimeoutRef.current = setTimeout(() => {
-      zeroClearTimeoutRef.current = null;
-      if (lastPersonCountRef.current <= 0) {
-        zeroGraceActiveRef.current = false;
-        console.log("🕒 Clearing latest detection after extended grace period");
-        clearLatestDetection();
-      }
-    }, ZERO_CLEAR_DELAY_MS);
-  }, [clearLatestDetection]);
+  }, []);
 
   const playMediaAsset = useCallback(async (mediaAssetId: number, source: PendingMediaUpdate["source"], selectedSlot?: string) => {
     const targetAd = await mediaAssetApi.getById(mediaAssetId);
@@ -250,12 +190,6 @@ export default function ScreenPage() {
     const detection = latestDetectionRef.current;
     if (!detection) return false;
 
-    if (lastPersonCountRef.current <= 0) {
-      console.log("⚠️ Dropping detection because audience cleared", detection);
-      latestDetectionRef.current = null;
-      return false;
-    }
-
     latestDetectionRef.current = null;
     await playMediaAsset(detection.mediaAssetId, detection.source, detection.selectedSlot);
     return true;
@@ -272,98 +206,21 @@ export default function ScreenPage() {
       selectedSlot,
     };
 
-    if (screenStateRef.current === "DETECTING" && lastPersonCountRef.current > 0) {
+    if (screenStateRef.current === "DETECTING") {
       await playLatestDetectionIfPossible();
     } else {
       console.log("⏳ Stored latest media update until ad ends", { mediaAssetId, source, selectedSlot });
     }
   }, [playLatestDetectionIfPossible]);
 
-  const selectMediaAssetId = useCallback((campaignData: Campaign, slot?: string | null): number | null => {
-    const normalized = String(slot || "").toLowerCase();
-    switch (normalized) {
-      case "boyskids":
-      case "boys_kids":
-      case "boys-kids":
-      case "boys":
-      case "boy":
-        return campaignData.boysKidsMediaAssetId;
-      case "girlskids":
-      case "girls_kids":
-      case "girls-kids":
-      case "girls":
-      case "girl":
-        return campaignData.girlsKidsMediaAssetId;
-      case "men":
-      case "man":
-      case "male":
-        return campaignData.menMediaAssetId;
-      case "women":
-      case "woman":
-      case "female":
-        return campaignData.womenMediaAssetId;
-      case "boyskidsfallback":
-      default:
-        return campaignData.defaultMediaAssetId;
-    }
-  }, []);
-
   // Initial load
   useEffect(() => {
     loadFallbackAd();
   }, [loadFallbackAd]);
 
-  // Listen to AI detection from Background Camera
-  useEffect(() => {
-    console.log("📡 Registering AI detection listener for screen", screenId);
-    
-    const handleAIDetection = async (event: CustomEvent) => {
-      const { audience, selectedSlot, cameraId } = event.detail;
-      const slot = selectedSlot || audience;
-      console.log("🎯 AI Detection Event:", { audience, selectedSlot, cameraId, currentCampaignId, screenState: screenStateRef.current });
-
-      // Only process if we have a campaign and we're in DETECTING state
-      if (linkedCameraIdRef.current && Number(cameraId) !== linkedCameraIdRef.current) {
-        console.log("⏭️ Ignoring AI detection from unrelated camera", { eventCameraId: cameraId, linkedCameraId: linkedCameraIdRef.current });
-        return;
-      }
-
-      if (!currentCampaignId) {
-        console.warn("⚠️ No campaign linked, ignoring AI detection");
-        return;
-      }
-
-      try {
-        const cachedCampaign = campaignRef.current;
-        if (!cachedCampaign) {
-          console.warn("⚠️ Campaign cache missing, cannot select media asset");
-          return;
-        }
-
-        const targetMediaAssetId = selectMediaAssetId(cachedCampaign, slot);
-        console.log("🎬 Selected Media Asset ID:", targetMediaAssetId, "for audience:", audience, "slot:", slot);
-
-        if (targetMediaAssetId) {
-          await scheduleMediaUpdate(targetMediaAssetId, "ai-detection", slot);
-        } else {
-          console.warn(`⚠️ No media asset for audience: ${audience}`);
-        }
-      } catch (err) {
-        console.error("❌ Failed to load campaign for audience selection:", err);
-      }
-    };
-
-    // Add event listener
-    window.addEventListener('ai-detection' as any, handleAIDetection as any);
-
-    return () => {
-      window.removeEventListener('ai-detection' as any, handleAIDetection as any);
-    };
-  }, [currentCampaignId, scheduleMediaUpdate, screenId, selectMediaAssetId]);
-
   const handleSignalRMediaUpdated = useCallback(async (event: { currentMediaAssetId: number; selectedSlot: string }) => {
     console.log("🔔 Media updated via SignalR:", event);
-    
+
     // Load the specific media asset from the event
     if (event.currentMediaAssetId) {
       try {
@@ -390,41 +247,6 @@ export default function ScreenPage() {
   );
 
   useEffect(() => {
-    const handlePersonCountChanged = (event: CustomEvent) => {
-      const { currentCount, previousCount, cameraId } = event.detail;
-      if (linkedCameraIdRef.current && Number(cameraId) !== linkedCameraIdRef.current) {
-        console.log("⏭️ Ignoring person count from unrelated camera", { eventCameraId: cameraId, linkedCameraId: linkedCameraIdRef.current });
-        return;
-      }
-
-      console.log("👥 Person count changed:", { cameraId, previousCount, currentCount, screenState: screenStateRef.current });
-      setLastPersonCount(currentCount);
-      lastPersonCountRef.current = currentCount;
-
-      if (currentCount === 0) {
-        scheduleZeroClear();
-        return;
-      }
-
-      if (zeroClearTimeoutRef.current) {
-        clearTimeout(zeroClearTimeoutRef.current);
-        zeroClearTimeoutRef.current = null;
-      }
-      zeroGraceActiveRef.current = false;
-
-      if (screenStateRef.current === "DETECTING") {
-        void playLatestDetectionIfPossible();
-      }
-    };
-
-    window.addEventListener("person-count-changed" as any, handlePersonCountChanged as any);
-
-    return () => {
-      window.removeEventListener("person-count-changed" as any, handlePersonCountChanged as any);
-    };
-  }, [fallbackAd, playLatestDetectionIfPossible, scheduleZeroClear]);
-
-  useEffect(() => {
     setSignalRConnected(connected);
   }, [connected]);
 
@@ -446,20 +268,8 @@ export default function ScreenPage() {
       if (fallbackTimeoutRef.current) {
         clearTimeout(fallbackTimeoutRef.current);
       }
-      if (zeroClearTimeoutRef.current) {
-        clearTimeout(zeroClearTimeoutRef.current);
-        zeroClearTimeoutRef.current = null;
-      }
-      zeroGraceActiveRef.current = false;
     };
   }, []);
-
-  // Start detection mode (DISABLED - using Background Camera Service instead)
-  useEffect(() => {
-    // Background Camera Service handles detection automatically
-    // We only listen to 'ai-detection' events
-    console.log("📡 Detection mode: Using Background Camera Service");
-  }, [screenState]);
 
   // Handle ad ended
   const handleAdEnded = useCallback(() => {
@@ -468,21 +278,25 @@ export default function ScreenPage() {
     playLatestDetectionIfPossible()
       .then((applied) => {
         if (applied) return;
-        if (fallbackAd && !zeroGraceActiveRef.current) {
+        if (fallbackAd) {
+          if (advertisement?.id && advertisement.id === fallbackAd.id) {
+            setPlayerNonce((prev) => prev + 1);
+          }
           setAdvertisement(fallbackAd);
-        } else if (zeroGraceActiveRef.current) {
-          console.log("⏳ Holding last ad during no-audience grace window");
         }
         updateScreenState("DETECTING");
       })
       .catch((err) => {
         console.error("❌ Failed to apply pending media update:", err);
-        if (fallbackAd && !zeroGraceActiveRef.current) {
+        if (fallbackAd) {
+          if (advertisement?.id && advertisement.id === fallbackAd.id) {
+            setPlayerNonce((prev) => prev + 1);
+          }
           setAdvertisement(fallbackAd);
         }
         updateScreenState("DETECTING");
       });
-  }, [fallbackAd, playLatestDetectionIfPossible, updateScreenState]);
+  }, [advertisement, fallbackAd, playLatestDetectionIfPossible, updateScreenState]);
 
   useEffect(() => {
     if (!advertisement) {
@@ -490,9 +304,7 @@ export default function ScreenPage() {
       return;
     }
 
-    const resolvedType = advertisement.type
-      ? (advertisement.type.toLowerCase().includes("video") ? "video" : "image")
-      : (advertisement.url && /\.(mp4|webm|ogg)$/i.test(advertisement.url) ? "video" : "image");
+    const resolvedType = isVideoMediaAsset(advertisement) ? "video" : "image";
 
     upsertLiveScreenMedia({
       screenId,
@@ -526,6 +338,38 @@ export default function ScreenPage() {
     }
   };
 
+  const lastPlaybackErrorAtRef = useRef(0);
+  const handlePlaybackError = useCallback((err: unknown) => {
+    const now = Date.now();
+    if (now - lastPlaybackErrorAtRef.current < 2000) {
+      return;
+    }
+    lastPlaybackErrorAtRef.current = now;
+
+    console.error("❌ Screen playback error", { screenId, err, advertisementId: advertisement?.id, url: advertisement?.url });
+
+    if (!fallbackAd) {
+      return;
+    }
+
+    if (advertisement?.id && advertisement.id === fallbackAd.id) {
+      setPlayerNonce((prev) => prev + 1);
+      return;
+    }
+
+    setAdvertisement(fallbackAd);
+    setPlayerNonce((prev) => prev + 1);
+    updateScreenState("DETECTING");
+  }, [advertisement?.id, advertisement?.url, fallbackAd, screenId, updateScreenState]);
+
+  const shouldLoopFallbackAd = Boolean(
+    screenState === "DETECTING" &&
+    fallbackAd &&
+    advertisement &&
+    advertisement.id === fallbackAd.id &&
+    isVideoMediaAsset(advertisement)
+  );
+
   if (loading) {
     return (
       <div className="w-full h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
@@ -537,10 +381,13 @@ export default function ScreenPage() {
 
   return (
     <div ref={containerRef} onClick={handleClick} className="w-full h-screen relative overflow-hidden select-none">
-      <ScreenPlayer 
-        advertisement={advertisement} 
+      <ScreenPlayer
+        key={`${advertisement?.id ?? "none"}-${playerNonce}`}
+        advertisement={advertisement}
         screenId={screenId}
         onEnded={handleAdEnded}
+        shouldLoop={shouldLoopFallbackAd}
+        onPlaybackError={handlePlaybackError}
       />
 
       {/* Diagnostic overlay */}
@@ -559,7 +406,6 @@ export default function ScreenPage() {
         <div className="glass px-4 py-2.5 rounded-2xl text-xs font-semibold flex flex-col gap-1 items-end text-right">
           <span className="text-indigo-400 font-bold">State: {screenState}</span>
           <span className="text-slate-300 text-[10px]">Camera: {linkedCameraId ?? "none"}</span>
-          <span className="text-slate-300 text-[10px]">Persons: {lastPersonCount}</span>
           {cameraWarning && (
             <span className="text-amber-300 text-[10px] font-bold">
               ⚠️ No camera linked

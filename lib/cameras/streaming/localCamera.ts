@@ -76,16 +76,16 @@ class LocalCameraHandler {
         const constraints: MediaStreamConstraints = {
           video: deviceId
             ? {
-                deviceId: { exact: deviceId },
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-                frameRate: { ideal: 30 },
-              }
+              deviceId: { exact: deviceId },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              frameRate: { ideal: 30 },
+            }
             : {
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-                frameRate: { ideal: 30 },
-              },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              frameRate: { ideal: 30 },
+            },
           audio: false,
         };
 
@@ -100,16 +100,16 @@ class LocalCameraHandler {
               stream = await navigator.mediaDevices.getUserMedia({
                 video: deviceId
                   ? {
-                      deviceId: { exact: deviceId },
-                      width: { ideal: 1280 },
-                      height: { ideal: 720 },
-                      frameRate: { ideal: 30 },
-                    }
+                    deviceId: { exact: deviceId },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    frameRate: { ideal: 30 },
+                  }
                   : {
-                      width: { ideal: 1280 },
-                      height: { ideal: 720 },
-                      frameRate: { ideal: 30 },
-                    },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    frameRate: { ideal: 30 },
+                  },
                 audio: false,
               });
             } catch (e2) {
@@ -128,12 +128,10 @@ class LocalCameraHandler {
                 } catch (e3) {
                   if (deviceId) {
                     console.warn(
-                      "Retry without deviceId (browser auto-select)...",
+                      "Failed to start requested deviceId; refusing to auto-select a different camera",
+                      { deviceId },
                     );
-                    stream = await navigator.mediaDevices.getUserMedia({
-                      video: true,
-                      audio: false,
-                    });
+                    throw e3;
                   } else {
                     throw e3;
                   }
