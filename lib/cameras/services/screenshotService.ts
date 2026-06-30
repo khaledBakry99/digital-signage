@@ -111,8 +111,8 @@ class ScreenshotService {
   private lastCaptureAt: Map<string, number> = new Map();
   private cooldownUntil: Map<string, number> = new Map();
   private readonly MAX_SCREENSHOTS_PER_CAMERA = 100;
-  private readonly REQUIRED_STABLE_FRAMES = 3;
-  private readonly ZERO_REQUIRED_STABLE_FRAMES = 5;
+  private readonly REQUIRED_STABLE_FRAMES = 1;
+  private readonly ZERO_REQUIRED_STABLE_FRAMES = 2;
   private readonly MIN_CAPTURE_INTERVAL_MS = 4000;
   private readonly PLAYING_CAPTURE_INTERVAL_MS = 8000;
   private readonly ERROR_COOLDOWN_MS = 15000;
@@ -300,7 +300,7 @@ class ScreenshotService {
         }
 
         const fileName = `camera-${cameraId}-${Date.now()}.jpg`;
-        
+
         // ============================================
         // 📤 LOG SEND TO AI
         // ============================================
@@ -356,7 +356,7 @@ class ScreenshotService {
           })
           .catch((err) => {
             const msg = (err && (err.message || err.detail)) ? `${err.message}${err.detail ? ' - ' + err.detail : ''}` : JSON.stringify(err || {});
-            
+
             // ============================================
             // ❌ LOG ERROR
             // ============================================
