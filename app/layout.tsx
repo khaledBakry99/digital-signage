@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
-import CameraBackgroundService from "@/components/CameraBackgroundService";
 import SessionExpiryToast from "@/components/SessionExpiryToast";
 import CameraTabStateSync from "@/components/CameraTabStateSync";
 
@@ -20,7 +19,6 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <AppShell>{children}</AppShell>
         <SessionExpiryToast />
-        <CameraBackgroundService />
         <CameraTabStateSync />
       </body>
     </html>

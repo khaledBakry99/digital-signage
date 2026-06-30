@@ -75,6 +75,10 @@ export default function CamerasPage() {
     ? cameras.find((c) => c.id === editingCamera)
     : undefined;
 
+  const usedWebcamDeviceIds = cameras
+    .filter((c) => c.type === "local" && !!c.source)
+    .map((c) => c.source);
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       {/* Header */}
@@ -133,6 +137,7 @@ export default function CamerasPage() {
             </h2>
             <CameraForm
               camera={editingCameraData}
+              usedWebcamDeviceIds={usedWebcamDeviceIds}
               onSubmit={editingCamera ? handleUpdateCamera : handleAddCamera}
               onCancel={() => {
                 setShowForm(false);

@@ -69,7 +69,7 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
           stopCapture = cameraScreenshotService.startObjectDetectionCapture(
             element,
             Number(camera.id),
-            false,
+            true,
           );
         } catch (error) {
           console.error(`❌ فشل بدء ObjectDetector للكاميرا ${camera.id}:`, error);

@@ -14,31 +14,48 @@ import { API_CONFIG } from "../api/config";
 export class SignalRService {
   private connection: HubConnection | null = null;
   private connecting = false;
+  private connectPromise: Promise<HubConnection> | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
+  private reconnectingListeners = new Set<(error: Error | undefined) => void>();
+  private reconnectedListeners = new Set<(connectionId: string | undefined) => void>();
 
   private buildConnection(token: string): HubConnection {
     const conn = new HubConnectionBuilder()
       .withUrl(`${API_CONFIG.BASE_URL}/hubs/screen-updates`, {
         accessTokenFactory: () => token,
-        // WebSockets preferred, LongPolling as fallback for restricted envs
-        transport: HttpTransportType.WebSockets | HttpTransportType.LongPolling,
+        skipNegotiation: true,
+        transport: HttpTransportType.WebSockets,
       })
       .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
       .configureLogging(LogLevel.Information)
       .build();
 
-    conn.keepAliveIntervalInMilliseconds = 15000;
-    conn.serverTimeoutInMilliseconds = 60000;
+    conn.keepAliveIntervalInMilliseconds = 30000;
+    conn.serverTimeoutInMilliseconds = 5 * 60 * 1000;
 
     conn.onreconnecting((error) => {
       console.log("🔄 SignalR reconnecting...", error?.message);
       this.reconnectAttempts++;
+      this.reconnectingListeners.forEach((listener) => {
+        try {
+          listener(error ?? undefined);
+        } catch (listenerError) {
+          console.error("⚠️ SignalR reconnecting listener failed", listenerError);
+        }
+      });
     });
 
     conn.onreconnected((connectionId) => {
       console.log("✅ SignalR reconnected:", connectionId);
       this.reconnectAttempts = 0;
+      this.reconnectedListeners.forEach((listener) => {
+        try {
+          listener(connectionId);
+        } catch (listenerError) {
+          console.error("⚠️ SignalR reconnected listener failed", listenerError);
+        }
+      });
     });
 
     conn.onclose((error) => {
@@ -53,8 +70,8 @@ export class SignalRService {
    * إنشاء اتصال SignalR
    */
   async connect(token: string): Promise<HubConnection> {
-    if (this.connecting && this.connection) {
-      return this.connection;
+    if (this.connectPromise) {
+      return this.connectPromise;
     }
 
     if (this.connection?.state === HubConnectionState.Connected) {
@@ -68,37 +85,45 @@ export class SignalRService {
       }
     }
 
-    const maxAttempts = 2;
-    let lastError: unknown = null;
+    this.connectPromise = (async () => {
+      const maxAttempts = 2;
+      let lastError: unknown = null;
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      this.connection = this.buildConnection(token);
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        this.connection = this.buildConnection(token);
 
-      try {
-        this.connecting = true;
-        await this.connection.start();
-        console.log("🚀 SignalR connected successfully");
-        return this.connection;
-      } catch (error) {
-        lastError = error;
-        console.error(`❌ Failed to connect SignalR (attempt ${attempt}/${maxAttempts}):`, error);
         try {
-          await this.connection.stop();
-        } catch {
-          // ignore secondary stop errors
-        }
-        this.connection = null;
+          this.connecting = true;
+          await this.connection.start();
+          console.log("🚀 SignalR connected successfully");
+          return this.connection;
+        } catch (error) {
+          lastError = error;
+          console.error(`❌ Failed to connect SignalR (attempt ${attempt}/${maxAttempts}):`, error);
+          try {
+            await this.connection.stop();
+          } catch {
+            // ignore secondary stop errors
+          }
+          this.connection = null;
 
-        // Delay before next retry
-        if (attempt < maxAttempts) {
-          await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+          // Delay before next retry
+          if (attempt < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+          }
+        } finally {
+          this.connecting = false;
         }
-      } finally {
-        this.connecting = false;
       }
-    }
 
-    throw lastError instanceof Error ? lastError : new Error(String(lastError || "SignalR connection failed"));
+      throw lastError instanceof Error ? lastError : new Error(String(lastError || "SignalR connection failed"));
+    })();
+
+    try {
+      return await this.connectPromise;
+    } finally {
+      this.connectPromise = null;
+    }
   }
 
   /**
@@ -123,6 +148,16 @@ export class SignalRService {
    */
   isConnected(): boolean {
     return this.connection?.state === HubConnectionState.Connected;
+  }
+
+  addReconnectingListener(listener: (error: Error | undefined) => void) {
+    this.reconnectingListeners.add(listener);
+    return () => this.reconnectingListeners.delete(listener);
+  }
+
+  addReconnectedListener(listener: (connectionId: string | undefined) => void) {
+    this.reconnectedListeners.add(listener);
+    return () => this.reconnectedListeners.delete(listener);
   }
 }
 
