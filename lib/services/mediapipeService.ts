@@ -103,9 +103,9 @@ class MediapipeService {
       const confidence =
         personsDetected > 0
           ? personDetections.reduce(
-              (sum, d) => sum + (d.categories[0]?.score || 0),
-              0
-            ) / personsDetected
+            (sum, d) => sum + (d.categories[0]?.score || 0),
+            0
+          ) / personsDetected
           : 0;
 
       return {
@@ -152,9 +152,9 @@ class MediapipeService {
       const confidence =
         personsDetected > 0
           ? personDetections.reduce(
-              (sum, d) => sum + (d.categories[0]?.score || 0),
-              0
-            ) / personsDetected
+            (sum, d) => sum + (d.categories[0]?.score || 0),
+            0
+          ) / personsDetected
           : 0;
 
       return {
