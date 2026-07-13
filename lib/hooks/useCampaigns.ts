@@ -54,6 +54,36 @@ export function useCampaigns(params?: { clientId?: number }) {
     }
   };
 
+  const activateCampaign = async (id: number) => {
+    try {
+      const updated = await campaignApi.activate(id);
+      setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
+      return updated;
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const pauseCampaign = async (id: number) => {
+    try {
+      const updated = await campaignApi.pause(id);
+      setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
+      return updated;
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const completeCampaign = async (id: number) => {
+    try {
+      const updated = await campaignApi.complete(id);
+      setCampaigns(prev => prev.map(c => c.id === updated.id ? updated : c));
+      return updated;
+    } catch (err) {
+      throw err;
+    }
+  };
+
   const getCampaignById = (id: number) => {
     return campaigns.find(c => c.id === id) || null;
   };
@@ -65,6 +95,9 @@ export function useCampaigns(params?: { clientId?: number }) {
     createCampaign,
     updateCampaign,
     deleteCampaign,
+    activateCampaign,
+    pauseCampaign,
+    completeCampaign,
     getCampaignById,
     refreshCampaigns: loadCampaigns,
   };

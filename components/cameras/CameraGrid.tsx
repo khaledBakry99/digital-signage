@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useTheme } from "@/lib/context/ThemeContext";
 import type { Camera } from "@/lib/types/camera";
 import { CameraCard } from "./CameraCard";
 import { MAX_CAMERAS } from "@/lib/cameras/constants";
@@ -22,6 +23,8 @@ export function CameraGrid({
   onAdd,
   onToggleActivate,
 }: CameraGridProps) {
+  const { theme } = useTheme();
+  const isLightTheme = theme === "light";
   const [activatingCameraIds, setActivatingCameraIds] = useState<Set<number>>(new Set());
 
   const toggleActivating = useCallback((cameraId: number, isActive: boolean) => {
@@ -63,24 +66,13 @@ export function CameraGrid({
   return (
     <div>
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-xl font-bold text-slate-100">
-            الكاميرات المباشرة
-          </h2>
-          <p className="text-sm text-slate-400 mt-1">
-            {cameras.length} من {MAX_CAMERAS} كاميرات نشطة
-          </p>
-        </div>
+      <div className="flex justify-between items-center mb-2">
+
 
         {onAdd && canAddMore && (
           <button
             onClick={onAdd}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all select-none cursor-pointer"
-            style={{
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              color: "white",
-            }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold transition-all select-none cursor-pointer shadow-lg ${isLightTheme ? "text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-[0_18px_40px_rgba(79,70,229,0.25)]" : "text-white bg-gradient-to-r from-indigo-500 to-purple-500 shadow-indigo-500/30"}`}
           >
             <svg
               className="w-5 h-5"
@@ -102,9 +94,9 @@ export function CameraGrid({
 
       {/* Grid */}
       {cameras.length === 0 ? (
-        <div className="text-center py-16 bg-white/5 border border-white/5 rounded-[24px] backdrop-blur-md">
+        <div className={`text-center py-16 rounded-[28px] border backdrop-blur-md ${isLightTheme ? "bg-white/80 border-white/70 shadow-[0_25px_60px_rgba(15,23,42,0.08)]" : "bg-white/5 border-white/5"}`}>
           <svg
-            className="w-16 h-16 mx-auto text-slate-500 mb-4"
+            className={`w-16 h-16 mx-auto mb-4 ${isLightTheme ? "text-slate-300" : "text-slate-500"}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -116,20 +108,16 @@ export function CameraGrid({
               d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          <h3 className="text-lg font-semibold text-slate-100 mb-2">
+          <h3 className={`text-lg font-semibold mb-2 ${isLightTheme ? "text-slate-900" : "text-slate-100"}`}>
             لا توجد كاميرات مضافة
           </h3>
-          <p className="text-sm text-slate-400 mb-4">
+          <p className={`text-sm mb-4 ${isLightTheme ? "text-slate-500" : "text-slate-400"}`}>
             ابدأ بإضافة كاميرا لعرض البث المباشر والتحليل الذكي
           </p>
           {onAdd && (
             <button
               onClick={onAdd}
-              className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all select-none cursor-pointer inline-flex items-center gap-2"
-              style={{
-                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                color: "white",
-              }}
+              className={`px-5 py-2.5 rounded-2xl text-sm font-semibold transition-all select-none cursor-pointer inline-flex items-center gap-2 shadow-lg ${isLightTheme ? "text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-[0_18px_40px_rgba(79,70,229,0.25)]" : "text-white bg-gradient-to-r from-indigo-500 to-purple-500 shadow-indigo-500/30"}`}
             >
               <svg
                 className="w-5 h-5"

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { extractApiError } from "@/lib/api/client";
+import { useTheme } from "@/lib/context/ThemeContext";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
 
 interface AdEditModalProps {
@@ -16,6 +17,8 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
   const [description, setDescription] = useState(ad?.description || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { theme } = useTheme();
+  const isLightTheme = theme === "light";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,24 +51,24 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
         className="absolute inset-0 bg-slate-950/80 backdrop-blur-md transition-opacity duration-300"
         onClick={onClose}
       />
-      
+
       {/* Modal Container */}
       <div
-        className="relative w-full max-w-lg overflow-hidden rounded-3xl p-6 shadow-2xl transition-all duration-300 scale-100 border border-slate-800"
-        style={{
+        className={`relative w-full max-w-lg overflow-hidden rounded-3xl p-6 shadow-2xl transition-all duration-300 scale-100 border ${isLightTheme ? "border-slate-200 bg-white/95 shadow-[0_25px_65px_rgba(15,23,42,0.12)]" : "border-slate-800"}`}
+        style={isLightTheme ? {} : {
           background: "linear-gradient(135deg, #0b0f19 0%, #15132d 100%)",
         }}
       >
         {/* Decorative lighting background */}
-        <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl -z-10 animate-pulse" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl -z-10" />
+        <div className={`absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl -z-10 animate-pulse ${isLightTheme ? "bg-indigo-100/50" : "bg-indigo-500/10"}`} />
+        <div className={`absolute bottom-0 left-0 w-48 h-48 rounded-full blur-3xl -z-10 ${isLightTheme ? "bg-purple-100/30" : "bg-purple-500/10"}`} />
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800/80">
+        <div className={`flex items-center justify-between mb-6 pb-4 border-b ${isLightTheme ? "border-slate-200" : "border-slate-800/80"}`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${isLightTheme ? "bg-indigo-100 border border-indigo-200" : "bg-indigo-500/10 border border-indigo-500/20"}`}>
               <svg
-                className="w-5 h-5 text-indigo-400"
+                className={`w-5 h-5 ${isLightTheme ? "text-indigo-600" : "text-indigo-400"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -79,17 +82,17 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
               </svg>
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-100">
+              <h2 className={`text-lg font-bold ${isLightTheme ? "text-slate-900" : "text-slate-100"}`}>
                 تعديل بيانات الإعلان
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className={`text-xs mt-0.5 ${isLightTheme ? "text-slate-500" : "text-slate-500"}`}>
                 تعديل الاسم والوصف وتفاصيل العرض للإعلان المحدد
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-200 transition-colors duration-200 p-2 rounded-xl hover:bg-slate-800/60 cursor-pointer"
+            className={`transition-colors duration-200 p-2 rounded-xl cursor-pointer ${isLightTheme ? "text-slate-400 hover:text-slate-600 hover:bg-slate-100" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"}`}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -98,11 +101,11 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
         </div>
 
         {/* Technical Media Preview Card (Incredibly Premium UX!) */}
-        <div className="mb-6 p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center gap-4 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
-          
+        <div className={`mb-6 p-4 rounded-2xl border flex items-center gap-4 relative overflow-hidden group ${isLightTheme ? "bg-slate-50 border-slate-200" : "bg-slate-900/60 border-slate-800"}`}>
+          <div className={`absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl pointer-events-none ${isLightTheme ? "bg-indigo-100/30" : "bg-indigo-500/5"}`} />
+
           {/* Thumbnail / Media Visual */}
-          <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shrink-0 shadow-inner">
+          <div className={`w-20 h-20 rounded-xl overflow-hidden flex items-center justify-center shrink-0 shadow-inner ${isLightTheme ? "bg-slate-100 border border-slate-200" : "bg-slate-950 border border-slate-800"}`}>
             {ad.url && ad.type === "Image" ? (
               <img
                 src={ad.url}
@@ -110,7 +113,7 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
               />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-purple-500/10 text-purple-400">
+              <div className={`w-full h-full flex flex-col items-center justify-center ${isLightTheme ? "bg-purple-100 text-purple-600" : "bg-purple-500/10 text-purple-400"}`}>
                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
@@ -121,24 +124,27 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
 
           {/* Metadata */}
           <div className="flex-1 min-w-0">
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border mb-2 ${
-              ad.type === "Image"
-                ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
-                : "bg-purple-500/10 border-purple-500/20 text-purple-400"
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${ad.type === "Image" ? "bg-indigo-400" : "bg-purple-400"}`} />
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border mb-2 ${ad.type === "Image"
+                ? isLightTheme
+                  ? "bg-indigo-100 border-indigo-200 text-indigo-600"
+                  : "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
+                : isLightTheme
+                  ? "bg-purple-100 border-purple-200 text-purple-600"
+                  : "bg-purple-500/10 border-purple-500/20 text-purple-400"
+              }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${ad.type === "Image" ? (isLightTheme ? "bg-indigo-500" : "bg-indigo-400") : (isLightTheme ? "bg-purple-500" : "bg-purple-400")}`} />
               {ad.type === "Image" ? "ملف صورة" : "ملف فيديو"}
             </span>
 
-            <div className="grid grid-cols-2 gap-y-1 gap-x-4 text-xs">
-              <div className="text-slate-500">الأبعاد: <span className="text-slate-300 font-mono">{ad.resolution || "—"}</span></div>
-              <div className="text-slate-500">الحجم: <span className="text-slate-300 font-mono">{formatSize(ad.fileSizeMb)}</span></div>
+            <div className={`grid grid-cols-2 gap-y-1 gap-x-4 text-xs ${isLightTheme ? "text-slate-500" : "text-slate-500"}`}>
+              <div className={`${isLightTheme ? "text-slate-500" : "text-slate-500"}`}>الأبعاد: <span className={`font-mono ${isLightTheme ? "text-slate-700" : "text-slate-300"}`}>{ad.resolution || "—"}</span></div>
+              <div className={`${isLightTheme ? "text-slate-500" : "text-slate-500"}`}>الحجم: <span className={`font-mono ${isLightTheme ? "text-slate-700" : "text-slate-300"}`}>{formatSize(ad.fileSizeMb)}</span></div>
             </div>
           </div>
         </div>
 
         {error && (
-          <div className="mb-5 p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+          <div className={`mb-5 p-3.5 rounded-2xl border text-sm flex items-center gap-2 ${isLightTheme ? "bg-rose-50 border-rose-200 text-rose-600" : "bg-red-500/10 border-red-500/20 text-red-400"}`}>
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
@@ -148,38 +154,47 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightTheme ? "text-slate-600" : "text-slate-400"}`}>
               اسم الإعلان
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all duration-200 shadow-inner"
+              className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 shadow-inner focus:outline-none focus:ring-2 ${isLightTheme
+                ? "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-indigo-500/50 focus:border-indigo-500"
+                : "bg-slate-900/60 border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-indigo-500/50 focus:border-indigo-500"
+                }`}
               required
               placeholder="مثال: عسل طبيعي فاخر"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightTheme ? "text-slate-600" : "text-slate-400"}`}>
               الوصف
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all duration-200 resize-none shadow-inner"
+              className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 resize-none shadow-inner focus:outline-none focus:ring-2 ${isLightTheme
+                ? "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-indigo-500/50 focus:border-indigo-500"
+                : "bg-slate-900/60 border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-indigo-500/50 focus:border-indigo-500"
+                }`}
               rows={3}
               placeholder="اكتب تفاصيل عروضك، مثل عسل للبيع مع شحن سريع..."
             />
           </div>
 
           {/* Buttons Footer with professional modern styling */}
-          <div className="flex items-center gap-3 pt-5 border-t border-slate-800/60">
+          <div className={`flex items-center gap-3 pt-5 border-t ${isLightTheme ? "border-slate-200" : "border-slate-800/60"}`}>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-3 rounded-xl bg-slate-800/40 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-700 text-slate-300 font-semibold text-sm transition-all duration-200 hover:text-slate-100 cursor-pointer active:scale-[0.98] select-none text-center"
+              className={`flex-1 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer active:scale-[0.98] select-none text-center ${isLightTheme
+                ? "bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700"
+                : "bg-slate-800/40 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-700 text-slate-300 hover:text-slate-100"
+                }`}
               disabled={loading}
             >
               إلغاء

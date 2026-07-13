@@ -38,6 +38,7 @@ export default function ScreenPage() {
   // State management
   const [advertisement, setAdvertisement] = useState<MediaAsset | null>(null);
   const [fallbackAd, setFallbackAd] = useState<MediaAsset | null>(null);
+  const [screenDefaultMediaId, setScreenDefaultMediaId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [signalRConnected, setSignalRConnected] = useState(false);
   const [cameraWarning, setCameraWarning] = useState<boolean>(false);
@@ -110,6 +111,7 @@ export default function ScreenPage() {
       console.log("📋 Campaign ID:", screenData?.currentCampaignId);
 
       setLinkedCameraId(screenData?.cameraId ?? null);
+      setScreenDefaultMediaId(screenData?.defaultMediaAssetId ?? null);
 
       // Load camera settings
       if (screenData?.cameraId) {
@@ -133,11 +135,20 @@ export default function ScreenPage() {
           const campaign = await campaignApi.getById(screenData.currentCampaignId);
           console.log("✅ Campaign loaded:", campaign);
           setCurrentCampaignId(campaign.id);
-          setCampaign(campaign);
-          campaignRef.current = campaign;
-
-          // Use campaign's default media asset as fallback
-          fallbackIds = [campaign.defaultMediaAssetId].filter(Boolean) as number[];
+          const endsAtMs = new Date(campaign.endsAtUtc).getTime();
+          const isCampaignExpired = Number.isFinite(endsAtMs) && endsAtMs <= Date.now();
+          if (isCampaignExpired) {
+            console.warn("⚠️ Campaign has expired; falling back to screen default");
+            setCampaign(null);
+            campaignRef.current = null;
+            setCurrentCampaignId(null);
+            fallbackIds = [screenData?.defaultMediaAssetId].filter(Boolean) as number[];
+          } else {
+            setCampaign(campaign);
+            campaignRef.current = campaign;
+            // Use campaign's default media asset as fallback
+            fallbackIds = [campaign.defaultMediaAssetId].filter(Boolean) as number[];
+          }
         } catch (err) {
           console.error("❌ Failed to load campaign:", err);
           // Fallback to screen's default if campaign fails
@@ -161,6 +172,8 @@ export default function ScreenPage() {
         console.log("✅ Fallback ad loaded:", resolvedFallback.name);
       } else {
         console.warn("⚠️ No fallback ad available");
+        setFallbackAd(null);
+        setAdvertisement(null);
       }
     } catch (err) {
       console.error("❌ Failed to load fallback ad:", err);
@@ -168,6 +181,41 @@ export default function ScreenPage() {
       setLoading(false);
     }
   }, [screenId, resolveFallbackAsset]);
+
+  const switchToScreenFallback = useCallback(async () => {
+    const fallbackIds = [screenDefaultMediaId].filter(Boolean) as number[];
+    const replacement = await resolveFallbackAsset(fallbackIds);
+    setCampaign(null);
+    campaignRef.current = null;
+    setCurrentCampaignId(null);
+    if (replacement) {
+      setFallbackAd(replacement);
+      setAdvertisement((current) => {
+        if (!current || (fallbackAd && current.id === fallbackAd.id)) {
+          return replacement;
+        }
+        return current;
+      });
+    } else {
+      setFallbackAd(null);
+      setAdvertisement((current) => (fallbackAd && current?.id === fallbackAd.id ? null : current));
+    }
+  }, [fallbackAd, resolveFallbackAsset, screenDefaultMediaId]);
+
+  useEffect(() => {
+    if (!campaign) return;
+    const endsAtMs = new Date(campaign.endsAtUtc).getTime();
+    if (!Number.isFinite(endsAtMs)) return;
+    const delay = endsAtMs - Date.now();
+    if (delay <= 0) {
+      switchToScreenFallback();
+      return;
+    }
+    const timer = setTimeout(() => {
+      switchToScreenFallback();
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [campaign, switchToScreenFallback]);
 
   const updateScreenState = useCallback((state: ScreenState) => {
     screenStateRef.current = state;

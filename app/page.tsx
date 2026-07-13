@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { dashboardApi, type ClientDashboardStats } from "@/lib/api";
 import { useScreens } from "@/lib/hooks/useScreens";
+import { useTheme } from "@/lib/context/ThemeContext";
 
 function ModernStatCard({
   label,
@@ -108,6 +109,74 @@ export default function Home() {
   const { screens, loading: screensLoading } = useScreens(clientId);
   const [stats, setStats] = useState<ClientDashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const { theme } = useTheme();
+  const isLightTheme = theme === "light";
+
+  const heroSectionClass = isLightTheme
+    ? "relative overflow-hidden rounded-3xl p-8 mb-10 border border-white/10 shadow-[0_25px_60px_rgba(15,23,42,0.12)]"
+    : "relative overflow-hidden rounded-3xl bg-gradient-to-l from-indigo-600/10 via-slate-800/20 to-transparent p-8 mb-10 border border-white/5";
+
+  const heroSectionStyle = isLightTheme
+    ? {
+      background: "linear-gradient(135deg, rgba(255,255,255,0.72), rgba(196,210,255,0.85))",
+      backdropFilter: "blur(24px)",
+    }
+    : undefined;
+
+  const miniWrapperClass = isLightTheme
+    ? "flex items-center gap-2 rounded-2xl p-1.5 border border-white/40 shadow-lg"
+    : "flex items-center gap-2 bg-slate-900/50 backdrop-blur-md rounded-2xl p-1.5 border border-slate-700/50 shadow-lg";
+
+  const miniWrapperStyle = isLightTheme
+    ? { background: "rgba(255,255,255,0.55)", backdropFilter: "blur(18px)" }
+    : undefined;
+
+  const miniChipClass = isLightTheme
+    ? "flex items-center gap-3 px-4 py-2.5 rounded-xl"
+    : "flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 rounded-xl";
+
+  const miniChipStyle = isLightTheme ? { background: "rgba(255,255,255,0.45)" } : undefined;
+  const miniChipLoadingStyle = isLightTheme ? { background: "rgba(255,255,255,0.4)" } : undefined;
+
+  const criticalSectionClass = isLightTheme
+    ? "lg:col-span-1 rounded-2xl p-5 shadow-[0_20px_55px_rgba(244,63,94,0.15)]"
+    : "lg:col-span-1 rounded-2xl bg-gradient-to-br from-rose-500/5 to-slate-800/30 border border-rose-500/10 p-5";
+
+  const criticalSectionStyle = isLightTheme
+    ? {
+      background: "linear-gradient(140deg, rgba(255,219,226,0.7), rgba(255,255,255,0.45))",
+      border: "1px solid rgba(244,114,182,0.3)",
+      backdropFilter: "blur(18px)",
+    }
+    : undefined;
+
+  const criticalCardStyle = isLightTheme
+    ? {
+      background: "rgba(255,255,255,0.55)",
+      border: "1px solid rgba(244,114,182,0.25)",
+      backdropFilter: "blur(16px)",
+    }
+    : undefined;
+
+  const campaignSectionClass = isLightTheme
+    ? "lg:col-span-2 rounded-2xl p-5 shadow-[0_20px_55px_rgba(99,102,241,0.18)]"
+    : "lg:col-span-2 rounded-2xl bg-gradient-to-br from-violet-500/5 to-slate-800/30 border border-violet-500/10 p-5";
+
+  const campaignSectionStyle = isLightTheme
+    ? {
+      background: "linear-gradient(140deg, rgba(209,219,255,0.8), rgba(255,255,255,0.5))",
+      border: "1px solid rgba(129,140,248,0.35)",
+      backdropFilter: "blur(18px)",
+    }
+    : undefined;
+
+  const campaignCardStyle = isLightTheme
+    ? {
+      background: "rgba(255,255,255,0.6)",
+      border: "1px solid rgba(129,140,248,0.25)",
+      backdropFilter: "blur(16px)",
+    }
+    : undefined;
 
   const disconnectedScreens = useMemo(
     () => screens.filter((screen) => screen.connectionStatus !== "Online"),
@@ -136,12 +205,19 @@ export default function Home() {
   }, [clientId, authLoading]);
 
   return (
-    <div className="min-h-screen bg-[#0a0e1a] p-8">
+    <div
+      className={`min-h-screen p-8 ${isLightTheme ? "" : "bg-[#0a0e1a]"}`}
+      style={isLightTheme ? { background: "var(--bg-primary)" } : undefined}
+    >
       {/* === HERO HEADER SECTION === */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-l from-indigo-600/10 via-slate-800/20 to-transparent p-8 mb-10 border border-white/5">
+      <section className={heroSectionClass} style={heroSectionStyle}>
         {/* Blur orbs */}
-        <div className="absolute top-0 right-20 w-72 h-72 bg-violet-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
+        <div
+          className={`absolute top-0 right-20 w-72 h-72 rounded-full blur-3xl ${isLightTheme ? "bg-violet-300/40" : "bg-violet-500/20"}`}
+        />
+        <div
+          className={`absolute bottom-0 left-10 w-64 h-64 rounded-full blur-3xl ${isLightTheme ? "bg-cyan-300/25" : "bg-blue-500/10"}`}
+        />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           {/* Title */}
@@ -156,11 +232,12 @@ export default function Home() {
 
           {/* Mini Stats Bar */}
           {statsLoading ? (
-            <div className="flex items-center gap-2 bg-slate-900/50 backdrop-blur-md rounded-2xl p-1.5 border border-slate-700/50 shadow-lg">
+            <div className={miniWrapperClass} style={miniWrapperStyle}>
               {[0, 1].map((idx) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 rounded-xl w-[180px]"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl w-[180px]"
+                  style={miniChipLoadingStyle}
                 >
                   <div className="w-8 h-8 rounded-lg bg-white/5 animate-pulse" />
                   <div className="flex-1 space-y-2">
@@ -171,27 +248,57 @@ export default function Home() {
               ))}
             </div>
           ) : stats ? (
-            <div className="flex items-center gap-2 bg-slate-900/50 backdrop-blur-md rounded-2xl p-1.5 border border-slate-700/50 shadow-lg">
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 rounded-xl">
+            <div className={miniWrapperClass} style={miniWrapperStyle}>
+              <div className={miniChipClass} style={miniChipStyle}>
                 <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/20">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-xl font-bold text-white">{stats.connectedScreens}</span>
-                  <span className="text-sm text-slate-400">من</span>
-                  <span className="text-lg font-semibold text-slate-300">{stats.totalScreens}</span>
-                  <span className="text-xs text-slate-500 mr-1">شاشة نشطة</span>
+                  <span
+                    className={`text-xl font-bold ${isLightTheme ? "" : "text-white"}`}
+                    style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                  >
+                    {stats.connectedScreens}
+                  </span>
+                  <span
+                    className={`text-sm ${isLightTheme ? "" : "text-slate-400"}`}
+                    style={isLightTheme ? { color: "var(--text-secondary)" } : undefined}
+                  >
+                    من
+                  </span>
+                  <span
+                    className={`text-lg font-semibold ${isLightTheme ? "" : "text-slate-300"}`}
+                    style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                  >
+                    {stats.totalScreens}
+                  </span>
+                  <span
+                    className={`text-xs mr-1 ${isLightTheme ? "" : "text-slate-500"}`}
+                    style={isLightTheme ? { color: "var(--text-muted)" } : undefined}
+                  >
+                    شاشة نشطة
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 rounded-xl">
+              <div className={miniChipClass} style={miniChipStyle}>
                 <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/20">
                   <svg className="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
                   </svg>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-xl font-bold text-white">{stats.activeCampaigns}</span>
-                  <span className="text-xs text-slate-500">حملة نشطة</span>
+                  <span
+                    className={`text-xl font-bold ${isLightTheme ? "" : "text-white"}`}
+                    style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                  >
+                    {stats.activeCampaigns}
+                  </span>
+                  <span
+                    className={`text-xs ${isLightTheme ? "" : "text-slate-500"}`}
+                    style={isLightTheme ? { color: "var(--text-muted)" } : undefined}
+                  >
+                    حملة نشطة
+                  </span>
                 </div>
               </div>
             </div>
@@ -309,7 +416,7 @@ export default function Home() {
       {/* Alerts & Campaigns Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
         {/* Critical Alerts */}
-        <section className="lg:col-span-1 rounded-2xl bg-gradient-to-br from-rose-500/5 to-slate-800/30 border border-rose-500/10 p-5">
+        <section className={criticalSectionClass} style={criticalSectionStyle}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center">
@@ -318,11 +425,18 @@ export default function Home() {
                 </svg>
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-white">التنبيهات الحرجة</h2>
+                <h2
+                  className={`text-sm font-semibold ${isLightTheme ? "" : "text-white"}`}
+                  style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                >
+                  التنبيهات الحرجة
+                </h2>
                 {statsLoading ? (
                   <div className="h-3 w-32 bg-white/10 rounded animate-pulse" />
                 ) : (
-                  <p className="text-xs text-rose-400">{stats?.disconnectedScreens ?? 0} شاشات غير متصلة</p>
+                  <p className={`text-xs ${isLightTheme ? "text-rose-500" : "text-rose-400"}`}>
+                    {stats?.disconnectedScreens ?? 0} شاشات غير متصلة
+                  </p>
                 )}
               </div>
             </div>
@@ -333,7 +447,9 @@ export default function Home() {
               Array.from({ length: 3 }).map((_, idx) => (
                 <div
                   key={idx}
-                  className="h-14 rounded-xl bg-slate-900/40 border border-rose-500/10 animate-pulse"
+                  className={`h-14 rounded-xl animate-pulse ${isLightTheme ? "" : "bg-slate-900/40 border border-rose-500/10"
+                    }`}
+                  style={isLightTheme ? { background: "rgba(255,255,255,0.45)", border: "1px solid rgba(244,114,182,0.25)" } : undefined}
                 />
               ))
             ) : disconnectedScreens.length ? (
@@ -343,12 +459,19 @@ export default function Home() {
                   href={`/screens/${screen.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/40 border border-rose-500/10 hover:border-rose-500/25 hover:bg-rose-500/5 transition-all group"
+                  className={`flex items-center gap-3 p-3 rounded-xl transition-all group ${isLightTheme ? "" : "bg-slate-900/40 border border-rose-500/10 hover:border-rose-500/25 hover:bg-rose-500/5"
+                    }`}
+                  style={criticalCardStyle}
                 >
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white truncate">{screen.name}</p>
-                    <p className="text-xs text-rose-400/80">غير متصلة</p>
+                    <p
+                      className={`text-sm truncate ${isLightTheme ? "" : "text-white"}`}
+                      style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                    >
+                      {screen.name}
+                    </p>
+                    <p className={`text-xs ${isLightTheme ? "text-rose-500/90" : "text-rose-400/80"}`}>غير متصلة</p>
                   </div>
                   <svg className="w-4 h-4 text-slate-600 group-hover:text-rose-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -369,7 +492,7 @@ export default function Home() {
         </section>
 
         {/* Active Campaigns */}
-        <section className="lg:col-span-2 rounded-2xl bg-gradient-to-br from-violet-500/5 to-slate-800/30 border border-violet-500/10 p-5">
+        <section className={campaignSectionClass} style={campaignSectionStyle}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center">
@@ -378,17 +501,27 @@ export default function Home() {
                 </svg>
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-white">الحملات النشطة</h2>
+                <h2
+                  className={`text-sm font-semibold ${isLightTheme ? "" : "text-white"}`}
+                  style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                >
+                  الحملات النشطة
+                </h2>
                 {statsLoading ? (
                   <div className="h-3 w-32 bg-white/10 rounded animate-pulse" />
                 ) : (
-                  <p className="text-xs text-violet-400">{stats?.activeCampaigns ?? 0} حملة قيد التشغيل</p>
+                  <p className={`text-xs ${isLightTheme ? "text-violet-500" : "text-violet-400"}`}>
+                    {stats?.activeCampaigns ?? 0} حملة قيد التشغيل
+                  </p>
                 )}
               </div>
             </div>
             <button
               onClick={() => router.push("/ads")}
-              className="px-3 py-1.5 text-xs font-medium text-violet-300 bg-violet-500/10 border border-violet-500/20 rounded-lg hover:bg-violet-500/20 transition-colors"
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${isLightTheme
+                  ? "text-violet-800 bg-violet-100/10 border border-violet-800/20 hover:bg-violet-500/20"
+                  : "text-violet-300 bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20"
+                }`}
             >
               إدارة الإعلانات
             </button>
@@ -397,13 +530,20 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {statsLoading ? (
               Array.from({ length: 3 }).map((_, idx) => (
-                <div key={idx} className="p-4 rounded-xl bg-slate-900/30 border border-violet-500/5 animate-pulse h-32" />
+                <div
+                  key={idx}
+                  className={`p-4 rounded-xl animate-pulse h-32 ${isLightTheme ? "" : "bg-slate-900/30 border border-violet-500/5"
+                    }`}
+                  style={isLightTheme ? { background: "rgba(255,255,255,0.45)", border: "1px solid rgba(129,140,248,0.2)" } : undefined}
+                />
               ))
             ) : stats?.activeCampaigns && stats.activeCampaigns > 0 ? (
               Array.from({ length: Math.min(stats.activeCampaigns, 3) }).map((_, idx) => (
                 <div
                   key={idx}
-                  className="group relative p-4 rounded-xl bg-slate-900/40 border border-violet-500/10 hover:border-violet-500/25 transition-all cursor-pointer"
+                  className={`group relative p-4 rounded-xl transition-all cursor-pointer ${isLightTheme ? "" : "bg-slate-900/40 border border-violet-500/10 hover:border-violet-500/25"
+                    }`}
+                  style={campaignCardStyle}
                   onClick={() => router.push("/ads")}
                 >
                   <div className="flex items-start gap-3">
@@ -413,8 +553,18 @@ export default function Home() {
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">حملة نشطة {idx + 1}</p>
-                      <p className="text-xs text-slate-400">تعرض على {stats?.connectedScreens ?? 0} شاشة</p>
+                      <p
+                        className={`text-sm font-medium truncate ${isLightTheme ? "" : "text-white"}`}
+                        style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                      >
+                        حملة نشطة {idx + 1}
+                      </p>
+                      <p
+                        className={`text-xs ${isLightTheme ? "" : "text-slate-400"}`}
+                        style={isLightTheme ? { color: "var(--text-secondary)" } : undefined}
+                      >
+                        تعرض على {stats?.connectedScreens ?? 0} شاشة
+                      </p>
                     </div>
                   </div>
                   <div className="mt-3 flex items-center gap-2">
@@ -425,12 +575,21 @@ export default function Home() {
               ))
             ) : (
               <div className="col-span-full text-center py-6">
-                <div className="w-14 h-14 mx-auto mb-3 rounded-xl bg-slate-800/50 flex items-center justify-center">
+                <div
+                  className={`w-14 h-14 mx-auto mb-3 rounded-xl flex items-center justify-center ${isLightTheme ? "" : "bg-slate-800/50"
+                    }`}
+                  style={isLightTheme ? { background: "rgba(255,255,255,0.5)", border: "1px solid rgba(129,140,248,0.3)" } : undefined}
+                >
                   <svg className="w-7 h-7 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
                   </svg>
                 </div>
-                <p className="text-sm text-slate-400">لا توجد حملات نشطة حالياً</p>
+                <p
+                  className={`text-sm ${isLightTheme ? "" : "text-slate-400"}`}
+                  style={isLightTheme ? { color: "var(--text-secondary)" } : undefined}
+                >
+                  لا توجد حملات نشطة حالياً
+                </p>
                 <button
                   onClick={() => router.push("/ads/new")}
                   className="mt-3 px-4 py-2 text-sm font-medium text-violet-300 bg-violet-500/10 border border-violet-500/20 rounded-xl hover:bg-violet-500/20 transition-colors"

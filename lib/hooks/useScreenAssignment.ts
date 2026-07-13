@@ -87,7 +87,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
         setError(null);
         const updatedScreen = await screenApi.assignCampaign(screenId, campaignId);
         setScreen(updatedScreen);
-        
+
         // Refresh campaign and current media
         const [campaignData, currentMediaData] = await Promise.all([
           screenApi.getActiveCampaign(screenId).catch(() => null),
@@ -95,7 +95,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
         ]);
         setActiveCampaign(campaignData);
         setCurrentMedia(currentMediaData);
-        
+
         return true;
       } catch (err) {
         setError(extractApiError(err));
@@ -112,7 +112,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
       setError(null);
       const updatedScreen = await screenApi.removeCampaign(screenId);
       setScreen(updatedScreen);
-      
+
       // Refresh campaign and current media
       const [campaignData, currentMediaData] = await Promise.all([
         screenApi.getActiveCampaign(screenId).catch(() => null),
@@ -120,7 +120,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
       ]);
       setActiveCampaign(campaignData);
       setCurrentMedia(currentMediaData);
-      
+
       return true;
     } catch (err) {
       setError(extractApiError(err));
@@ -135,7 +135,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
         setError(null);
         const updatedSlots = await screenApi.assignMediaSlot(screenId, slot, mediaId);
         setMediaSlots(updatedSlots);
-        
+
         // Refresh screen and current media
         const [screenData, currentMediaData] = await Promise.all([
           screenApi.getById(screenId),
@@ -143,7 +143,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
         ]);
         setScreen(screenData);
         setCurrentMedia(currentMediaData);
-        
+
         return true;
       } catch (err) {
         setError(extractApiError(err));
@@ -160,7 +160,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
         setError(null);
         const updatedScreen = await screenApi.assignAllMedia(screenId, assignments);
         setScreen(updatedScreen);
-        
+
         // Refresh media slots and current media
         const [mediaSlotsData, currentMediaData] = await Promise.all([
           screenApi.getMedia(screenId).catch(() => null),
@@ -168,7 +168,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
         ]);
         setMediaSlots(mediaSlotsData);
         setCurrentMedia(currentMediaData);
-        
+
         return true;
       } catch (err) {
         setError(extractApiError(err));
@@ -185,7 +185,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
         setError(null);
         const updatedSlots = await screenApi.removeMediaSlot(screenId, slot);
         setMediaSlots(updatedSlots);
-        
+
         // Refresh screen and current media
         const [screenData, currentMediaData] = await Promise.all([
           screenApi.getById(screenId),
@@ -193,7 +193,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
         ]);
         setScreen(screenData);
         setCurrentMedia(currentMediaData);
-        
+
         return true;
       } catch (err) {
         setError(extractApiError(err));
@@ -209,7 +209,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
       setError(null);
       const updatedSlots = await screenApi.clearAllMedia(screenId);
       setMediaSlots(updatedSlots);
-      
+
       // Refresh screen and current media
       const [screenData, currentMediaData] = await Promise.all([
         screenApi.getById(screenId),
@@ -217,7 +217,7 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
       ]);
       setScreen(screenData);
       setCurrentMedia(currentMediaData);
-      
+
       return true;
     } catch (err) {
       setError(extractApiError(err));
@@ -232,11 +232,11 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
         setError(null);
         const updatedScreen = await screenApi.assignCamera(screenId, cameraId);
         setScreen(updatedScreen);
-        
+
         // Refresh current media
         const currentMediaData = await screenApi.getCurrentMedia(screenId).catch(() => null);
         setCurrentMedia(currentMediaData);
-        
+
         return true;
       } catch (err) {
         setError(extractApiError(err));
@@ -252,11 +252,11 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
       setError(null);
       const updatedScreen = await screenApi.removeCamera(screenId);
       setScreen(updatedScreen);
-      
+
       // Refresh current media
       const currentMediaData = await screenApi.getCurrentMedia(screenId).catch(() => null);
       setCurrentMedia(currentMediaData);
-      
+
       return true;
     } catch (err) {
       setError(extractApiError(err));
@@ -267,49 +267,26 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
   // Toggle AI
   const toggleAI = useCallback(
     async (enabled: boolean): Promise<boolean> => {
-      if (!screen) {
-        setError('لا يمكن تبديل حالة الذكاء الاصطناعي قبل تحميل بيانات الشاشة');
-        return false;
-      }
-
       try {
         setError(null);
-        const fallbackName = screen.name?.trim() || `Screen ${screen.id}`;
-        const fallbackLocationName = screen.locationName?.trim() || fallbackName;
-        const fallbackCity = screen.city?.trim() || fallbackLocationName;
-        const fallbackLocation = screen.locationName?.trim() || screen.city?.trim() || fallbackName;
-        const fallbackCampaignIds = Array.isArray(screen.campaignIds) ? screen.campaignIds : [];
-        const payload = {
-          clientId: screen.clientId,
-          name: fallbackName,
-          externalId: screen.externalId,
-          locationName: fallbackLocationName,
-          location: fallbackLocation,
-          city: fallbackCity,
-          connectionStatus: screen.connectionStatus,
-          operationalStatus: screen.operationalStatus,
-          cameraEnabled: screen.cameraEnabled,
-          cameraId: screen.cameraId,
-          currentCampaignId: screen.currentCampaignId ?? undefined,
-          campaignIds: fallbackCampaignIds,
-        };
-
-        console.log("⚙️ Toggle AI request", { screenId, enabled, payload });
-        const updatedScreen = await screenApi.toggleAI(screenId, enabled, payload);
+        console.log("⚙️ Toggle AI request", { screenId, enabled });
+        const updatedScreen = enabled
+          ? await screenApi.enableScreenAI(screenId)
+          : await screenApi.disableScreenAI(screenId);
         console.log("✅ Toggle AI response", updatedScreen);
         setScreen(updatedScreen);
-        
+
         // Refresh current media
         const currentMediaData = await screenApi.getCurrentMedia(screenId).catch(() => null);
         setCurrentMedia(currentMediaData);
-        
+
         return true;
       } catch (err) {
         setError(extractApiError(err));
         return false;
       }
     },
-    [screen, screenId]
+    [screenId]
   );
 
   // Refresh all data

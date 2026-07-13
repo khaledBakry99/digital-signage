@@ -76,6 +76,27 @@ function MetricCard({
   );
 }
 
+const LOCALIZED_ALERT_PATTERNS: Array<{ test: RegExp; transform: (matches: RegExpMatchArray) => string }> = [
+  {
+    test: /^(.*)\s+is\s+Offline\.?$/i,
+    transform: (matches) => `${matches[1].trim()} غير متصل.`,
+  },
+  {
+    test: /^(.*)\s+account\s+is\s+disabled\.?$/i,
+    transform: (matches) => `تم تعطيل حساب ${matches[1].trim()}.`,
+  },
+];
+
+function localizeAlert(alert: string): string {
+  for (const pattern of LOCALIZED_ALERT_PATTERNS) {
+    const match = alert.match(pattern.test);
+    if (match) {
+      return pattern.transform(match);
+    }
+  }
+  return alert;
+}
+
 function AlertsPanel({ alerts = [] }: { alerts?: string[] }) {
   if (!alerts.length) {
     return (
@@ -93,7 +114,7 @@ function AlertsPanel({ alerts = [] }: { alerts?: string[] }) {
           className="px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center gap-2 text-sm"
         >
           <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
-          <p className="flex-1 text-slate-200">{alert}</p>
+          <p className="flex-1 text-slate-200">{localizeAlert(alert)}</p>
         </div>
       ))}
     </div>

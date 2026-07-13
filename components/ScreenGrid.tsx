@@ -313,30 +313,18 @@ function ScreenCard({
       style={{ animationDelay: `${order * 60}ms` }}
     >
       <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg"
-            style={{
-              background: isActive ? "rgba(16,185,129,0.15)" : "var(--bg-secondary)",
-              color: isActive ? "#34d399" : "var(--text-muted)",
-              border: `1px solid ${isActive ? "rgba(16,185,129,0.3)" : "var(--border)"}`,
-            }}
-          >
-            {screen.id}
-          </div>
-          <div>
-            <p className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
-              {screen.name}
-            </p>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {screen.lastHeartbeatAtUtc
-                ? new Date(screen.lastHeartbeatAtUtc).toLocaleTimeString("ar-SA", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-                : "غير متصل"}
-            </p>
-          </div>
+        <div>
+          <p className="font-bold text-base" style={{ color: "var(--text-primary)" }}>
+            {screen.name}
+          </p>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+            {screen.lastHeartbeatAtUtc
+              ? new Date(screen.lastHeartbeatAtUtc).toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+              : "غير متصل"}
+          </p>
         </div>
         <span className={`badge ${isActive ? "badge-green" : "badge-gray"}`}>
           {isActive && <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />}

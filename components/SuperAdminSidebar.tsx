@@ -94,11 +94,11 @@ export default function SuperAdminSidebar() {
         className={`sticky top-0 self-start h-screen flex flex-col z-40 transition-all duration-500 ease-out ${isCollapsed ? "translate-x-0" : ""}`}
         style={{
           width: isCollapsed ? "80px" : "280px",
-          background: "linear-gradient(180deg, #0a0e1a 0%, #0f1419 50%, #0a0e1a 100%)",
-          borderLeft: "1px solid rgba(255, 255, 255, 0.08)",
+          background: "var(--sidebar-bg)",
+          borderLeft: "1px solid var(--border)",
           boxShadow: isCollapsed
-            ? "-2px 0 16px rgba(0, 0, 0, 0.3)"
-            : "-4px 0 32px rgba(0, 0, 0, 0.4)",
+            ? "-2px 0 16px rgba(15, 23, 42, 0.08)"
+            : "-4px 0 32px rgba(15, 23, 42, 0.12)",
         }}
       >
         {/* Toggle Button */}

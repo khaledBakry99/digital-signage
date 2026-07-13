@@ -27,7 +27,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (isSuperAdminRoute) {
     return (
       <SuperAdminGuard>
-        <div className="flex min-h-screen bg-[#0a0e1a]">
+        <div
+          className="flex min-h-screen"
+          style={{ background: "var(--bg-primary)" }}
+        >
           <SuperAdminSidebar />
           <main className="flex-1 overflow-y-auto min-h-screen transition-all duration-500">
             {children}

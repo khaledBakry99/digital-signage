@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { localCameraHandler } from "@/lib/cameras/streaming/localCamera";
+import { useTheme } from "@/lib/context/ThemeContext";
 
 interface CameraFormProps {
   camera?: {
@@ -58,6 +59,8 @@ export function CameraForm({
   onSubmit,
   onCancel,
 }: CameraFormProps) {
+  const { theme } = useTheme();
+  const isLightTheme = theme === "light";
   const [name, setName] = useState(camera?.name || "");
   const [location, setLocation] = useState(camera?.location || "");
   const [sourceType, setSourceType] = useState<SourceType>(
@@ -153,10 +156,14 @@ export function CameraForm({
     }
   };
 
-  const labelClass =
-    "block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider text-right";
-  const inputClass =
-    "w-full px-4 py-3 rounded-xl text-sm outline-none transition-all bg-slate-950/50 border border-white/10 text-slate-100 focus:border-indigo-500/50 focus:shadow-[0_0_12px_rgba(99,102,241,0.15)] text-right";
+  const labelClass = `block text-xs font-bold mb-2 uppercase tracking-wider text-right ${isLightTheme ? "text-slate-500" : "text-slate-400"
+    }`;
+  const baseFieldClass = "w-full px-4 py-3 rounded-xl text-sm outline-none transition-all text-right";
+  const inputClass = isLightTheme
+    ? `${baseFieldClass} bg-white/90 border border-white/70 text-slate-700 shadow-[0_12px_35px_rgba(15,23,42,0.08)] focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100`
+    : `${baseFieldClass} bg-slate-950/50 border border-white/10 text-slate-100 focus:border-indigo-500/50 focus:shadow-[0_0_12px_rgba(99,102,241,0.15)]`;
+  const selectClass = `${inputClass} pr-4 pl-10 appearance-none cursor-pointer`;
+  const lightOptionClass = isLightTheme ? "bg-white text-slate-700" : "bg-slate-900 text-slate-100";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -203,18 +210,18 @@ export function CameraForm({
                 setCameraDeviceName("");
               }
             }}
-            className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all bg-slate-950/50 border border-white/10 text-slate-100 focus:border-indigo-500/50 focus:shadow-[0_0_12px_rgba(99,102,241,0.15)] appearance-none cursor-pointer text-right pr-4 pl-10"
+            className={selectClass}
           >
-            <option value="webcam" className="bg-slate-900 text-slate-100">
+            <option value="webcam" className={lightOptionClass}>
               كاميرا محلية (Webcam)
             </option>
-            <option value="hls" className="bg-slate-900 text-slate-100">
+            <option value="hls" className={lightOptionClass}>
               HLS Stream
             </option>
-            <option value="rtsp" className="bg-slate-900 text-slate-100">
+            <option value="rtsp" className={lightOptionClass}>
               RTSP Stream
             </option>
-            <option value="http" className="bg-slate-900 text-slate-100">
+            <option value="http" className={lightOptionClass}>
               HTTP/MJPEG Stream
             </option>
           </select>
@@ -248,16 +255,16 @@ export function CameraForm({
                 value={cameraDeviceName}
                 onChange={(e) => setCameraDeviceName(e.target.value)}
                 disabled={loadingDevices}
-                className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all bg-slate-950/50 border border-white/10 text-slate-100 focus:border-indigo-500/50 focus:shadow-[0_0_12px_rgba(99,102,241,0.15)] appearance-none cursor-pointer text-right pr-4 pl-10"
+                className={selectClass}
               >
-                <option value="" disabled className="bg-slate-900 text-slate-100">
+                <option value="" disabled className={lightOptionClass}>
                   {loadingDevices ? "جاري تحميل الكاميرات..." : "اختر كاميرا"}
                 </option>
                 {devices.map((d, idx) => (
                   <option
                     key={d.deviceId}
                     value={d.deviceId}
-                    className="bg-slate-900 text-slate-100"
+                    className={lightOptionClass}
                   >
                     {d.label || `كاميرا ${idx + 1}`}
                   </option>
@@ -287,70 +294,10 @@ export function CameraForm({
         </div>
       </div>
 
-      {/* Time to Screenshot with Preset Grid */}
-      <div>
-        <label className={labelClass}>
-          مهلة الكشف والتقاط الصور (Mediapipe + API) *
-        </label>
-        <p className="text-xs text-slate-500 mb-3 text-right leading-relaxed">
-          المدة الزمنية بين كل عملية كشف وتحليل للوجوه عبر Mediapipe. إذا لم يتم اكتشاف أي وجه خلال هذه المهلة، سيتم عرض الفيديو الافتراضي تلقائياً.
-        </p>
-
-        {/* Preset Chips */}
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          {PRESETS.map((preset) => {
-            const isSelected = timeToScreenshot === preset.value;
-            return (
-              <button
-                key={preset.value}
-                type="button"
-                onClick={() => setTimeToScreenshot(preset.value)}
-                className={`text-right p-3 rounded-xl border transition-all cursor-pointer select-none ${isSelected
-                  ? "bg-indigo-500/10 border-indigo-500 text-indigo-300 shadow-[0_0_12px_rgba(99,102,241,0.1)]"
-                  : "bg-slate-950/20 border-white/5 hover:border-white/10 text-slate-400 hover:text-slate-200"
-                  }`}
-              >
-                <div className="font-bold text-xs flex items-center justify-between">
-                  <span>{preset.label}</span>
-                  {isSelected && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-                  )}
-                </div>
-                <div className="text-[10px] mt-1 opacity-70 leading-normal">
-                  {preset.desc}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Custom Input */}
-        <div className="relative">
-          <input
-            type="number"
-            min={3}
-            max={3600}
-            value={timeToScreenshot}
-            onChange={(e) => setTimeToScreenshot(Number(e.target.value))}
-            placeholder="أدخل وقت مخصص بالثواني"
-            dir="ltr"
-            className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all bg-slate-950/50 border border-white/10 text-slate-100 focus:border-indigo-500/50 focus:shadow-[0_0_12px_rgba(99,102,241,0.15)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none pr-4 pl-12"
-            required
-          />
-          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-xs text-slate-500 font-bold">
-            ثانية
-          </div>
-        </div>
-      </div>
 
       {error && (
         <div
-          className="p-3 rounded-xl text-sm animate-fade-in text-right"
-          style={{
-            background: "rgba(239,68,68,0.1)",
-            border: "1px solid rgba(239,68,68,0.2)",
-            color: "#f87171",
-          }}
+          className={`p-3 rounded-xl text-sm animate-fade-in text-right border ${isLightTheme ? "bg-rose-50 border-rose-200 text-rose-500" : "bg-[rgba(239,68,68,0.1)] border-rose-500/30 text-rose-300"}`}
         >
           {error}
         </div>
@@ -373,7 +320,7 @@ export function CameraForm({
           type="button"
           onClick={onCancel}
           disabled={loading}
-          className="px-6 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer bg-slate-950/40 border border-white/5 text-slate-400 hover:bg-slate-950/60 hover:text-slate-200"
+          className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer border ${isLightTheme ? "bg-white/85 border-white/60 text-slate-500 hover:text-slate-700 hover:shadow-[0_15px_30px_rgba(15,23,42,0.08)]" : "bg-slate-950/40 border-white/5 text-slate-400 hover:bg-slate-950/60 hover:text-slate-200"}`}
         >
           إلغاء
         </button>

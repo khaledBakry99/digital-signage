@@ -15,6 +15,7 @@ export interface Camera {
   thumbnail?: string; // معاينة صغيرة
   timeToScreenshot?: number; // فاصل التقاط الصور بالثواني
   settings: CameraStreamSettings;
+  createdAtUtc?: string; // تاريخ الإنشاء من الـ API
   createdAt: Date;
   updatedAt: Date;
 }

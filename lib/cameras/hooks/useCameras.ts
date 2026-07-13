@@ -36,7 +36,7 @@ function deriveTypeFromSource(source: string): CameraType {
   const s = (source || "").toLowerCase();
   if (s.startsWith("rtsp:")) return "rtsp";
   if (s.endsWith(".m3u8") || s.includes("m3u8") || s.includes("/hls")) return "hls";
-  if (s.startsWith("http:" ) || s.startsWith("https:")) return "http";
+  if (s.startsWith("http:") || s.startsWith("https:")) return "http";
   return "local";
 }
 
@@ -54,6 +54,7 @@ export function mapBackendToFrontendCamera(bc: BackendCamera): Camera {
       frameRate: 30,
       quality: "high",
     },
+    createdAtUtc: bc.createdAtUtc,
     createdAt: new Date(bc.createdAtUtc),
     updatedAt: new Date(bc.createdAtUtc),
   };
@@ -81,7 +82,7 @@ export function useCameras(): UseCamerasReturn {
       // نستخدم clientId الموثق أو الافتراضي (1)
       const targetClientId = clientId || 1;
       const response = await cameraApi.getAll({ clientId: targetClientId });
-      
+
       setBackendCameras(response);
       setCameras(response.map(mapBackendToFrontendCamera));
     } catch (err) {
