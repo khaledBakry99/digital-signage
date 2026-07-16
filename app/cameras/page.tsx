@@ -5,6 +5,7 @@ import { useCameras } from "@/lib/cameras/hooks/useCameras";
 import { useTheme } from "@/lib/context/ThemeContext";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { dashboardApi, type Subscription } from "@/lib/api";
+import { cameraApi } from "@/lib/api/camera.api";
 import { CameraGrid } from "@/components/cameras/CameraGrid";
 import { CameraGridSkeleton } from "@/components/cameras/CameraGridSkeleton";
 import { CameraForm } from "@/components/cameras/CameraForm";
@@ -31,11 +32,9 @@ export default function CamerasPage() {
   const activeCameras = cameras.filter((c) => c.status === "connected").length;
   const statsLoaded = !loading;
   const maxCameras = subscription?.maxCameras ?? 4;
+  const isAtMaxCameras = maxCameras > 0 && cameras.length >= maxCameras;
 
-  /**
-   * ✅ تتبع تبويبات الكاميرات المفتوحة
-   * نفس الآلية في ScreenGrid
-   */
+
   useEffect(() => {
     const handleStorageChange = () => {
       const stored = localStorage.getItem("openCameraTabs");
@@ -87,7 +86,15 @@ export default function CamerasPage() {
     cameraDeviceName: string;
     timeToScreenshot: number;
   }) => {
-    await addCamera(data);
+    const newCamera = await addCamera(data);
+    // حفظ اسم جهاز الكاميرا للربط الدائم
+    if (newCamera.id && data.cameraDeviceName) {
+      try {
+        await cameraApi.setCameraDeviceName(newCamera.id, data.cameraDeviceName);
+      } catch (err) {
+        console.warn("فشل حفظ اسم جهاز الكاميرا:", err);
+      }
+    }
     setShowForm(false);
   };
 
@@ -99,6 +106,14 @@ export default function CamerasPage() {
   }) => {
     if (!editingCamera) return;
     await updateCamera(editingCamera, data);
+    // تحديث اسم جهاز الكاميرا للربط الدائم
+    if (data.cameraDeviceName) {
+      try {
+        await cameraApi.setCameraDeviceName(Number(editingCamera), data.cameraDeviceName);
+      } catch (err) {
+        console.warn("فشل تحديث اسم جهاز الكاميرا:", err);
+      }
+    }
     setEditingCamera(null);
     setShowForm(false);
   };
@@ -202,10 +217,12 @@ export default function CamerasPage() {
                 <div className={`h-8 w-16 rounded animate-pulse ml-auto ${isLightTheme ? "bg-slate-200/60" : "bg-slate-800/40"}`} />
               </div>
             )}
-            {cameras.length < maxCameras && !showForm && (
+            {!showForm && (
               <button
                 onClick={() => setShowForm(true)}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-semibold transition-all shadow-lg ${isLightTheme ? "text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-[0_18px_40px_rgba(79,70,229,0.25)] hover:-translate-y-0.5" : "text-white bg-gradient-to-r from-indigo-500 to-purple-500 shadow-indigo-500/30"}`}
+                disabled={isAtMaxCameras}
+                title={isAtMaxCameras ? `وصلت للحد الأقصى من الكاميرات (${cameras.length}/${maxCameras})` : undefined}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-semibold transition-all shadow-lg ${isLightTheme ? "text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-[0_18px_40px_rgba(79,70,229,0.25)] hover:-translate-y-0.5" : "text-white bg-gradient-to-r from-indigo-500 to-purple-500 shadow-indigo-500/30"} ${isAtMaxCameras ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useScreensWithHeartbeat } from "@/lib/hooks/useScreensWithHeartbeat";
 import { useCameras } from "@/lib/cameras/hooks/useCameras";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 import { useTheme } from "@/lib/context/ThemeContext";
 import { extractApiError } from "@/lib/api/client";
 import type { Screen, ConnectionStatus, OperationalStatus } from "@/lib/types/screen";
@@ -14,8 +15,11 @@ export default function ManageScreensPage() {
   const { clientId } = useAuth();
   const { screens, loading, error: screensError, createScreen, updateScreen, deleteScreen, refresh } = useScreensWithHeartbeat(clientId);
   const { cameras } = useCameras();
+  const { maxScreens } = useSubscription(clientId);
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
+
+  const isAtMaxScreens = maxScreens > 0 && screens.length >= maxScreens;
 
   const [showForm, setShowForm] = useState(false);
   const [editingScreen, setEditingScreen] = useState<Screen | null>(null);
@@ -205,7 +209,9 @@ export default function ManageScreensPage() {
           </div>
           <button
             onClick={openAddForm}
-            className="btn-primary cursor-pointer active:scale-95 transition-transform"
+            disabled={isAtMaxScreens}
+            className={`btn-primary cursor-pointer active:scale-95 transition-transform ${isAtMaxScreens ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={isAtMaxScreens ? `وصلت للحد الأقصى من الشاشات (${screens.length}/${maxScreens})` : undefined}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -242,6 +248,40 @@ export default function ManageScreensPage() {
           }}
         >
           {screensError}
+        </div>
+      )}
+
+      {isAtMaxScreens && (
+        <div
+          className="mb-6 p-4 rounded-xl animate-fade-in text-sm"
+          style={{
+            background: isLightTheme
+              ? "rgba(245, 158, 11, 0.1)"
+              : "rgba(245, 158, 11, 0.15)",
+            border: isLightTheme
+              ? "1px solid rgba(245, 158, 11, 0.3)"
+              : "1px solid rgba(245, 158, 11, 0.4)",
+            color: isLightTheme ? "#d97706" : "#fbbf24",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <div>
+              <p className="font-semibold mb-1">
+                وصلت للحد الأقصى من الشاشات ({screens.length}/{maxScreens})
+              </p>
+              <p className="text-xs opacity-80">
+                يمكنك تعديل أو حذف شاشة موجودة لإضافة شاشة جديدة، أو ترقية اشتراكك للحصول على مساحة إضافية.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

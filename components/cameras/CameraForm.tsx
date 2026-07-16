@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { localCameraHandler } from "@/lib/cameras/streaming/localCamera";
 import { useTheme } from "@/lib/context/ThemeContext";
+import { cameraApi } from "@/lib/api/camera.api";
 
 interface CameraFormProps {
   camera?: {
@@ -95,6 +96,22 @@ export function CameraForm({
     }
     loadDevices();
   }, [sourceType]);
+
+  // جلب اسم جهاز الكاميرا المحفوظ عند التعديل
+  useEffect(() => {
+    async function fetchCameraDeviceName() {
+      if (!camera?.id) return;
+      try {
+        const response = await cameraApi.getCameraDeviceName(Number(camera.id));
+        if (response.cameraDeviceName) {
+          setCameraDeviceName(response.cameraDeviceName);
+        }
+      } catch (err) {
+        console.warn("فشل جلب اسم جهاز الكاميرا:", err);
+      }
+    }
+    fetchCameraDeviceName();
+  }, [camera?.id]);
 
   useEffect(() => {
     if (sourceType !== "webcam") return;

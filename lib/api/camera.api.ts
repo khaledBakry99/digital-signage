@@ -87,6 +87,16 @@ class CameraApi {
   async checkOnlineStatus(id: number): Promise<OnlineCheckResponse> {
     return apiClient.post<OnlineCheckResponse>(`/api/Cameras/${id}/camera-online-check`);
   }
+
+  // حفظ اسم جهاز الكاميرا (للربط الدائم)
+  async setCameraDeviceName(id: number, deviceName: string): Promise<void> {
+    return apiClient.post<void>(`/api/Cameras/${id}/set-camera-device-name?devicename=${encodeURIComponent(deviceName)}`);
+  }
+
+  // جلب اسم جهاز الكاميرا المحفوظ
+  async getCameraDeviceName(id: number): Promise<{ cameraDeviceName: string }> {
+    return apiClient.get<{ cameraDeviceName: string }>(`/api/Cameras/${id}/get-camera-device-name`);
+  }
 }
 
 export const cameraApi = new CameraApi();

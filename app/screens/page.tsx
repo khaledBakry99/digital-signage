@@ -67,9 +67,7 @@ export default function ScreensPage() {
             <h1 className="text-4xl font-bold mb-2">
               <span className="gradient-text-modern">الشاشات</span>
             </h1>
-            <p className={`text-lg ${isLightTheme ? "text-slate-600" : "text-white/70"}`}>
-              {active} شاشة نشطة من أصل {screens.length}
-            </p>
+          
           </div>
           <Link
             href="/screens/manage"

@@ -72,10 +72,12 @@ export function CameraGrid({
       <div className="flex justify-between items-center mb-2">
 
 
-        {onAdd && canAddMore && (
+        {onAdd && (
           <button
             onClick={onAdd}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold transition-all select-none cursor-pointer shadow-lg ${isLightTheme ? "text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-[0_18px_40px_rgba(79,70,229,0.25)]" : "text-white bg-gradient-to-r from-indigo-500 to-purple-500 shadow-indigo-500/30"}`}
+            disabled={!canAddMore}
+            title={!canAddMore ? `وصلت للحد الأقصى من الكاميرات (${cameras.length}/${actualMaxCameras})` : undefined}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold transition-all select-none shadow-lg ${isLightTheme ? "text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-[0_18px_40px_rgba(79,70,229,0.25)]" : "text-white bg-gradient-to-r from-indigo-500 to-purple-500 shadow-indigo-500/30"} ${!canAddMore ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
             <svg
               className="w-5 h-5"
@@ -94,6 +96,41 @@ export function CameraGrid({
           </button>
         )}
       </div>
+
+      {/* Max cameras reached message */}
+      {!canAddMore && (
+        <div
+          className="mb-6 p-4 rounded-xl animate-fade-in text-sm"
+          style={{
+            background: isLightTheme
+              ? "rgba(245, 158, 11, 0.1)"
+              : "rgba(245, 158, 11, 0.15)",
+            border: isLightTheme
+              ? "1px solid rgba(245, 158, 11, 0.3)"
+              : "1px solid rgba(245, 158, 11, 0.4)",
+            color: isLightTheme ? "#d97706" : "#fbbf24",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <div>
+              <p className="font-semibold mb-1">
+                وصلت للحد الأقصى من الكاميرات ({cameras.length}/{actualMaxCameras})
+              </p>
+              <p className="text-xs opacity-80">
+                يمكنك تعديل أو حذف كاميرا موجودة لإضافة كاميرا جديدة، أو ترقية اشتراكك للحصول على مساحة إضافية.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Grid */}
       {cameras.length === 0 ? (
@@ -152,19 +189,6 @@ export function CameraGrid({
               isCameraOpen={openCameraTabs?.has(Number(camera.id)) ?? false}
             />
           ))}
-        </div>
-      )}
-
-      {/* Max cameras reached message */}
-      {!canAddMore && (
-        <div className={`mt-6 p-4 rounded-xl ${isLightTheme
-          ? "bg-amber-50 border border-amber-200"
-          : "bg-yellow-500/5 border border-yellow-500/10"
-          }`}>
-          <p className={`text-sm text-right ${isLightTheme ? "text-amber-700" : "text-yellow-400"}`}>
-            تم الوصول للحد الأقصى من الكاميرات ({actualMaxCameras}). احذف كاميرا
-            لإضافة واحدة جديدة.
-          </p>
         </div>
       )}
     </div>
