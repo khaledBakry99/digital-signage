@@ -8,11 +8,13 @@ import SuperAdminGuard from "./SuperAdminGuard";
 
 // صفحات الشاشات تعمل بدون sidebar (fullscreen)
 const FULLSCREEN_ROUTES = ["/screens/1", "/screens/2", "/screens/3", "/screens/4", "/screens/5"];
+const CAMERA_VIEW_PREFIX = "/cameras/";
 const SUPER_ADMIN_PREFIX = "/super-admin";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isFullscreen = FULLSCREEN_ROUTES.some((r) => pathname === r);
+  const isCameraView = pathname?.startsWith(CAMERA_VIEW_PREFIX) && pathname?.split("/").length === 3;
   const isLoginPage = pathname === "/login";
   const isSuperAdminRoute = pathname?.startsWith(SUPER_ADMIN_PREFIX);
 
@@ -20,7 +22,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  if (isFullscreen) {
+  if (isFullscreen || isCameraView) {
     return <AuthGuard>{children}</AuthGuard>;
   }
 

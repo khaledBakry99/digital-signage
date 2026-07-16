@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useParams } from "next/navigation";
+import { ThemeProvider } from "@/lib/context/ThemeContext";
 
 export default function CameraLayout({
   children,
@@ -40,5 +41,9 @@ export default function CameraLayout({
     };
   }, [cameraId]);
 
-  return <>{children}</>;
+  return (
+    <ThemeProvider>
+      {children}
+    </ThemeProvider>
+  );
 }

@@ -1,24 +1,42 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useAdvertisements } from "@/lib/hooks/useAdvertisements";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTheme } from "@/lib/context/ThemeContext";
 import { indexedDBService } from "@/lib/storage/indexedDB";
 import { screenApi } from "@/lib/api/screen.api";
-import { cameraApi } from "@/lib/api/camera.api";
 import { useScreenSignalR } from "@/lib/hooks/useScreenSignalR";
 import { registerOpenCameraTab } from "@/lib/cameras/utils/openCameraTabs";
 import { LIVE_SCREEN_MEDIA_STORAGE_KEY, LiveScreenMediaEntry, readLiveScreenMediaCache } from "@/lib/screens/utils/liveScreenMediaCache";
 import type { Screen, ScreenCurrentMedia } from "@/lib/types/screen";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
 
-interface ScreenGridProps {
-  screens: Screen[];
+/**
+ * مساعد: تسجيل تبويب شاشة مفتوح
+ */
+function registerOpenScreenTab(screenId: number): number[] {
+  if (typeof window === "undefined") return [];
+  const stored = localStorage.getItem("openScreenTabs");
+  let ids: number[] = [];
+  if (stored) {
+    try {
+      ids = JSON.parse(stored);
+    } catch {
+      ids = [];
+    }
+  }
+  if (!ids.includes(screenId)) {
+    ids.push(screenId);
+  }
+  localStorage.setItem("openScreenTabs", JSON.stringify(ids));
+  return ids;
 }
 
-/**
- * Convert indexeddb:// URLs to displayable blob URLs.
- */
+interface ScreenGridProps {
+  screens: Screen[];
+  openScreenTabs?: Set<number>;
+}
+
 async function resolveBlobUrl(fileUrl: string): Promise<string> {
   if (!fileUrl.startsWith("indexeddb://")) return fileUrl;
   const fileId = fileUrl.replace("indexeddb://", "");
@@ -102,10 +120,10 @@ function ScreenPreview({
   );
 }
 
-export default function ScreenGrid({ screens }: ScreenGridProps) {
+export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenTabs = new Set() }: ScreenGridProps) {
   const { advertisements } = useAdvertisements();
   const [openCameraTabs, setOpenCameraTabs] = useState<Set<number>>(new Set());
-  const [activatingCameraIds, setActivatingCameraIds] = useState<Set<number>>(new Set());
+  const [openScreenTabs, setOpenScreenTabs] = useState<Set<number>>(initialOpenScreenTabs);
   const [liveMediaByScreen, setLiveMediaByScreen] = useState<Map<number, LiveScreenMediaEntry>>(new Map());
 
   // Track opened camera tabs via localStorage
@@ -126,7 +144,34 @@ export default function ScreenGrid({ screens }: ScreenGridProps) {
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("focus", handleStorageChange);
 
-    const interval = setInterval(handleStorageChange, 1000);
+    const interval = setInterval(handleStorageChange, 500);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("focus", handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Track opened screen tabs via localStorage
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const stored = localStorage.getItem("openScreenTabs");
+      if (stored) {
+        try {
+          const ids = JSON.parse(stored);
+          setOpenScreenTabs(new Set(ids));
+        } catch {
+          setOpenScreenTabs(new Set());
+        }
+      }
+    };
+
+    handleStorageChange();
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("focus", handleStorageChange);
+
+    const interval = setInterval(handleStorageChange, 500);
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
@@ -161,17 +206,21 @@ export default function ScreenGrid({ screens }: ScreenGridProps) {
     };
   }, []);
 
-  const toggleActivatingCamera = useCallback((cameraId: number, isActivating: boolean) => {
-    setActivatingCameraIds((prev) => {
-      const next = new Set(prev);
-      if (isActivating) {
-        next.add(cameraId);
-      } else {
-        next.delete(cameraId);
-      }
-      return next;
-    });
-  }, []);
+  const openScreen = useCallback((screenId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!screenId || openScreenTabs.has(screenId)) {
+      return;
+    }
+
+    const newTab = window.open(`/screens/${screenId}`, "_blank");
+    if (!newTab) {
+      console.error("❌ لم يتم فتح تبويب الشاشة - ربما تم منع النوافذ المنبثقة");
+      return;
+    }
+
+    registerOpenScreenTab(screenId);
+  }, [openScreenTabs]);
 
   const openCamera = useCallback((cameraId: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -186,20 +235,8 @@ export default function ScreenGrid({ screens }: ScreenGridProps) {
       return;
     }
 
-    const updated = registerOpenCameraTab(cameraId);
-    if (updated.length) {
-      setOpenCameraTabs(new Set(updated));
-    }
-
-    toggleActivatingCamera(cameraId, true);
-    cameraApi
-      .activate(cameraId)
-      .then(() => console.log(`✅ تم تفعيل الكاميرا ${cameraId} من صفحة الشاشات`))
-      .catch((err) => console.error(`❌ فشل تفعيل الكاميرا ${cameraId} من صفحة الشاشات:`, err))
-      .finally(() => {
-        toggleActivatingCamera(cameraId, false);
-      });
-  }, [openCameraTabs, toggleActivatingCamera]);
+    registerOpenCameraTab(cameraId);
+  }, [openCameraTabs]);
 
   const sortedScreens = useMemo(() => screens.map((screen, order) => ({ screen, order })), [screens]);
 
@@ -213,8 +250,9 @@ export default function ScreenGrid({ screens }: ScreenGridProps) {
           advertisements={advertisements}
           openCameraTabs={openCameraTabs}
           onOpenCamera={openCamera}
-          activatingCameraIds={activatingCameraIds}
+          onOpenScreen={openScreen}
           liveMedia={liveMediaByScreen.get(screen.id)}
+          openScreenTabs={openScreenTabs}
         />
       ))}
     </div>
@@ -227,8 +265,9 @@ interface ScreenCardProps {
   advertisements: MediaAsset[];
   openCameraTabs: Set<number>;
   onOpenCamera: (cameraId: number, e: React.MouseEvent) => void;
-  activatingCameraIds: Set<number>;
+  onOpenScreen: (screenId: number, e: React.MouseEvent) => void;
   liveMedia?: LiveScreenMediaEntry;
+  openScreenTabs?: Set<number>;
 }
 
 function ScreenCard({
@@ -237,15 +276,17 @@ function ScreenCard({
   advertisements,
   openCameraTabs,
   onOpenCamera,
-  activatingCameraIds,
+  onOpenScreen,
   liveMedia,
+  openScreenTabs = new Set(),
 }: ScreenCardProps) {
-  const router = useRouter();
+  const { theme } = useTheme();
+  const isLightTheme = theme === "light";
   const isActive = screen.connectionStatus === "Online";
   const [currentMedia, setCurrentMedia] = useState<ScreenCurrentMedia | null>(null);
   const [loadingMedia, setLoadingMedia] = useState(false);
   const isCameraOpen = !!screen.cameraId && openCameraTabs.has(screen.cameraId);
-  const isCameraActivating = !!screen.cameraId && activatingCameraIds.has(screen.cameraId);
+  const isScreenOpen = openScreenTabs.has(screen.id);
   const LIVE_MEDIA_STALE_MS = 30_000;
 
   const freshLiveMedia = useMemo(() => {
@@ -301,17 +342,36 @@ function ScreenCard({
   const adTitle = freshLiveMedia?.name || ad?.name || (effectiveMediaId ? `المادة ${effectiveMediaId}` : undefined);
   const previewAvailable = !!previewSource;
 
-  const openScreenInNewTab = useCallback(() => {
-    if (typeof window === "undefined") return;
-    window.open(`/screens/${screen.id}`, "_blank", "noopener,noreferrer");
-  }, [screen.id]);
-
   return (
     <div
-      onClick={openScreenInNewTab}
-      className="glass glass-hover animate-fade-in cursor-pointer p-6 group"
+      className="glass glass-hover animate-fade-in relative p-6 group"
       style={{ animationDelay: `${order * 60}ms` }}
     >
+      {/* Live Status Badge */}
+      <div className="absolute top-4 left-4 flex items-center gap-2 backdrop-blur-md px-3.5 py-1.5 rounded-full border shadow-lg select-none z-10" style={{
+        background: isLightTheme 
+          ? isActive 
+            ? "rgba(34, 197, 94, 0.15)" // أخضر فاتح للنشط
+            : "rgba(239, 68, 68, 0.15)" // أحمر فاتح للخامل
+          : "rgba(10, 15, 29, 0.8)",
+        border: isActive
+          ? isLightTheme ? "1px solid rgba(34, 197, 94, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)"
+          : isLightTheme ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)"
+      }}>
+        <span className={`w-2 h-2 rounded-full ${
+          isActive 
+            ? "bg-green-500 animate-pulse" 
+            : isLightTheme ? "bg-red-500" : "bg-slate-500"
+        }`} />
+        <span className={`text-[11px] font-bold tracking-wide ${
+          isActive 
+            ? isLightTheme ? "text-green-700" : "text-white"
+            : isLightTheme ? "text-red-700" : "text-white"
+        }`}>
+          {isActive ? "نشط" : "خامل"}
+        </span>
+      </div>
+
       <div className="flex items-center justify-between mb-5">
         <div>
           <p className="font-bold text-base" style={{ color: "var(--text-primary)" }}>
@@ -326,10 +386,6 @@ function ScreenCard({
               : "غير متصل"}
           </p>
         </div>
-        <span className={`badge ${isActive ? "badge-green" : "badge-gray"}`}>
-          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />}
-          {isActive ? "نشط" : "خامل"}
-        </span>
       </div>
 
       <div
@@ -387,61 +443,61 @@ function ScreenCard({
         )}
       </div>
 
+      {/* Action Buttons */}
       <div className="flex gap-2">
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            openScreenInNewTab();
-          }}
-          className="flex-1 py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100 cursor-pointer hover:scale-105 active:scale-95"
+          onClick={(e) => onOpenScreen(screen.id, e)}
+          disabled={isScreenOpen}
+          className={`flex-1 py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100 cursor-pointer hover:scale-105 active:scale-95 ${
+            isScreenOpen ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
+          }`}
           style={{
-            background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))",
-            border: "1px solid rgba(99,102,241,0.2)",
-            color: "#818cf8",
+            background: isScreenOpen
+              ? "rgba(100,116,139,0.15)"
+              : "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))",
+            border: isScreenOpen
+              ? "1px solid rgba(100,116,139,0.2)"
+              : "1px solid rgba(99,102,241,0.2)",
+            color: isScreenOpen ? "#94a3b8" : "#818cf8",
           }}
-          title="فتح الشاشة في تبويب جديد"
+          title={
+            isScreenOpen
+              ? "الشاشة مفتوحة بالفعل"
+              : "فتح الشاشة في تبويب جديد"
+          }
         >
-          فتح الشاشة ←
+          {isScreenOpen ? "الشاشة مفتوحة" : "فتح الشاشة ←"}
         </button>
 
         {screen.cameraId && (
           <button
             onClick={(e) => onOpenCamera(screen.cameraId!, e)}
-            disabled={isCameraOpen || isCameraActivating}
-            className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer ${isCameraOpen || isCameraActivating ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
+            disabled={isCameraOpen}
+            className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer ${isCameraOpen ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
               }`}
             style={{
-              background: isCameraOpen || isCameraActivating
+              background: isCameraOpen
                 ? "rgba(100,116,139,0.15)"
                 : "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.1))",
-              border: isCameraOpen || isCameraActivating
+              border: isCameraOpen
                 ? "1px solid rgba(100,116,139,0.2)"
                 : "1px solid rgba(16,185,129,0.3)",
-              color: isCameraOpen || isCameraActivating ? "#94a3b8" : "#34d399",
+              color: isCameraOpen ? "#94a3b8" : "#34d399",
             }}
             title={
               isCameraOpen
                 ? "الكاميرا مفتوحة بالفعل"
-                : isCameraActivating
-                  ? "جاري تفعيل الكاميرا"
-                  : "فتح الكاميرا المربوطة"
+                : "فتح الكاميرا المربوطة"
             }
           >
-            {isCameraActivating ? (
-              <div className="flex items-center gap-2">
-                <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                <span>جاري التفعيل</span>
-              </div>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-            )}
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+              />
+            </svg>
           </button>
         )}
       </div>

@@ -397,6 +397,13 @@ html.light {
   animation: loading-shimmer 2s infinite linear;
 }
 
+.light .skeleton-shimmer {
+  background: linear-gradient(90deg,
+      rgba(0, 0, 0, 0.05) 0%,
+      rgba(0, 0, 0, 0.1) 50%,
+      rgba(0, 0, 0, 0.05) 100%);
+}
+
 .skeleton-card-pro {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.04);
@@ -448,6 +455,10 @@ html.light {
   overflow: hidden;
 }
 
+.light .skeleton-avatar {
+  background: rgba(0, 0, 0, 0.08);
+}
+
 .skeleton-avatar::after {
   content: "";
   position: absolute;
@@ -458,6 +469,13 @@ html.light {
       transparent 100%);
   transform: translateX(-100%);
   animation: skeleton-shimmer 1.8s infinite;
+}
+
+.light .skeleton-avatar::after {
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.15) 50%,
+      transparent 100%);
 }
 
 /* Professional Status Badges */
@@ -840,6 +858,23 @@ html.light {
 
 .input-modern::placeholder {
   color: var(--text-muted);
+}
+
+.light .input-modern {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.light .input-modern:focus {
+  background: #ffffff;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1),
+    0 8px 24px rgba(99, 102, 241, 0.1);
+}
+
+.light .input-modern::placeholder {
+  color: #94a3b8;
 }
 
 /* ===== Button ===== */

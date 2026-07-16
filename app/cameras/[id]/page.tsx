@@ -58,6 +58,18 @@ export default function CameraViewPage() {
     loadCamera();
   }, [params.id]);
 
+  /**
+   * ❌ حذف: لا نستدعي deactivate في cleanup
+   * ✅ الخادم يقرر من آخر heartbeat:
+   *    - إذا انقطع heartbeat 60+ ثانية = INACTIVE
+   *    - إذا استمر heartbeat = ACTIVE
+   */
+  useEffect(() => {
+    return () => {
+      console.log(`التبويب سيُغلق - الخادم سيكتشف انقطاع heartbeat بعد 60 ثانية`);
+    };
+  }, []);
+
   // Helper function to derive camera type from source
   function deriveTypeFromSource(source: string): CameraType {
     const s = (source || "").toLowerCase();
@@ -70,12 +82,7 @@ export default function CameraViewPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-white text-lg">جاري التحميل...</p>
-        </div>
-      </div>
+      <div className="fixed inset-0 bg-black" />
     );
   }
 
@@ -110,29 +117,8 @@ export default function CameraViewPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-gray-900">
+    <div className="fixed inset-0 bg-black">
       <CameraPlayer camera={camera} autoStart={true} />
-
-      {/* Back Button */}
-      <button
-        onClick={() => router.push("/cameras")}
-        className="fixed top-4 right-4 bg-black bg-opacity-50 text-white p-3 rounded-lg hover:bg-opacity-70 transition-colors z-50"
-        title="العودة"
-      >
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M10 19l-7-7m0 0l7-7m-7 7h18"
-          />
-        </svg>
-      </button>
     </div>
   );
 }

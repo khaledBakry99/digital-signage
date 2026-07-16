@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useSuperAdminDashboard } from "@/lib/hooks/useSuperAdminDashboard";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { getRoleLabel } from "@/lib/utils/roleLabels";
+import { useTheme } from "@/lib/context/ThemeContext";
 
 // Professional Icons
 const DashboardIcon = () => (
@@ -51,6 +52,7 @@ export default function SuperAdminSidebar() {
   const router = useRouter();
   const { stats } = useSuperAdminDashboard();
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const quickStats = useMemo(() => [
@@ -212,6 +214,60 @@ export default function SuperAdminSidebar() {
               </button>
             );
           })}
+
+          {/* Theme Toggle Section */}
+          <div className="mt-5 px-2 pb-4">
+            {!isCollapsed && (
+              <div className="flex items-center justify-start gap-2 mb-2 -mr-2 text-right">
+                <div className="w-1 h-4 rounded-full bg-gradient-to-b from-amber-400 to-orange-500" />
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  مظهر النظام
+                </p>
+              </div>
+            )}
+            <button
+              onClick={toggleTheme}
+              className={`
+                group relative w-full rounded-xl transition-all duration-500 ease-out border
+                ${theme === "light"
+                  ? "bg-gradient-to-r from-[#dde7ff]/95 via-[#edf3ff]/95 to-[#f7fbff]/95 text-slate-700 border-white/60 shadow-[0_18px_50px_rgba(135,144,184,0.22)]"
+                  : "bg-white/5 text-slate-200 border-white/10"
+                }
+                ${isCollapsed ? "flex items-center justify-center p-3" : "flex items-center justify-between px-4 py-3 gap-3 text-right"}
+              `}
+              aria-label="تبديل المظهر"
+            >
+              <span className={`
+                relative z-10 transition-all duration-500
+                ${theme === "light" ? "text-amber-500" : "text-indigo-200"}
+              `}>
+                {theme === "light" ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.95 16.95l.707.707M7.05 7.05l.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </span>
+              {!isCollapsed && (
+                <div className="flex-1 flex items-center justify-between gap-4">
+                  <div className="text-right leading-tight">
+                    <span className="block text-sm font-semibold">
+                      {theme === "light" ? "الوضع الفاتح" : "الوضع الداكن"}
+                    </span>
+                    <span className={`text-[11px] ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
+                      {theme === "light" ? "Switch to Dark" : "Switch to Light"}
+                    </span>
+                  </div>
+                  <div className={`relative w-12 h-5 rounded-full overflow-hidden transition-colors duration-300 ${theme === "light" ? "bg-gradient-to-r from-amber-300/80 to-amber-400/80" : "bg-slate-600"}`}>
+                    <div className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300 ${theme === "light" ? "right-1" : "left-1"}`} />
+                  </div>
+                </div>
+              )}
+            </button>
+          </div>
         </nav>
 
         {/* User Section */}

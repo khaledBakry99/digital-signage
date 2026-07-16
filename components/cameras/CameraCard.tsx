@@ -8,8 +8,8 @@ interface CameraCardProps {
   onView: (camera: Camera) => void;
   onEdit?: (camera: Camera) => void;
   onDelete?: (camera: Camera) => void;
-  onToggleActivate?: (camera: Camera) => Promise<void>;
   activatingCameraIds?: Set<number>;
+  isCameraOpen?: boolean;
 }
 
 export function CameraCard({
@@ -17,8 +17,8 @@ export function CameraCard({
   onView,
   onEdit,
   onDelete,
-  onToggleActivate,
   activatingCameraIds,
+  isCameraOpen,
 }: CameraCardProps) {
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
@@ -130,53 +130,6 @@ export function CameraCard({
             {getStatusText()}
           </span>
         </div>
-
-        {/* Quick Power Toggle */}
-        {onToggleActivate && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleActivate(camera);
-            }}
-            className={`absolute top-4 right-4 flex items-center gap-1.5 backdrop-blur-md px-3 py-1.5 rounded-full border shadow-lg transition-all duration-300 cursor-pointer select-none active:scale-95 z-10 ${isConnected
-              ? isLightTheme
-                ? "bg-rose-50 border-rose-200 text-rose-500 hover:bg-rose-100"
-                : "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/30"
-              : isLightTheme
-                ? "bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100"
-                : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/30"
-              }`}
-            title={
-              isConnected ? "تعطيل معالجة الكاميرا" : "تفعيل معالجة الكاميرا"
-            }
-          >
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              {isConnected ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.2}
-                  d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.2}
-                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                />
-              )}
-            </svg>
-            <span className="text-[10px] font-bold tracking-wide">
-              {isConnected ? "تعطيل" : "تفعيل"}
-            </span>
-          </button>
-        )}
       </div>
 
       {/* Camera Info Panel (Glassmorphic Dark Section) */}
@@ -248,17 +201,24 @@ export function CameraCard({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (!isOpening) {
+              if (!isOpening && !isCameraOpen) {
                 onView(camera);
               }
             }}
-            disabled={isOpening}
+            disabled={isOpening || isCameraOpen}
             className={`flex-1 text-white py-2.5 px-6 transition-all duration-150 rounded-xl text-xs font-bold text-center cursor-pointer select-none shadow-lg active:scale-95 ${isLightTheme
               ? "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:shadow-[0_18px_35px_rgba(124,58,237,0.35)]"
               : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/10 hover:shadow-indigo-500/20"
-              } ${isOpening ? "opacity-70 cursor-not-allowed" : ""}`}
+              } ${(isOpening || isCameraOpen) ? "opacity-40 cursor-not-allowed" : ""}`}
+            title={
+              isCameraOpen
+                ? "الكاميرا مفتوحة بالفعل"
+                : isOpening
+                  ? "جاري التفعيل"
+                  : "عرض البث"
+            }
           >
-            {isOpening ? "جاري التفعيل..." : "عرض البث"}
+            {isOpening ? "جاري التفعيل..." : isCameraOpen ? "الكاميرا مفتوحة ✓" : "عرض البث"}
           </button>
 
 

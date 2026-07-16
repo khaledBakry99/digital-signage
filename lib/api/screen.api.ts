@@ -125,6 +125,16 @@ class ScreenApi {
   async deactivate(id: number): Promise<Screen> {
     return apiClient.post<Screen>(`${this.basePath}/${id}/deactivate`, {});
   }
+
+  // جديد: إرسال heartbeat للشاشة (يتم كل 40 ثانية)
+  async sendHeartbeat(id: number): Promise<Screen> {
+    return apiClient.post<Screen>(`${this.basePath}/${id}/heartbeat`, {});
+  }
+
+  // جديد: التحقق من حالة الشاشة (هل هي متصلة أم لا)
+  async checkOnlineStatus(id: number): Promise<{ id: number; connectionStatus: string; lastHeartbeatAtUtc: string }> {
+    return apiClient.post<{ id: number; connectionStatus: string; lastHeartbeatAtUtc: string }>(`${this.basePath}/${id}/screen-online-check`, {});
+  }
 }
 
 export const screenApi = new ScreenApi();

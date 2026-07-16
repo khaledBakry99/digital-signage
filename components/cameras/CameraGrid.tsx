@@ -13,7 +13,7 @@ interface CameraGridProps {
   onEdit?: (camera: Camera) => void;
   onDelete?: (camera: Camera) => void;
   onAdd?: () => void;
-  onToggleActivate?: (camera: Camera) => Promise<void>;
+  openCameraTabs?: Set<number>;
 }
 
 export function CameraGrid({
@@ -21,7 +21,7 @@ export function CameraGrid({
   onEdit,
   onDelete,
   onAdd,
-  onToggleActivate,
+  openCameraTabs,
 }: CameraGridProps) {
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
@@ -46,6 +46,8 @@ export function CameraGrid({
       return;
     }
 
+    // 🔄 فتح التبويب الجديد فقط
+    // ✅ الـ heartbeat في CameraPlayer سيتحكم في الحالة
     const newTab = window.open(`/cameras/${cameraId}`, "_blank");
     if (!newTab) {
       console.error("❌ لم يتم فتح تبويب الكاميرا - ربما تم منع النوافذ المنبثقة");
@@ -54,11 +56,9 @@ export function CameraGrid({
 
     registerOpenCameraTab(cameraId);
     toggleActivating(cameraId, true);
-    cameraApi
-      .activate(cameraId)
-      .then(() => console.log(`✅ تم تفعيل الكاميرا ${cameraId} من صفحة الكاميرات`))
-      .catch((err) => console.error(`❌ فشل تفعيل الكاميرا ${cameraId} من صفحة الكاميرات:`, err))
-      .finally(() => toggleActivating(cameraId, false));
+    
+    // ✅ لا نستدعي activate - الـ heartbeat من CameraPlayer سيجعلها netshe
+    setTimeout(() => toggleActivating(cameraId, false), 1000);
   };
 
   const canAddMore = cameras.length < MAX_CAMERAS;
@@ -145,8 +145,8 @@ export function CameraGrid({
               onView={handleViewCamera}
               onEdit={onEdit}
               onDelete={onDelete}
-              onToggleActivate={onToggleActivate}
               activatingCameraIds={activatingCameraIds}
+              isCameraOpen={openCameraTabs?.has(Number(camera.id)) ?? false}
             />
           ))}
         </div>

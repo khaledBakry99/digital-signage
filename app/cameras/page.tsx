@@ -8,6 +8,7 @@ import { CameraGridSkeleton } from "@/components/cameras/CameraGridSkeleton";
 import { CameraForm } from "@/components/cameras/CameraForm";
 import DeleteCameraModal from "@/components/DeleteCameraModal";
 import type { Camera } from "@/lib/types/camera";
+import { useEffect } from "react";
 
 export default function CamerasPage() {
   const {
@@ -16,28 +17,45 @@ export default function CamerasPage() {
     addCamera,
     updateCamera,
     deleteCamera,
-    activateCamera,
-    deactivateCamera,
   } = useCameras();
   const { theme } = useTheme();
   const [showForm, setShowForm] = useState(false);
   const [editingCamera, setEditingCamera] = useState<string | null>(null);
   const [deletingCamera, setDeletingCamera] = useState<Camera | null>(null);
+  const [openCameraTabs, setOpenCameraTabs] = useState<Set<number>>(new Set());
   const isLightTheme = theme === "light";
   const activeCameras = cameras.filter((c) => c.status === "connected").length;
   const statsLoaded = !loading;
 
-  const handleToggleActivate = async (camera: Camera) => {
-    try {
-      if (camera.status === "connected") {
-        await deactivateCamera(camera.id);
-      } else {
-        await activateCamera(camera.id);
+  /**
+   * ✅ تتبع تبويبات الكاميرات المفتوحة
+   * نفس الآلية في ScreenGrid
+   */
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const stored = localStorage.getItem("openCameraTabs");
+      if (stored) {
+        try {
+          const ids = JSON.parse(stored);
+          setOpenCameraTabs(new Set(ids));
+        } catch {
+          setOpenCameraTabs(new Set());
+        }
       }
-    } catch (err) {
-      console.error("فشل تفعيل/تعطيل الكاميرا:", err);
-    }
-  };
+    };
+
+    handleStorageChange();
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("focus", handleStorageChange);
+
+    const interval = setInterval(handleStorageChange, 1000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("focus", handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleAddCamera = async (data: {
     name: string;
@@ -223,7 +241,7 @@ export default function CamerasPage() {
           cameras={cameras}
           onEdit={handleEditCamera}
           onDelete={handleDeleteCamera}
-          onToggleActivate={handleToggleActivate}
+          openCameraTabs={openCameraTabs}
         />
       ) : (
         <div className="glass p-16 text-center animate-fade-in">

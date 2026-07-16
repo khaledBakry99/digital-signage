@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useScreens } from "@/lib/hooks/useScreens";
+import { useScreensWithHeartbeat } from "@/lib/hooks/useScreensWithHeartbeat";
 import { useCameras } from "@/lib/cameras/hooks/useCameras";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useTheme } from "@/lib/context/ThemeContext";
@@ -12,7 +12,7 @@ import DeleteScreenModal from "@/components/DeleteScreenModal";
 
 export default function ManageScreensPage() {
   const { clientId } = useAuth();
-  const { screens, loading, error: screensError, createScreen, updateScreen, deleteScreen, refresh } = useScreens(clientId);
+  const { screens, loading, error: screensError, createScreen, updateScreen, deleteScreen, refresh } = useScreensWithHeartbeat(clientId);
   const { cameras } = useCameras();
   const { theme } = useTheme();
   const isLightTheme = theme === "light";

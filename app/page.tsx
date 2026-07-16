@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { dashboardApi, type ClientDashboardStats } from "@/lib/api";
-import { useScreens } from "@/lib/hooks/useScreens";
+import { useScreensWithHeartbeat } from "@/lib/hooks/useScreensWithHeartbeat";
 import { useTheme } from "@/lib/context/ThemeContext";
+import ScreenStatusDisplay from "@/components/ScreenStatusDisplay";
 
 function ModernStatCard({
   label,
@@ -51,62 +52,10 @@ function ModernStatCard({
   );
 }
 
-function ActionPill({
-  label,
-  desc,
-  color,
-  icon,
-  onClick,
-  index = 0,
-}: {
-  label: string;
-  desc: string;
-  color: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-  index?: number;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="group relative overflow-hidden rounded-2xl bg-slate-800/30 border border-white/5 p-5 text-right w-full hover:border-white/10 transition-all duration-300"
-      style={{ animationDelay: `${index * 80}ms` }}
-    >
-      <div
-        className="absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-0 group-hover:opacity-30 transition-opacity duration-500 blur-2xl"
-        style={{ background: color }}
-      />
-      <div className="flex items-center gap-4">
-        <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110"
-          style={{
-            background: `linear-gradient(135deg, ${color}15, ${color}05)`,
-            border: `1px solid ${color}25`,
-          }}
-        >
-          <span style={{ color }}>{icon}</span>
-        </div>
-        <div className="flex-1">
-          <p className="font-semibold text-white text-sm mb-0.5">{label}</p>
-          <p className="text-xs text-slate-400">{desc}</p>
-        </div>
-        <svg
-          className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-      </div>
-    </button>
-  );
-}
-
 export default function Home() {
   const router = useRouter();
   const { clientId, loading: authLoading } = useAuth();
-  const { screens, loading: screensLoading } = useScreens(clientId);
+  const { screens, loading: screensLoading, openScreenTabs } = useScreensWithHeartbeat(clientId);
   const [stats, setStats] = useState<ClientDashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const { theme } = useTheme();
@@ -454,12 +403,9 @@ export default function Home() {
               ))
             ) : disconnectedScreens.length ? (
               disconnectedScreens.slice(0, 3).map((screen) => (
-                <a
+                <div
                   key={screen.id}
-                  href={`/screens/${screen.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`flex items-center gap-3 p-3 rounded-xl transition-all group ${isLightTheme ? "" : "bg-slate-900/40 border border-rose-500/10 hover:border-rose-500/25 hover:bg-rose-500/5"
+                  className={`flex items-center gap-3 p-3 rounded-xl ${isLightTheme ? "" : "bg-slate-900/40 border border-rose-500/10"
                     }`}
                   style={criticalCardStyle}
                 >
@@ -471,12 +417,11 @@ export default function Home() {
                     >
                       {screen.name}
                     </p>
-                    <p className={`text-xs ${isLightTheme ? "text-rose-500/90" : "text-rose-400/80"}`}>غير متصلة</p>
+                    <p className={`text-xs ${isLightTheme ? "text-rose-500/90" : "text-rose-400/80"}`}>
+                      غير متصلة
+                    </p>
                   </div>
-                  <svg className="w-4 h-4 text-slate-600 group-hover:text-rose-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
+                </div>
               ))
             ) : (
               <div className="text-center py-4">
@@ -602,7 +547,7 @@ export default function Home() {
         </section>
       </div>
 
-      {/* Screens Orbs Section - Unique Design */}
+      {/* Screens Status Section - Display Only */}
       <section className="mb-8">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-1 h-8 rounded-full bg-gradient-to-b from-emerald-400 to-teal-500" />
@@ -612,95 +557,7 @@ export default function Home() {
         </div>
 
         <div className="rounded-2xl bg-slate-800/30 border border-white/5 p-8">
-          {screensLoading || statsLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {Array.from({ length: 5 }).map((_, idx) => (
-                <div key={idx} className="h-36 rounded-2xl bg-slate-800/40 border border-white/5 animate-pulse" />
-              ))}
-            </div>
-          ) : screens.length === 0 ? (
-            <div className="text-center py-8 text-slate-400">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800/50 flex items-center justify-center">
-                <svg className="w-8 h-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <p className="text-sm">لا توجد شاشات مسجلة حالياً</p>
-              <p className="text-xs text-slate-500 mt-1">توجه إلى إدارة الشاشات لإضافة شاشتك الأولى</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {screens.map((screen) => {
-                const isActive = screen.connectionStatus === "Online";
-                return (
-                  <a
-                    key={screen.id}
-                    href={`/screens/${screen.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group relative flex flex-col items-center gap-2 p-4 rounded-2xl bg-slate-800/20 border border-white/5 hover:border-white/10 hover:bg-slate-800/40 transition-all duration-300 hover:-translate-y-1"
-                  >
-                    {/* Screen Orb */}
-                    <div
-                      className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${isActive ? "group-hover:scale-105" : "group-hover:scale-102"}`}
-                      style={{
-                        background: isActive
-                          ? "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05))"
-                          : "linear-gradient(135deg, rgba(100,116,139,0.15), rgba(100,116,139,0.05))",
-                        border: `2px solid ${isActive ? "rgba(16,185,129,0.4)" : "rgba(100,116,139,0.3)"}`,
-                        boxShadow: isActive ? "0 0 25px rgba(16,185,129,0.12)" : "none",
-                      }}
-                    >
-                      {/* Pulse Ring for Active */}
-                      {isActive && (
-                        <span className="absolute inset-[-3px] rounded-full animate-ping opacity-15" style={{ border: "2px solid rgba(16,185,129,0.4)" }} />
-                      )}
-
-                      {/* Inner Circle with ID */}
-                      <div
-                        className="w-11 h-11 rounded-full flex items-center justify-center text-base font-bold transition-all duration-300 group-hover:scale-110"
-                        style={{
-                          background: isActive
-                            ? "linear-gradient(135deg, rgba(16,185,129,0.25), rgba(16,185,129,0.1))"
-                            : "linear-gradient(135deg, rgba(100,116,139,0.2), rgba(100,116,139,0.05))",
-                          color: isActive ? "#34d399" : "#64748b",
-                          border: `1px solid ${isActive ? "rgba(16,185,129,0.3)" : "rgba(100,116,139,0.2)"}`,
-                        }}
-                      >
-                        {screen.id}
-                      </div>
-
-                      {/* Status Indicator Dot */}
-                      <span
-                        className={`absolute bottom-0 w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${isActive ? "bg-emerald-400" : "bg-slate-500"}`}
-                      />
-                    </div>
-
-                    {/* Screen Name - More Visible */}
-                    <div className="w-full text-center">
-                      <p className="text-sm font-semibold text-white text-center leading-tight line-clamp-2 min-h-[2.5rem] flex items-center justify-center">
-                        {screen.name}
-                      </p>
-                    </div>
-
-                    {/* Status Badge */}
-                    <span
-                      className={`text-[11px] px-3 py-1 rounded-full font-medium ${isActive ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" : "bg-slate-500/15 text-slate-400 border border-slate-500/20"}`}
-                    >
-                      {isActive ? "متصل" : "غير متصل"}
-                    </span>
-
-                    {/* New Tab Indicator */}
-                    <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </div>
-                  </a>
-                );
-              })}
-            </div>
-          )}
+          <ScreenStatusDisplay screens={screens} loading={screensLoading || statsLoading} />
         </div>
       </section>
     </div>

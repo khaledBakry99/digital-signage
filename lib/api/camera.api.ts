@@ -11,7 +11,27 @@ export interface BackendCamera {
   state: CameraState;
   timeToScreenshot: number;
   createdAtUtc: string;
+  heartbeat: string;
   screenIds: number[];
+}
+
+export interface HeartbeatResponse {
+  id: number;
+  clientId: number;
+  name: string;
+  location: string;
+  cameraDeviceName: string;
+  state: CameraState;
+  timeToScreenshot: number;
+  createdAtUtc: string;
+  heartbeat: string;
+  screenIds: number[];
+}
+
+export interface OnlineCheckResponse {
+  id: number;
+  state: CameraState;
+  createdAtUtc: string;
 }
 
 export interface CreateCameraInput {
@@ -56,6 +76,16 @@ class CameraApi {
 
   async deactivate(id: number): Promise<BackendCamera> {
     return apiClient.post<BackendCamera>(`/api/Cameras/${id}/deactivate`);
+  }
+
+  // جديد: إرسال heartbeat للكاميرا (يتم كل 40 ثانية)
+  async sendHeartbeat(id: number): Promise<HeartbeatResponse> {
+    return apiClient.post<HeartbeatResponse>(`/api/Cameras/${id}/heartbeat`);
+  }
+
+  // جديد: التحقق من حالة الكاميرا (هل هي متصلة أم لا)
+  async checkOnlineStatus(id: number): Promise<OnlineCheckResponse> {
+    return apiClient.post<OnlineCheckResponse>(`/api/Cameras/${id}/camera-online-check`);
   }
 }
 

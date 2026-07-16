@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import ScreenGrid from "@/components/ScreenGrid";
-import { useScreens } from "@/lib/hooks/useScreens";
+import { useScreensWithHeartbeat } from "@/lib/hooks/useScreensWithHeartbeat";
 import { useTheme } from "@/lib/context/ThemeContext";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 export default function ScreensPage() {
-  const { screens, loading, error } = useScreens();
+  const { clientId } = useAuth();
+  const { screens, loading, error, openScreenTabs } = useScreensWithHeartbeat(clientId);
   const active = screens.filter((s) => s.connectionStatus === "Online").length;
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
@@ -132,7 +134,7 @@ export default function ScreensPage() {
           ))}
         </div>
       ) : (
-        <ScreenGrid screens={screens} />
+        <ScreenGrid screens={screens} openScreenTabs={openScreenTabs} />
       )}
     </div>
   );

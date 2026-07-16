@@ -301,13 +301,88 @@ export default function ScreenPage() {
   // Activate/deactivate screen
   useEffect(() => {
     screenApi.activate(screenId)
-      .then(() => console.log(`✅ Screen ${screenId} activated`))
+      .then(() => {
+        console.log(`✅ Screen ${screenId} activated`);
+        // تسجيل تبويب الشاشة المفتوح
+        if (typeof window !== "undefined") {
+          const stored = localStorage.getItem("openScreenTabs");
+          let ids: number[] = [];
+          if (stored) {
+            try {
+              ids = JSON.parse(stored);
+            } catch {
+              ids = [];
+            }
+          }
+          if (!ids.includes(screenId)) {
+            ids.push(screenId);
+          }
+          localStorage.setItem("openScreenTabs", JSON.stringify(ids));
+        }
+      })
       .catch((err) => console.error(`❌ Failed to activate screen ${screenId}:`, err));
 
     return () => {
       screenApi.deactivate(screenId)
-        .then(() => console.log(`� Screen ${screenId} deactivated`))
+        .then(() => {
+          console.log(`✅ Screen ${screenId} deactivated`);
+          // إلغاء تسجيل تبويب الشاشة
+          if (typeof window !== "undefined") {
+            const stored = localStorage.getItem("openScreenTabs");
+            let ids: number[] = [];
+            if (stored) {
+              try {
+                ids = JSON.parse(stored);
+              } catch {
+                ids = [];
+              }
+            }
+            ids = ids.filter(id => id !== screenId);
+            localStorage.setItem("openScreenTabs", JSON.stringify(ids));
+          }
+        })
         .catch((err) => console.error(`❌ Failed to deactivate screen ${screenId}:`, err));
+    };
+  }, [screenId]);
+
+  /**
+   * ✅ 🔄 الـ HEARTBEAT يتحكم في حالة الشاشة
+   * + تحديث localStorage للصفحات الأخرى (نفس الجهاز)
+   * + تحديث الخادم مباشرة (للأجهزة المختلفة)
+   */
+  useEffect(() => {
+    if (!screenId || !Number.isFinite(screenId) || screenId <= 0) return;
+
+    console.log(`🔄 بدء heartbeat للشاشة ${screenId}...`);
+
+    // إرسال heartbeat فوراً عند فتح التبويب
+    const sendHeartbeat = async () => {
+      try {
+        await screenApi.sendHeartbeat(screenId);
+        console.log(`✅ heartbeat sent for screen ${screenId}`);
+
+        // 🔄 تحديث localStorage للصفحات الأخرى (نفس الجهاز)
+        if (typeof window !== "undefined") {
+          const timestamp = Date.now().toString();
+          localStorage.setItem(`screen-heartbeat-${screenId}`, timestamp);
+          console.log(`📝 localStorage updated for screen ${screenId}`);
+        }
+      } catch (err) {
+        console.error(`❌ Failed to send heartbeat for screen ${screenId}:`, err);
+      }
+    };
+
+    // إرسال heartbeat أول مرة فوراً
+    sendHeartbeat();
+
+    // ثم تكرار كل 40 ثانية
+    const heartbeatInterval = setInterval(() => {
+      sendHeartbeat();
+    }, 40000); // 40 seconds
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      console.log(`⏹️ إيقاف heartbeat للشاشة ${screenId} - سيصبح OFFLINE بعد 60 ثانية`);
     };
   }, [screenId]);
 
