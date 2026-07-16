@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { dashboardApi, type ClientDashboardStats } from "@/lib/api";
+import { dashboardApi, cameraApi, type ClientDashboardStats, type Subscription } from "@/lib/api";
 import { useScreensWithHeartbeat } from "@/lib/hooks/useScreensWithHeartbeat";
 import { useTheme } from "@/lib/context/ThemeContext";
 import ScreenStatusDisplay from "@/components/ScreenStatusDisplay";
@@ -58,6 +58,10 @@ export default function Home() {
   const { screens, loading: screensLoading, openScreenTabs } = useScreensWithHeartbeat(clientId);
   const [stats, setStats] = useState<ClientDashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [cameras, setCameras] = useState<any[]>([]);
+  const [camerasLoading, setCamerasLoading] = useState(true);
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
 
@@ -132,6 +136,24 @@ export default function Home() {
     [screens],
   );
 
+  // Format date to DD/MM/YYYY
+  const formatDateEnglish = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Calculate remaining days
+  const calculateRemainingDays = (endDateString: string) => {
+    const endDate = new Date(endDateString);
+    const today = new Date();
+    const diffTime = endDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
+
   // جلب إحصائيات لوحة التحكم من الـ API الحقيقي للعميل
   useEffect(() => {
     const fetchDashboardStats = async () => {
@@ -150,6 +172,48 @@ export default function Home() {
 
     if (!authLoading) {
       fetchDashboardStats();
+    }
+  }, [clientId, authLoading]);
+
+  // جلب بيانات الاشتراك
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      try {
+        setSubscriptionLoading(true);
+        const targetClientId = clientId || 1;
+        const data = await dashboardApi.getSubscriptions(targetClientId);
+        if (data && data.length > 0) {
+          setSubscription(data[0]);
+        }
+      } catch (err) {
+        console.error("فشل جلب بيانات الاشتراك:", err);
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+
+    if (!authLoading) {
+      fetchSubscription();
+    }
+  }, [clientId, authLoading]);
+
+  // جلب بيانات الكاميرات
+  useEffect(() => {
+    const fetchCameras = async () => {
+      try {
+        setCamerasLoading(true);
+        const targetClientId = clientId || 1;
+        const data = await cameraApi.getAll({ clientId: targetClientId });
+        setCameras(data);
+      } catch (err) {
+        console.error("فشل جلب بيانات الكاميرات:", err);
+      } finally {
+        setCamerasLoading(false);
+      }
+    };
+
+    if (!authLoading) {
+      fetchCameras();
     }
   }, [clientId, authLoading]);
 
@@ -256,7 +320,7 @@ export default function Home() {
       </section>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-10">
         {statsLoading ? (
           // Skeletons while loading
           Array.from({ length: 4 }).map((_, i) => (
@@ -271,9 +335,9 @@ export default function Home() {
         ) : (
           <>
             <ModernStatCard
-              label="إجمالي الشاشات"
-              value={stats?.totalScreens ?? 0}
-              sub={`${stats?.totalScreens ?? 0} شاشات مسجلة`}
+              label="الشاشات المنشأة"
+              value={`${stats?.totalScreens ?? 0}/${subscription?.maxScreens ?? 0}`}
+              sub={`${(subscription?.maxScreens ?? 0) - (stats?.totalScreens ?? 0)} شاشة متبقية للإنشاء`}
               color="#818cf8"
               index={0}
               icon={
@@ -293,10 +357,10 @@ export default function Home() {
               }
             />
             <ModernStatCard
-              label="الشاشات المتصلة"
-              value={stats?.connectedScreens ?? 0}
-              sub={`${stats?.connectedScreens ?? 0} شاشة نشطة ومتصلة`}
-              color="#34d399"
+              label="الكاميرات المنشأة"
+              value={`${cameras.length}/${subscription?.maxCameras ?? 0}`}
+              sub={`${(subscription?.maxCameras ?? 0) - cameras.length} كاميرا متبقية للإنشاء`}
+              color="#10b981"
               index={1}
               icon={
                 <svg
@@ -309,55 +373,108 @@ export default function Home() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={1.8}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
                   />
-                </svg>
-              }
-            />
-            <ModernStatCard
-              label="الشاشات غير المتصلة"
-              value={stats?.disconnectedScreens ?? 0}
-              sub={`${stats?.disconnectedScreens ?? 0} شاشة غير متصلة بالشبكة`}
-              color="#ef4444"
-              index={2}
-              icon={
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={1.8}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
                   />
                 </svg>
               }
             />
-            <ModernStatCard
-              label="الحملات النشطة"
-              value={stats?.activeCampaigns ?? 0}
-              sub={`${stats?.activeCampaigns ?? 0} حملة ترويجية نشطة`}
-              color="#c084fc"
-              index={3}
-              icon={
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.8}
-                    d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
-                  />
-                </svg>
-              }
-            />
+            {subscriptionLoading ? (
+              <div className="lg:col-span-2 rounded-2xl bg-slate-800/40 border border-white/5 p-6 h-28 animate-pulse flex items-center justify-between">
+                <div className="space-y-2.5 w-2/3">
+                  <div className="h-8 bg-white/5 rounded w-1/2" />
+                  <div className="h-4 bg-white/5 rounded w-3/4" />
+                </div>
+                <div className="w-14 h-14 rounded-2xl bg-white/5" />
+              </div>
+            ) : subscription ? (
+              <div
+                className="lg:col-span-2 group relative overflow-hidden rounded-2xl bg-slate-800/40 border border-white/5 p-6 hover:bg-slate-800/60 transition-all duration-500"
+              >
+                <div
+                  className="absolute top-0 left-0 right-0 h-1 opacity-80"
+                  style={{ background: `linear-gradient(90deg, #f59e0b40, #f59e0b)` }}
+                />
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-4xl font-bold text-white mb-1">{calculateRemainingDays(subscription.endsAtUtc)}</p>
+                    <p className="text-sm font-medium text-slate-300">أيام متبقية</p>
+                  </div>
+                  <div
+                    className="w-14 h-14 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
+                    style={{
+                      background: `linear-gradient(135deg, #f59e0b20, #f59e0b08)`,
+                      border: `1px solid #f59e0b30`,
+                    }}
+                  >
+                    <svg className="w-7 h-7" style={{ color: "#f59e0b" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.8}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex items-center gap-6 pt-4 border-t border-white/5">
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-400 mb-1">تاريخ البدء</p>
+                    <p className="text-sm font-semibold text-white">{formatDateEnglish(subscription.startsAtUtc)}</p>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-400 mb-1">تاريخ النهاية</p>
+                    <p className="text-sm font-semibold text-white">{formatDateEnglish(subscription.endsAtUtc)}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="lg:col-span-2 group relative overflow-hidden rounded-2xl bg-slate-800/40 border border-white/5 p-6 hover:bg-slate-800/60 transition-all duration-500"
+              >
+                <div
+                  className="absolute top-0 left-0 right-0 h-1 opacity-80"
+                  style={{ background: `linear-gradient(90deg, #64748b40, #64748b)` }}
+                />
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-4xl font-bold text-white mb-1">—</p>
+                    <p className="text-sm font-medium text-slate-300">أيام متبقية</p>
+                  </div>
+                  <div
+                    className="w-14 h-14 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
+                    style={{
+                      background: `linear-gradient(135deg, #64748b20, #64748b08)`,
+                      border: `1px solid #64748b30`,
+                    }}
+                  >
+                    <svg className="w-7 h-7" style={{ color: "#64748b" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.8}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex items-center gap-6 pt-4 border-t border-white/5">
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-400 mb-1">تاريخ البدء</p>
+                    <p className="text-sm font-semibold text-white">—</p>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-400 mb-1">تاريخ النهاية</p>
+                    <p className="text-sm font-semibold text-white">—</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -464,8 +581,8 @@ export default function Home() {
             <button
               onClick={() => router.push("/ads")}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${isLightTheme
-                  ? "text-violet-800 bg-violet-100/10 border border-violet-800/20 hover:bg-violet-500/20"
-                  : "text-violet-300 bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20"
+                ? "text-violet-800 bg-violet-100/10 border border-violet-800/20 hover:bg-violet-500/20"
+                : "text-violet-300 bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20"
                 }`}
             >
               إدارة الإعلانات

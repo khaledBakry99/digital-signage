@@ -44,7 +44,7 @@ function deriveTypeFromSource(source: string): CameraType {
 export function mapBackendToFrontendCamera(bc: BackendCamera, isOnline?: boolean | number): Camera {
   // إذا كان isOnline رقماً، فهو index من map() - نتجاهله
   const onlineStatus = typeof isOnline === 'boolean' ? isOnline : undefined;
-  
+
   return {
     id: String(bc.id),
     name: bc.name,
@@ -95,7 +95,7 @@ export function useCameras(): UseCamerasReturn {
       // 🔄 عند Login: تحديث حالة جميع الكاميرات من آخر heartbeat
       console.log("🔄 Checking online status for all cameras...");
       const statusMap: { [cameraId: number]: boolean } = {};
-      
+
       for (const camera of response) {
         try {
           const statusResponse = await cameraApi.checkOnlineStatus(camera.id);
@@ -107,7 +107,7 @@ export function useCameras(): UseCamerasReturn {
           statusMap[camera.id] = false;
         }
       }
-      
+
       setCameraOnlineStatus(statusMap);
       setCameras(response.map(cam => mapBackendToFrontendCamera(cam, statusMap[cam.id])));
     } catch (err) {
@@ -139,12 +139,12 @@ export function useCameras(): UseCamerasReturn {
     try {
       const response = await cameraApi.checkOnlineStatus(cameraId);
       const isOnline = response.state === "Active";
-      
+
       setCameraOnlineStatus(prev => ({
         ...prev,
         [cameraId]: isOnline
       }));
-      
+
       console.log(`Camera ${cameraId} status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
     } catch (err) {
       console.error(`Failed to check status for camera ${cameraId}:`, err);
@@ -165,7 +165,7 @@ export function useCameras(): UseCamerasReturn {
     backendCameras.forEach(camera => {
       // إرسال heartbeat
       sendHeartbeatForCamera(camera.id);
-      
+
       // التحقق من الحالة
       checkCameraStatus(camera.id);
     });
@@ -322,16 +322,16 @@ export function useCameras(): UseCamerasReturn {
         const cameraId = parseInt(e.key.split("-")[2], 10);
         if (Number.isFinite(cameraId)) {
           console.log(`📝 Storage update: Camera ${cameraId} is ACTIVE`);
-          
+
           setCameraOnlineStatus(prev => ({
             ...prev,
             [cameraId]: true
           }));
-          
+
           // تحديث الكاميرا في القائمة
-          setCameras(prev => 
-            prev.map(cam => 
-              Number(cam.id) === cameraId 
+          setCameras(prev =>
+            prev.map(cam =>
+              Number(cam.id) === cameraId
                 ? mapBackendToFrontendCamera(backendCameras.find(bc => bc.id === cameraId)!, true)
                 : cam
             )
@@ -354,23 +354,29 @@ export function useCameras(): UseCamerasReturn {
 
     const checkAllCamerasStatus = async () => {
       console.log("🔄 Periodic check: checking all cameras status...");
-      
+
       const statusMap: { [cameraId: number]: boolean } = {};
-      
+
       for (const camera of backendCameras) {
         try {
           const statusResponse = await cameraApi.checkOnlineStatus(camera.id);
-          statusMap[camera.id] = statusResponse.state === "Active";
-          console.log(`✅ Camera ${camera.id}: ${statusMap[camera.id] ? 'ONLINE' : 'OFFLINE'}`);
+          // Check if response has the expected structure
+          if (statusResponse && typeof statusResponse.state === 'string') {
+            statusMap[camera.id] = statusResponse.state === "Active";
+            console.log(`✅ Camera ${camera.id}: ${statusMap[camera.id] ? 'ONLINE' : 'OFFLINE'}`);
+          } else {
+            console.warn(`⚠️ Invalid response for camera ${camera.id}:`, statusResponse);
+            statusMap[camera.id] = false;
+          }
         } catch (err) {
           console.error(`❌ Failed to check camera ${camera.id}:`, err);
           statusMap[camera.id] = false;
         }
       }
-      
+
       setCameraOnlineStatus(statusMap);
       setCameras(
-        backendCameras.map(cam => 
+        backendCameras.map(cam =>
           mapBackendToFrontendCamera(cam, statusMap[cam.id])
         )
       );

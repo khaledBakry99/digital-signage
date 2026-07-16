@@ -56,8 +56,8 @@ const cameraNavItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { advertisements } = useAdvertisements();
-  const { cameras } = useCameras();
+  const { advertisements, loading: adsLoading } = useAdvertisements();
+  const { cameras, loading: camerasLoading } = useCameras();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -166,30 +166,72 @@ export default function Sidebar() {
       {/* Quick Stats */}
       <div className={`p-4 border-b border-white/5 ${isCollapsed ? "px-2" : ""}`}>
         <div className={`flex gap-2 items-stretch ${isCollapsed ? "flex-col" : ""}`}>
-          {quickStats.map((stat) => (
-            <div
-              key={stat.fullLabel}
-              className={`group relative rounded-xl transition-all duration-300 hover:scale-105 cursor-default ${isCollapsed ? "w-full px-2 py-3 text-center" : "flex-1 px-3 py-3"
-                }`}
-              style={{
-                background: `linear-gradient(135deg, ${stat.color}12, ${stat.color}05)`,
-                border: `1px solid ${stat.color}25`,
-              }}
-              title={`${stat.fullLabel}: ${stat.value}`}
-            >
+          {adsLoading || camerasLoading ? (
+            // Skeleton loading state
+            <>
               <div
-                className={`flex items-center ${isCollapsed ? "flex-col gap-1 justify-center" : "gap-2 justify-between"
+                className={`group relative rounded-xl ${isCollapsed ? "w-full px-2 py-3 text-center" : "flex-1 px-3 py-3"
                   }`}
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                }}
               >
-                <span className="text-lg font-bold leading-none" style={{ color: stat.color }}>
-                  {stat.value}
-                </span>
-                {!isCollapsed && (
-                  <span className="text-[10px] text-slate-400 leading-none">{stat.label}</span>
-                )}
+                <div
+                  className={`flex items-center ${isCollapsed ? "flex-col gap-1 justify-center" : "gap-2 justify-between"
+                    }`}
+                >
+                  <div className="w-6 h-6 bg-white/10 rounded animate-pulse" />
+                  {!isCollapsed && (
+                    <div className="w-8 h-2 bg-white/10 rounded animate-pulse" />
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+              <div
+                className={`group relative rounded-xl ${isCollapsed ? "w-full px-2 py-3 text-center" : "flex-1 px-3 py-3"
+                  }`}
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                }}
+              >
+                <div
+                  className={`flex items-center ${isCollapsed ? "flex-col gap-1 justify-center" : "gap-2 justify-between"
+                    }`}
+                >
+                  <div className="w-6 h-6 bg-white/10 rounded animate-pulse" />
+                  {!isCollapsed && (
+                    <div className="w-8 h-2 bg-white/10 rounded animate-pulse" />
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            quickStats.map((stat) => (
+              <div
+                key={stat.fullLabel}
+                className={`group relative rounded-xl transition-all duration-300 hover:scale-105 cursor-default ${isCollapsed ? "w-full px-2 py-3 text-center" : "flex-1 px-3 py-3"
+                  }`}
+                style={{
+                  background: `linear-gradient(135deg, ${stat.color}12, ${stat.color}05)`,
+                  border: `1px solid ${stat.color}25`,
+                }}
+                title={`${stat.fullLabel}: ${stat.value}`}
+              >
+                <div
+                  className={`flex items-center ${isCollapsed ? "flex-col gap-1 justify-center" : "gap-2 justify-between"
+                    }`}
+                >
+                  <span className="text-lg font-bold leading-none" style={{ color: stat.color }}>
+                    {stat.value}
+                  </span>
+                  {!isCollapsed && (
+                    <span className="text-[10px] text-slate-400 leading-none">{stat.label}</span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

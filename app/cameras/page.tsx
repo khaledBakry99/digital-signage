@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useCameras } from "@/lib/cameras/hooks/useCameras";
 import { useTheme } from "@/lib/context/ThemeContext";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { dashboardApi, type Subscription } from "@/lib/api";
 import { CameraGrid } from "@/components/cameras/CameraGrid";
 import { CameraGridSkeleton } from "@/components/cameras/CameraGridSkeleton";
 import { CameraForm } from "@/components/cameras/CameraForm";
@@ -19,13 +21,16 @@ export default function CamerasPage() {
     deleteCamera,
   } = useCameras();
   const { theme } = useTheme();
+  const { clientId, loading: authLoading } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [editingCamera, setEditingCamera] = useState<string | null>(null);
   const [deletingCamera, setDeletingCamera] = useState<Camera | null>(null);
   const [openCameraTabs, setOpenCameraTabs] = useState<Set<number>>(new Set());
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const isLightTheme = theme === "light";
   const activeCameras = cameras.filter((c) => c.status === "connected").length;
   const statsLoaded = !loading;
+  const maxCameras = subscription?.maxCameras ?? 4;
 
   /**
    * ✅ تتبع تبويبات الكاميرات المفتوحة
@@ -56,6 +61,25 @@ export default function CamerasPage() {
       clearInterval(interval);
     };
   }, []);
+
+  // جلب بيانات الاشتراك للحصول على الحد الأقصى للكاميرات
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      try {
+        const targetClientId = clientId || 1;
+        const data = await dashboardApi.getSubscriptions(targetClientId);
+        if (data && data.length > 0) {
+          setSubscription(data[0]);
+        }
+      } catch (err) {
+        console.error("فشل جلب بيانات الاشتراك:", err);
+      }
+    };
+
+    if (!authLoading) {
+      fetchSubscription();
+    }
+  }, [clientId, authLoading]);
 
   const handleAddCamera = async (data: {
     name: string;
@@ -178,7 +202,7 @@ export default function CamerasPage() {
                 <div className={`h-8 w-16 rounded animate-pulse ml-auto ${isLightTheme ? "bg-slate-200/60" : "bg-slate-800/40"}`} />
               </div>
             )}
-            {cameras.length < 4 && !showForm && (
+            {cameras.length < maxCameras && !showForm && (
               <button
                 onClick={() => setShowForm(true)}
                 className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-semibold transition-all shadow-lg ${isLightTheme ? "text-white bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-[0_18px_40px_rgba(79,70,229,0.25)] hover:-translate-y-0.5" : "text-white bg-gradient-to-r from-indigo-500 to-purple-500 shadow-indigo-500/30"}`}
@@ -242,6 +266,7 @@ export default function CamerasPage() {
           onEdit={handleEditCamera}
           onDelete={handleDeleteCamera}
           openCameraTabs={openCameraTabs}
+          maxCameras={maxCameras}
         />
       ) : (
         <div className="glass p-16 text-center animate-fade-in">

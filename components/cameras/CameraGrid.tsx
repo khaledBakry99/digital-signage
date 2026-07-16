@@ -14,6 +14,7 @@ interface CameraGridProps {
   onDelete?: (camera: Camera) => void;
   onAdd?: () => void;
   openCameraTabs?: Set<number>;
+  maxCameras?: number;
 }
 
 export function CameraGrid({
@@ -22,6 +23,7 @@ export function CameraGrid({
   onDelete,
   onAdd,
   openCameraTabs,
+  maxCameras,
 }: CameraGridProps) {
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
@@ -56,12 +58,13 @@ export function CameraGrid({
 
     registerOpenCameraTab(cameraId);
     toggleActivating(cameraId, true);
-    
+
     // ✅ لا نستدعي activate - الـ heartbeat من CameraPlayer سيجعلها netshe
     setTimeout(() => toggleActivating(cameraId, false), 1000);
   };
 
-  const canAddMore = cameras.length < MAX_CAMERAS;
+  const actualMaxCameras = maxCameras ?? MAX_CAMERAS;
+  const canAddMore = cameras.length < actualMaxCameras;
 
   return (
     <div>
@@ -154,9 +157,12 @@ export function CameraGrid({
 
       {/* Max cameras reached message */}
       {!canAddMore && (
-        <div className="mt-6 p-4 bg-yellow-500/5 border border-yellow-500/10 rounded-xl">
-          <p className="text-yellow-400 text-sm text-right">
-            تم الوصول للحد الأقصى من الكاميرات ({MAX_CAMERAS}). احذف كاميرا
+        <div className={`mt-6 p-4 rounded-xl ${isLightTheme
+          ? "bg-amber-50 border border-amber-200"
+          : "bg-yellow-500/5 border border-yellow-500/10"
+          }`}>
+          <p className={`text-sm text-right ${isLightTheme ? "text-amber-700" : "text-yellow-400"}`}>
+            تم الوصول للحد الأقصى من الكاميرات ({actualMaxCameras}). احذف كاميرا
             لإضافة واحدة جديدة.
           </p>
         </div>
