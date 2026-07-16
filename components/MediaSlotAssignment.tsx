@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "@/lib/context/ThemeContext";
+import { mediaAssetApi } from "@/lib/api/mediaAsset.api";
+import { screenApi } from "@/lib/api/screen.api";
 import type { MediaSlot, MediaSlotInfo, ScreenMediaSlots } from "@/lib/types/screen";
+import type { MediaAsset } from "@/lib/types/mediaAsset";
 
 interface MediaSlotAssignmentProps {
   screenId: number;
@@ -90,6 +93,52 @@ export default function MediaSlotAssignment({ screenId, clientId, currentSlots }
   const isLoading = !currentSlots;
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
+  const [editingSlot, setEditingSlot] = useState<MediaSlot | null>(null);
+  const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
+  const [mediaAssetsLoading, setMediaAssetsLoading] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+
+  // Fetch media assets when modal opens
+  useEffect(() => {
+    if (editingSlot && clientId) {
+      const fetchMediaAssets = async () => {
+        try {
+          setMediaAssetsLoading(true);
+          const assets = await mediaAssetApi.getAll({ clientId });
+          setMediaAssets(assets);
+        } catch (err) {
+          console.error("Failed to fetch media assets:", err);
+        } finally {
+          setMediaAssetsLoading(false);
+        }
+      };
+      fetchMediaAssets();
+    }
+  }, [editingSlot, clientId]);
+
+  const handleEditSlot = (slot: MediaSlot) => {
+    setEditingSlot(slot);
+  };
+
+  const handleCloseModal = () => {
+    setEditingSlot(null);
+    setMediaAssets([]);
+  };
+
+  const handleAssignMedia = async (mediaAssetId: number) => {
+    if (!editingSlot) return;
+    try {
+      setAssigning(true);
+      await screenApi.assignMediaSlot(screenId, editingSlot, mediaAssetId);
+      // Refresh the data by calling the parent's refresh function
+      window.location.reload();
+    } catch (err) {
+      console.error("Failed to assign media:", err);
+    } finally {
+      setAssigning(false);
+      handleCloseModal();
+    }
+  };
 
   const getSlotMedia = (slot: MediaSlot) => {
     if (!currentSlots) return null;
@@ -327,10 +376,18 @@ export default function MediaSlotAssignment({ screenId, clientId, currentSlots }
                       {slotMedia.mediaAssetType === "Image" ? "Image" : "Video"}
                     </span>
                   )}
-                  <div className="opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0">
-
-
-                  </div>
+                  <button
+                    onClick={() => handleEditSlot(slot)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 shadow-md ${isLightTheme
+                      ? SLOT_THEMES[slot].typeBadgeLight
+                      : SLOT_THEMES[slot].typeBadgeDark
+                      }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    تعديل
+                  </button>
                 </div>
               </div>
             </div>
@@ -358,6 +415,132 @@ export default function MediaSlotAssignment({ screenId, clientId, currentSlots }
             <p className={`text-xs mt-0.5 ${isLightTheme ? "text-amber-600" : "text-amber-500/70"}`}>
               يجب تخصيص وسائط لجميع فئات الجمهور لضمان أفضل أداء للتحليل الذكي.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Media Selection Modal */}
+      {editingSlot && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{
+            backdropFilter: "blur(18px)",
+            background: isLightTheme ? "rgba(248,250,252,0.8)" : "rgba(3,7,18,0.75)",
+          }}
+        >
+          <div
+            className={`w-full max-w-2xl max-h-[80vh] rounded-[28px] p-6 animate-fade-in border overflow-hidden flex flex-col ${isLightTheme
+              ? "border-white/70 shadow-[0_25px_70px_rgba(15,23,42,0.15)]"
+              : "border-white/5"
+              }`}
+            style={
+              isLightTheme
+                ? {
+                  background: "linear-gradient(150deg, rgba(255,255,255,0.95), rgba(235,242,255,0.92))",
+                }
+                : {
+                  background: "linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95))",
+                  boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+                }
+            }
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className={`text-xl font-bold ${isLightTheme ? "text-slate-900" : "text-white"}`}>
+                اختيار إعلان لـ {SLOT_LABELS[editingSlot].ar}
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className={`p-2 rounded-xl transition-all ${isLightTheme
+                  ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  : "bg-white/10 text-white/60 hover:bg-white/20"
+                  }`}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto mb-6">
+              {mediaAssetsLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className={`h-20 rounded-xl ${isLightTheme ? "bg-slate-200/60" : "bg-white/5"} animate-pulse`} />
+                  ))}
+                </div>
+              ) : mediaAssets.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className={isLightTheme ? "text-slate-500" : "text-white/40"}>
+                    لا توجد إعلانات متاحة
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {mediaAssets.map((asset) => (
+                    <button
+                      key={asset.id}
+                      onClick={() => handleAssignMedia(asset.id)}
+                      disabled={assigning}
+                      className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:scale-[1.02] ${isLightTheme
+                        ? "bg-white/80 border-slate-200 hover:border-indigo-300 hover:shadow-md"
+                        : "bg-white/5 border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/10"
+                        } ${assigning ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                        {asset.type === "Video" ? (
+                          <div className={`w-full h-full flex items-center justify-center ${isLightTheme ? "bg-fuchsia-100" : "bg-fuchsia-500/20"}`}>
+                            <svg className="w-6 h-6 text-fuchsia-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        ) : (
+                          <img
+                            src={asset.url}
+                            alt={asset.name}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1 text-right">
+                        <p className={`font-semibold ${isLightTheme ? "text-slate-900" : "text-white"}`}>
+                          {asset.name}
+                        </p>
+                        <p className={`text-sm ${isLightTheme ? "text-slate-500" : "text-white/60"}`}>
+                          {asset.description || "بدون وصف"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${asset.type === "Image"
+                          ? isLightTheme
+                            ? "bg-blue-100 text-blue-600"
+                            : "bg-blue-500/20 text-blue-300"
+                          : isLightTheme
+                            ? "bg-fuchsia-100 text-fuchsia-600"
+                            : "bg-fuchsia-500/20 text-fuchsia-300"
+                          }`}>
+                          {asset.type === "Image" ? "صورة" : "فيديو"}
+                        </span>
+                        <svg className={`w-5 h-5 ${isLightTheme ? "text-indigo-500" : "text-indigo-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={handleCloseModal}
+                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${isLightTheme
+                  ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  : "bg-white/10 text-white/70 hover:bg-white/20"
+                  }`}
+              >
+                إلغاء
+              </button>
+            </div>
           </div>
         </div>
       )}

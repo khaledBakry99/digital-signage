@@ -93,7 +93,7 @@ export default function ActiveScenarioIndicator({
       return campaignName || "حملة مجدولة";
     }
     if (scenario === "ai") {
-      return cameraName ? `الكاميرا ${cameraName}` : "عبر الكاميرا";
+      return cameraName ? `الكاميرا: ${cameraName}` : "عبر الكاميرا";
     }
     return "محتوى محدد مسبقاً";
   };

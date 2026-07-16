@@ -120,11 +120,18 @@ export default function CurrentMediaDisplay({
   const fetchCurrentMedia = async () => {
     try {
       const data = await screenApi.getCurrentMedia(screenId);
-      setCurrentMedia(data);
-      setLastUpdated(new Date());
+      if (data && typeof data === 'object') {
+        setCurrentMedia(data);
+        setLastUpdated(new Date());
+      } else {
+        console.warn("Invalid or empty current media response:", data);
+        setCurrentMedia(null);
+      }
       setLoading(false);
     } catch (err) {
-      console.error("Failed to fetch current media:", err);
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      console.error("Failed to fetch current media:", errorMessage, err);
+      setCurrentMedia(null);
       setLoading(false);
     }
   };

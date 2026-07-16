@@ -1,10 +1,11 @@
 "use client";
 
-import { use } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useScreenAssignment } from "@/lib/hooks/useScreenAssignment";
 import { useTheme } from "@/lib/context/ThemeContext";
+import { cameraApi } from "@/lib/api/camera.api";
 import ActiveScenarioIndicator from "@/components/ActiveScenarioIndicator";
 import CurrentMediaDisplay from "@/components/CurrentMediaDisplay";
 import CampaignAssignmentSection from "@/components/CampaignAssignmentSection";
@@ -22,6 +23,7 @@ export default function ScreenManagePage({ params }: PageProps) {
   const { clientId } = useAuth();
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
+  const [cameraName, setCameraName] = useState<string | null>(null);
 
   const {
     screen,
@@ -40,6 +42,24 @@ export default function ScreenManagePage({ params }: PageProps) {
     refresh,
   } = useScreenAssignment(screenId);
 
+  // Fetch camera name when screen has a camera
+  useEffect(() => {
+    const fetchCameraName = async () => {
+      if (screen?.cameraId) {
+        try {
+          const camera = await cameraApi.getById(screen.cameraId);
+          setCameraName(camera.name);
+        } catch (err) {
+          console.error("Failed to fetch camera name:", err);
+          setCameraName(null);
+        }
+      } else {
+        setCameraName(null);
+      }
+    };
+    fetchCameraName();
+  }, [screen?.cameraId]);
+
   // Determine active scenario
   const getActiveScenario = (): {
     type: ActiveScenarioType;
@@ -52,10 +72,9 @@ export default function ScreenManagePage({ params }: PageProps) {
         campaignName: activeCampaign.campaign.name,
       };
     } else if (screen?.aiEnabled && screen?.cameraEnabled && screen?.cameraId) {
-      // في الحقيقة نحتاج اسم الكاميرا، لكن ليس لدينا هذه البيانات في screen
       return {
         type: "ai",
-        cameraName: `كاميرا #${screen.cameraId}`,
+        cameraName: cameraName || "كاميرا غير معروفة",
       };
     } else {
       return {
