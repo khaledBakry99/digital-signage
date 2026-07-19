@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import type { Campaign, CreateCampaignInput, DayOfWeek } from "@/lib/types/campaign";
+import type { Campaign, CampaignStatus, CreateCampaignInput, DayOfWeek } from "@/lib/types/campaign";
 import { useMediaAssets } from "@/lib/hooks/useMediaAssets";
 
 const DAYS_OF_WEEK: DayOfWeek[] = [
@@ -18,6 +18,8 @@ const DAYS_ARABIC: Record<DayOfWeek, string> = {
   Saturday: 'السبت',
 };
 
+type AllowedFormStatus = Extract<CampaignStatus, "Active" | "Paused" | "Completed">;
+
 interface CampaignFormProps {
   campaign?: Campaign;
   onSubmit: (data: CreateCampaignInput) => void;
@@ -27,14 +29,14 @@ interface CampaignFormProps {
 
 export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }: CampaignFormProps) {
   const { mediaAssets, loading: mediaAssetsLoading } = useMediaAssets();
-  
+
   const [name, setName] = useState(campaign?.name || "");
   const [description, setDescription] = useState(campaign?.description || "");
-  const [status, setStatus] = useState<'Draft' | 'Active' | 'Ready' | 'Scheduled'>(
-    (campaign?.status && ['Draft', 'Active', 'Ready', 'Scheduled'].includes(campaign.status) 
-      ? campaign.status 
-      : 'Draft') as 'Draft' | 'Active' | 'Ready' | 'Scheduled'
-  );
+  const ALLOWED_STATUSES: AllowedFormStatus[] = ['Active', 'Paused', 'Completed'];
+  const initialStatus: AllowedFormStatus = (campaign?.status && ALLOWED_STATUSES.includes(campaign.status as AllowedFormStatus)
+    ? (campaign.status as AllowedFormStatus)
+    : 'Active');
+  const [status, setStatus] = useState<AllowedFormStatus>(initialStatus);
   const [startsAtUtc, setStartsAtUtc] = useState(
     campaign?.startsAtUtc ? new Date(campaign.startsAtUtc).toISOString().slice(0, 10) : ""
   );
@@ -62,22 +64,14 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
 
   const getUtcDateWithCurrentTime = (dateStr: string): string => {
     try {
-      const d = new Date();
-      const parts = dateStr.split('-');
-      const year = Number(parts[0]);
-      const month = Number(parts[1]) - 1;
-      const day = Number(parts[2]);
-      
-      const localDate = new Date(
-        year,
-        month,
-        day,
-        d.getHours(),
-        d.getMinutes(),
-        d.getSeconds(),
-        d.getMilliseconds()
-      );
-      return localDate.toISOString();
+      const [yearStr, monthStr, dayStr] = dateStr.split('-');
+      const year = Number(yearStr);
+      const month = Number(monthStr) - 1;
+      const day = Number(dayStr);
+      if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
+        throw new Error('Invalid date');
+      }
+      return new Date(Date.UTC(year, month, day, 0, 0, 0, 0)).toISOString();
     } catch {
       return new Date(dateStr).toISOString();
     }
@@ -85,13 +79,13 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
 
   const getIsoDateTimeFromTime = (timeStr: string): string => {
     try {
-      const [hours, minutes] = timeStr.split(':');
-      const d = new Date();
-      d.setHours(Number(hours));
-      d.setMinutes(Number(minutes));
-      d.setSeconds(0);
-      d.setMilliseconds(0);
-      return d.toISOString();
+      const [hoursStr, minutesStr] = timeStr.split(':');
+      const hours = Number(hoursStr);
+      const minutes = Number(minutesStr);
+      if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+        throw new Error('Invalid time');
+      }
+      return new Date(Date.UTC(1970, 0, 1, hours, minutes, 0, 0)).toISOString();
     } catch {
       return new Date().toISOString();
     }
@@ -163,18 +157,15 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
           </label>
           <select
             value={status}
-            onChange={(e) => setStatus(e.target.value as 'Draft' | 'Active' | 'Ready' | 'Scheduled')}
+            onChange={(e) => setStatus(e.target.value as AllowedFormStatus)}
             className="input-dark cursor-pointer"
             required
           >
-            <option value="Draft">مسودة (Draft)</option>
-            <option value="Ready">جاهزة (Ready)</option>
-            <option value="Active">نشطة (Active)</option>
-            <option value="Scheduled">مجدولة (Scheduled)</option>
+            <option value="Active">نشطة</option>
+            <option value="Paused">متوقفة مؤقتًا</option>
+            <option value="Completed">مكتملة</option>
           </select>
-          <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-            ⚠️ الحملة لن تعمل إلا إذا كانت في حالة "جاهزة" أو "نشطة"
-          </p>
+
         </div>
 
       </div>

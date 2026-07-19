@@ -13,6 +13,7 @@ import type {
 
 class ScreenApi {
   private basePath = '/api/Screens';
+  private aiControlPath = '/api/screen';
 
   // جلب جميع الشاشات
   async getAll(params?: { clientId?: number }): Promise<Screen[]> {
@@ -69,14 +70,22 @@ class ScreenApi {
     return apiClient.delete<Screen>(`${this.basePath}/${id}/camera`);
   }
 
-  // تفعيل/تعطيل الذكاء الاصطناعي (مع تمرير الحقول المطلوبة)
-  async toggleAI(id: number, aiEnabled: boolean, extraFields?: UpdateScreenInput): Promise<Screen> {
-    const payload: UpdateScreenInput = {
-      ...extraFields,
-      aiEnabled,
-    };
+  // تمكين الذكاء الاصطناعي عبر endpoint مخصص
+  async enableScreenAI(id: number): Promise<Screen> {
+    return apiClient.post<Screen>(`${this.aiControlPath}/enablescreenai/${id}`, {});
+  }
 
-    return this.update(id, payload);
+  // تعطيل الذكاء الاصطناعي عبر endpoint مخصص
+  async disableScreenAI(id: number): Promise<Screen> {
+    return apiClient.post<Screen>(`${this.aiControlPath}/disablescreenai/${id}`, {});
+  }
+
+  // واجهة متوافقة مع الاستدعاءات الحالية
+  async toggleAI(id: number, aiEnabled: boolean, extraFields?: UpdateScreenInput): Promise<Screen> {
+    if (aiEnabled) {
+      return this.enableScreenAI(id);
+    }
+    return this.disableScreenAI(id);
   }
 
   // تعيين إعلان لـ slot معين
@@ -115,6 +124,16 @@ class ScreenApi {
   // تعطيل الشاشة (عند إغلاقها)
   async deactivate(id: number): Promise<Screen> {
     return apiClient.post<Screen>(`${this.basePath}/${id}/deactivate`, {});
+  }
+
+  // جديد: إرسال heartbeat للشاشة (يتم كل 40 ثانية)
+  async sendHeartbeat(id: number): Promise<Screen> {
+    return apiClient.post<Screen>(`${this.basePath}/${id}/heartbeat`, {});
+  }
+
+  // جديد: التحقق من حالة الشاشة (هل هي متصلة أم لا)
+  async checkOnlineStatus(id: number): Promise<{ id: number; connectionStatus: string; lastHeartbeatAtUtc: string }> {
+    return apiClient.post<{ id: number; connectionStatus: string; lastHeartbeatAtUtc: string }>(`${this.basePath}/${id}/screen-online-check`, {});
   }
 }
 

@@ -6,13 +6,15 @@ import AuthGuard from "./AuthGuard";
 import SuperAdminSidebar from "./SuperAdminSidebar";
 import SuperAdminGuard from "./SuperAdminGuard";
 
-// صفحات الشاشات تعمل بدون sidebar (fullscreen)
-const FULLSCREEN_ROUTES = ["/screens/1", "/screens/2", "/screens/3", "/screens/4", "/screens/5"];
+// صفحات الشاشات والكاميرات تعمل بدون sidebar (fullscreen)
+const SCREEN_VIEW_PREFIX = "/screens/";
+const CAMERA_VIEW_PREFIX = "/cameras/";
 const SUPER_ADMIN_PREFIX = "/super-admin";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isFullscreen = FULLSCREEN_ROUTES.some((r) => pathname === r);
+  const isScreenView = pathname?.startsWith(SCREEN_VIEW_PREFIX) && pathname?.split("/").length === 3 && pathname !== "/screens/" && !isNaN(Number(pathname?.split("/")[2])) && !pathname?.includes("/manage");
+  const isCameraView = pathname?.startsWith(CAMERA_VIEW_PREFIX) && pathname?.split("/").length === 3;
   const isLoginPage = pathname === "/login";
   const isSuperAdminRoute = pathname?.startsWith(SUPER_ADMIN_PREFIX);
 
@@ -20,14 +22,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  if (isFullscreen) {
+  if (isScreenView || isCameraView) {
     return <AuthGuard>{children}</AuthGuard>;
   }
 
   if (isSuperAdminRoute) {
     return (
       <SuperAdminGuard>
-        <div className="flex min-h-screen bg-[#0a0e1a]">
+        <div
+          className="flex min-h-screen"
+          style={{ background: "var(--bg-primary)" }}
+        >
           <SuperAdminSidebar />
           <main className="flex-1 overflow-y-auto min-h-screen transition-all duration-500">
             {children}

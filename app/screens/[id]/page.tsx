@@ -38,6 +38,7 @@ export default function ScreenPage() {
   // State management
   const [advertisement, setAdvertisement] = useState<MediaAsset | null>(null);
   const [fallbackAd, setFallbackAd] = useState<MediaAsset | null>(null);
+  const [screenDefaultMediaId, setScreenDefaultMediaId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [signalRConnected, setSignalRConnected] = useState(false);
   const [cameraWarning, setCameraWarning] = useState<boolean>(false);
@@ -110,6 +111,7 @@ export default function ScreenPage() {
       console.log("📋 Campaign ID:", screenData?.currentCampaignId);
 
       setLinkedCameraId(screenData?.cameraId ?? null);
+      setScreenDefaultMediaId(screenData?.defaultMediaAssetId ?? null);
 
       // Load camera settings
       if (screenData?.cameraId) {
@@ -133,11 +135,20 @@ export default function ScreenPage() {
           const campaign = await campaignApi.getById(screenData.currentCampaignId);
           console.log("✅ Campaign loaded:", campaign);
           setCurrentCampaignId(campaign.id);
-          setCampaign(campaign);
-          campaignRef.current = campaign;
-
-          // Use campaign's default media asset as fallback
-          fallbackIds = [campaign.defaultMediaAssetId].filter(Boolean) as number[];
+          const endsAtMs = new Date(campaign.endsAtUtc).getTime();
+          const isCampaignExpired = Number.isFinite(endsAtMs) && endsAtMs <= Date.now();
+          if (isCampaignExpired) {
+            console.warn("⚠️ Campaign has expired; falling back to screen default");
+            setCampaign(null);
+            campaignRef.current = null;
+            setCurrentCampaignId(null);
+            fallbackIds = [screenData?.defaultMediaAssetId].filter(Boolean) as number[];
+          } else {
+            setCampaign(campaign);
+            campaignRef.current = campaign;
+            // Use campaign's default media asset as fallback
+            fallbackIds = [campaign.defaultMediaAssetId].filter(Boolean) as number[];
+          }
         } catch (err) {
           console.error("❌ Failed to load campaign:", err);
           // Fallback to screen's default if campaign fails
@@ -161,6 +172,8 @@ export default function ScreenPage() {
         console.log("✅ Fallback ad loaded:", resolvedFallback.name);
       } else {
         console.warn("⚠️ No fallback ad available");
+        setFallbackAd(null);
+        setAdvertisement(null);
       }
     } catch (err) {
       console.error("❌ Failed to load fallback ad:", err);
@@ -168,6 +181,41 @@ export default function ScreenPage() {
       setLoading(false);
     }
   }, [screenId, resolveFallbackAsset]);
+
+  const switchToScreenFallback = useCallback(async () => {
+    const fallbackIds = [screenDefaultMediaId].filter(Boolean) as number[];
+    const replacement = await resolveFallbackAsset(fallbackIds);
+    setCampaign(null);
+    campaignRef.current = null;
+    setCurrentCampaignId(null);
+    if (replacement) {
+      setFallbackAd(replacement);
+      setAdvertisement((current) => {
+        if (!current || (fallbackAd && current.id === fallbackAd.id)) {
+          return replacement;
+        }
+        return current;
+      });
+    } else {
+      setFallbackAd(null);
+      setAdvertisement((current) => (fallbackAd && current?.id === fallbackAd.id ? null : current));
+    }
+  }, [fallbackAd, resolveFallbackAsset, screenDefaultMediaId]);
+
+  useEffect(() => {
+    if (!campaign) return;
+    const endsAtMs = new Date(campaign.endsAtUtc).getTime();
+    if (!Number.isFinite(endsAtMs)) return;
+    const delay = endsAtMs - Date.now();
+    if (delay <= 0) {
+      switchToScreenFallback();
+      return;
+    }
+    const timer = setTimeout(() => {
+      switchToScreenFallback();
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [campaign, switchToScreenFallback]);
 
   const updateScreenState = useCallback((state: ScreenState) => {
     screenStateRef.current = state;
@@ -253,13 +301,88 @@ export default function ScreenPage() {
   // Activate/deactivate screen
   useEffect(() => {
     screenApi.activate(screenId)
-      .then(() => console.log(`✅ Screen ${screenId} activated`))
+      .then(() => {
+        console.log(`✅ Screen ${screenId} activated`);
+        // تسجيل تبويب الشاشة المفتوح
+        if (typeof window !== "undefined") {
+          const stored = localStorage.getItem("openScreenTabs");
+          let ids: number[] = [];
+          if (stored) {
+            try {
+              ids = JSON.parse(stored);
+            } catch {
+              ids = [];
+            }
+          }
+          if (!ids.includes(screenId)) {
+            ids.push(screenId);
+          }
+          localStorage.setItem("openScreenTabs", JSON.stringify(ids));
+        }
+      })
       .catch((err) => console.error(`❌ Failed to activate screen ${screenId}:`, err));
 
     return () => {
       screenApi.deactivate(screenId)
-        .then(() => console.log(`� Screen ${screenId} deactivated`))
+        .then(() => {
+          console.log(`✅ Screen ${screenId} deactivated`);
+          // إلغاء تسجيل تبويب الشاشة
+          if (typeof window !== "undefined") {
+            const stored = localStorage.getItem("openScreenTabs");
+            let ids: number[] = [];
+            if (stored) {
+              try {
+                ids = JSON.parse(stored);
+              } catch {
+                ids = [];
+              }
+            }
+            ids = ids.filter(id => id !== screenId);
+            localStorage.setItem("openScreenTabs", JSON.stringify(ids));
+          }
+        })
         .catch((err) => console.error(`❌ Failed to deactivate screen ${screenId}:`, err));
+    };
+  }, [screenId]);
+
+  /**
+   * ✅ 🔄 الـ HEARTBEAT يتحكم في حالة الشاشة
+   * + تحديث localStorage للصفحات الأخرى (نفس الجهاز)
+   * + تحديث الخادم مباشرة (للأجهزة المختلفة)
+   */
+  useEffect(() => {
+    if (!screenId || !Number.isFinite(screenId) || screenId <= 0) return;
+
+    console.log(`🔄 بدء heartbeat للشاشة ${screenId}...`);
+
+    // إرسال heartbeat فوراً عند فتح التبويب
+    const sendHeartbeat = async () => {
+      try {
+        await screenApi.sendHeartbeat(screenId);
+        console.log(`✅ heartbeat sent for screen ${screenId}`);
+
+        // 🔄 تحديث localStorage للصفحات الأخرى (نفس الجهاز)
+        if (typeof window !== "undefined") {
+          const timestamp = Date.now().toString();
+          localStorage.setItem(`screen-heartbeat-${screenId}`, timestamp);
+          console.log(`📝 localStorage updated for screen ${screenId}`);
+        }
+      } catch (err) {
+        console.error(`❌ Failed to send heartbeat for screen ${screenId}:`, err);
+      }
+    };
+
+    // إرسال heartbeat أول مرة فوراً
+    sendHeartbeat();
+
+    // ثم تكرار كل 40 ثانية
+    const heartbeatInterval = setInterval(() => {
+      sendHeartbeat();
+    }, 40000); // 40 seconds
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      console.log(`⏹️ إيقاف heartbeat للشاشة ${screenId} - سيصبح OFFLINE بعد 60 ثانية`);
     };
   }, [screenId]);
 

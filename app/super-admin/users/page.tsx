@@ -6,6 +6,7 @@ import LoadingButton from "@/components/LoadingButton";
 import { useSuperAdminUsers } from "@/lib/hooks/useSuperAdminUsers";
 import { useSuperAdminClients } from "@/lib/hooks/useSuperAdminClients";
 import type { CreateManagedUserInput, ManagedUser, SystemUserRole } from "@/lib/types/superAdmin";
+import { useTheme } from "@/lib/context/ThemeContext";
 
 const roles: SystemUserRole[] = ["SuperAdmin", "ClientAdmin", "Operator", "Analyst"];
 
@@ -48,6 +49,7 @@ function UserCardSkeleton() {
 
 export default function SuperAdminUsersPage() {
   const { users, loading, createUser, updateUser } = useSuperAdminUsers();
+  const { theme } = useTheme();
   const { clients } = useSuperAdminClients();
   const [isCreating, setIsCreating] = useState(false);
   const [formMessage, setFormMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -222,18 +224,21 @@ export default function SuperAdminUsersPage() {
 
   return (
     <SuperAdminGuard>
-      <div className="p-8 space-y-8 min-h-screen bg-[#0a0e1a]">
+      <div className={`p-8 space-y-8 min-h-screen ${theme === "light" ? "bg-slate-50" : "bg-[#0a0e1a]"}`}>
         {/* Header Section */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-800/80 via-[#0f1419] to-slate-900/80 border border-white/10 p-6">
+        <div className={`relative overflow-hidden rounded-3xl border p-6 ${theme === "light"
+          ? "bg-gradient-to-br from-white via-slate-50 to-slate-100 border-slate-200"
+          : "bg-gradient-to-br from-slate-800/80 via-[#0f1419] to-slate-900/80 border-white/10"
+          }`}>
           {/* Decorative gradient orbs */}
-          <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-violet-500/10 rounded-full blur-3xl" />
+          <div className={`absolute -top-20 -right-20 w-64 h-64 rounded-full blur-3xl ${theme === "light" ? "bg-indigo-200/30" : "bg-indigo-500/10"}`} />
+          <div className={`absolute -bottom-20 -left-20 w-48 h-48 rounded-full blur-3xl ${theme === "light" ? "bg-violet-200/30" : "bg-violet-500/10"}`} />
 
           <div className="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
             {/* Left Side: Title, Description, Search & Filter */}
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-white mb-2">إدارة مستخدمي المنصة</h1>
-              <p className="text-slate-400 text-sm leading-relaxed max-w-2xl mb-4">
+              <h1 className={`text-3xl font-bold mb-2 ${theme === "light" ? "text-slate-800" : "text-white"}`}>إدارة مستخدمي المنصة</h1>
+              <p className={`text-sm leading-relaxed max-w-2xl mb-4 ${theme === "light" ? "text-slate-600" : "text-slate-400"}`}>
                 من خلال هذه الواجهة يمكنك إدارة حسابات المستخدمين، توزيع الصلاحيات،
                 تفعيل أو تعطيل الحسابات، ومراقبة نشاط المستخدمين في النظام.
               </p>
@@ -241,7 +246,10 @@ export default function SuperAdminUsersPage() {
               <div className="flex flex-row gap-3 items-center">
                 <button
                   onClick={openAddModal}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 text-sm font-medium hover:bg-indigo-500/25 transition-colors whitespace-nowrap"
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors whitespace-nowrap ${theme === "light"
+                    ? "bg-indigo-100 border-indigo-200 text-indigo-700 hover:bg-indigo-200"
+                    : "bg-indigo-500/15 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/25"
+                    }`}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -252,19 +260,22 @@ export default function SuperAdminUsersPage() {
                   <select
                     value={clientFilter}
                     onChange={(e) => setClientFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
-                    className="appearance-none bg-[#1a1f2e] border border-white/[0.08] rounded-xl px-4 pr-10 pl-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors min-w-[160px] cursor-pointer"
+                    className={`appearance-none rounded-xl px-4 pr-10 pl-4 py-2.5 text-sm focus:outline-none transition-colors min-w-[180px] cursor-pointer ${theme === "light"
+                      ? "bg-white border-slate-200 text-slate-700 focus:border-indigo-300"
+                      : "bg-[#1a1f2e] border-white/[0.08] text-white focus:border-indigo-500/50"
+                      }`}
                   >
-                    <option value="all">جميع الشركات/المنشآت</option>
+                    <option value="all">جميع الشركات</option>
                     {clientOptions.map((client) => (
                       <option key={client.value} value={client.value}>{client.label}</option>
                     ))}
                   </select>
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${theme === "light" ? "text-slate-400" : "text-slate-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </div>
                 <div className="relative flex-1 min-w-[280px]" style={{ maxWidth: '380px' }}>
-                  <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 ${theme === "light" ? "text-slate-400" : "text-slate-500"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
@@ -272,7 +283,10 @@ export default function SuperAdminUsersPage() {
                     placeholder="البحث بالاسم أو البريد..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-[#1a1f2e] border border-white/[0.08] rounded-xl pr-10 pl-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                    className={`w-full rounded-xl pr-10 pl-4 py-2.5 text-sm focus:outline-none transition-colors ${theme === "light"
+                      ? "bg-white border-slate-200 text-slate-700 placeholder:text-slate-400 focus:border-indigo-300"
+                      : "bg-[#1a1f2e] border-white/[0.08] text-white placeholder:text-slate-500 focus:border-indigo-500/50"
+                      }`}
                   />
                 </div>
               </div>
@@ -280,33 +294,49 @@ export default function SuperAdminUsersPage() {
 
             {/* Right Side: Stats Card */}
             <div className="w-full lg:w-[280px]">
-              <div className="bg-slate-900/50 rounded-2xl border border-white/5 p-5">
+              <div className={`rounded-2xl border p-5 ${theme === "light"
+                ? "bg-white border-slate-200"
+                : "bg-slate-900/50 border-white/5"
+                }`}>
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className={`w-12 h-12 rounded-xl border flex items-center justify-center ${theme === "light"
+                    ? "bg-indigo-100 border-indigo-200"
+                    : "bg-indigo-500/10 border-indigo-500/20"
+                    }`}>
+                    <svg className={`w-6 h-6 ${theme === "light" ? "text-indigo-600" : "text-indigo-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400">إجمالي المستخدمين</p>
-                    <p className="text-2xl font-bold text-indigo-400">{stats.total}</p>
+                    <p className={`text-xs ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>إجمالي المستخدمين</p>
+                    {loading ? (
+                      <div className={`w-16 h-8 rounded-lg skeleton-shimmer ${theme === "light" ? "bg-slate-200" : "bg-white/5"}`} />
+                    ) : (
+                      <p className={`text-2xl font-bold ${theme === "light" ? "text-indigo-600" : "text-indigo-400"}`}>{stats.total}</p>
+                    )}
                   </div>
                 </div>
-                {loading && users.length === 0 ? (
+                {loading ? (
                   <div className="flex gap-3">
                     {[1, 2].map((i) => (
-                      <div key={i} className="flex-1 h-14 bg-white/5 rounded-lg skeleton-shimmer" />
+                      <div key={i} className={`flex-1 h-14 rounded-lg skeleton-shimmer ${theme === "light" ? "bg-slate-200" : "bg-white/5"}`} />
                     ))}
                   </div>
                 ) : (
                   <div className="flex gap-3 text-sm">
-                    <div className="flex-1 text-center py-3 px-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                      <span className="block text-xl font-bold text-emerald-400">{stats.active}</span>
-                      <span className="text-slate-400 text-xs">نشط</span>
+                    <div className={`flex-1 text-center py-3 px-2 rounded-xl border ${theme === "light"
+                      ? "bg-emerald-50 border-emerald-200"
+                      : "bg-emerald-500/10 border-emerald-500/20"
+                      }`}>
+                      <span className={`block text-xl font-bold ${theme === "light" ? "text-emerald-600" : "text-emerald-400"}`}>{stats.active}</span>
+                      <span className={`text-xs ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>نشط</span>
                     </div>
-                    <div className="flex-1 text-center py-3 px-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
-                      <span className="block text-xl font-bold text-rose-400">{stats.inactive}</span>
-                      <span className="text-slate-400 text-xs">معطل</span>
+                    <div className={`flex-1 text-center py-3 px-2 rounded-xl border ${theme === "light"
+                      ? "bg-rose-50 border-rose-200"
+                      : "bg-rose-500/10 border-rose-500/20"
+                      }`}>
+                      <span className={`block text-xl font-bold ${theme === "light" ? "text-rose-600" : "text-rose-400"}`}>{stats.inactive}</span>
+                      <span className={`text-xs ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>معطل</span>
                     </div>
                   </div>
                 )}
@@ -322,16 +352,16 @@ export default function SuperAdminUsersPage() {
 
           </div>
 
-          {loading && users.length === 0 ? (
+          {loading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] skeleton-shimmer">
-                  <div className="skeleton-avatar w-10 h-10" />
+                <div key={i} className={`flex items-center gap-4 p-4 rounded-xl skeleton-shimmer ${theme === "light" ? "bg-slate-100" : "bg-white/[0.02]"}`}>
+                  <div className={`skeleton-avatar w-10 h-10 ${theme === "light" ? "bg-slate-200" : ""}`} />
                   <div className="flex-1 space-y-2">
-                    <div className="skeleton-line-pro w-32 h-5" />
-                    <div className="skeleton-line-pro w-48 h-4" />
+                    <div className={`skeleton-line-pro w-32 h-5 ${theme === "light" ? "bg-slate-200" : ""}`} />
+                    <div className={`skeleton-line-pro w-48 h-4 ${theme === "light" ? "bg-slate-200" : ""}`} />
                   </div>
-                  <div className="skeleton-line-pro w-24 h-8" />
+                  <div className={`skeleton-line-pro w-24 h-8 ${theme === "light" ? "bg-slate-200" : ""}`} />
                 </div>
               ))}
             </div>
@@ -455,19 +485,25 @@ export default function SuperAdminUsersPage() {
                 setEditingUser(null);
               }}
             />
-            <div className="relative bg-[#0f1419] border border-white/10 rounded-3xl w-full max-w-lg max-h-[90vh] flex flex-col animate-scale-in">
+            <div className={`relative border rounded-3xl w-full max-w-lg max-h-[90vh] flex flex-col animate-scale-in ${theme === "light"
+              ? "bg-white border-slate-200"
+              : "bg-[#0f1419] border-white/10"
+              }`}>
               {/* Modal Header - Fixed */}
-              <div className="flex-shrink-0 p-6 border-b border-white/10">
+              <div className={`flex-shrink-0 p-6 border-b ${theme === "light" ? "border-slate-200" : "border-white/10"}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${theme === "light"
+                      ? "bg-indigo-100 border-indigo-200"
+                      : "bg-gradient-to-br from-indigo-500/20 to-indigo-600/10"
+                      }`}>
+                      <svg className={`w-5 h-5 ${theme === "light" ? "text-indigo-600" : "text-indigo-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-white">{editingUser ? "تعديل المستخدم" : "إضافة مستخدم جديد"}</h3>
-                      <p className="text-sm text-slate-400">{editingUser ? "تحديث بيانات الحساب والصلاحيات" : "إنشاء حساب مع تحديد الصلاحيات"}</p>
+                      <h3 className={`text-xl font-bold ${theme === "light" ? "text-slate-800" : "text-white"}`}>{editingUser ? "تعديل المستخدم" : "إضافة مستخدم جديد"}</h3>
+                      <p className={`text-sm ${theme === "light" ? "text-slate-600" : "text-slate-400"}`}>{editingUser ? "تحديث بيانات الحساب والصلاحيات" : "إنشاء حساب مع تحديد الصلاحيات"}</p>
                     </div>
                   </div>
                   <button
@@ -475,7 +511,10 @@ export default function SuperAdminUsersPage() {
                       setShowModal(false);
                       setEditingUser(null);
                     }}
-                    className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                    className={`p-2 rounded-xl transition-colors ${theme === "light"
+                      ? "hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                      : "hover:bg-white/5 text-slate-400 hover:text-white"
+                      }`}
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -538,7 +577,7 @@ export default function SuperAdminUsersPage() {
                 </div>
 
                 <div>
-                  <label className={`text-xs font-medium mb-1.5 block transition-colors ${fieldErrors.email ? "text-rose-400" : "text-indigo-400/80"}`}>
+                  <label className={`text-xs font-medium mb-1.5 block transition-colors ${fieldErrors.email ? "text-rose-400" : (theme === "light" ? "text-indigo-600" : "text-indigo-400/80")}`}>
                     البريد الإلكتروني <span className="text-rose-400">*</span>
                   </label>
                   <input
@@ -557,7 +596,7 @@ export default function SuperAdminUsersPage() {
 
                 {!editingUser && (
                   <div>
-                    <label className={`text-xs font-medium mb-1.5 block transition-colors ${fieldErrors.password ? "text-rose-400" : "text-indigo-400/80"}`}>
+                    <label className={`text-xs font-medium mb-1.5 block transition-colors ${fieldErrors.password ? "text-rose-400" : (theme === "light" ? "text-indigo-600" : "text-indigo-400/80")}`}>
                       كلمة المرور المؤقتة <span className="text-rose-400">*</span>
                     </label>
                     <div className="relative">
@@ -631,14 +670,17 @@ export default function SuperAdminUsersPage() {
               </div>
 
               {/* Modal Footer - Fixed */}
-              <div className="flex-shrink-0 p-6 border-t border-white/10">
+              <div className={`flex-shrink-0 p-6 border-t ${theme === "light" ? "border-slate-200" : "border-white/10"}`}>
                 <div className="flex gap-3">
                   <button
                     onClick={() => {
                       setShowModal(false);
                       setEditingUser(null);
                     }}
-                    className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-slate-300 font-medium hover:bg-white/10 transition-colors"
+                    className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors ${theme === "light"
+                      ? "bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200"
+                      : "bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10"
+                      }`}
                   >
                     إلغاء
                   </button>

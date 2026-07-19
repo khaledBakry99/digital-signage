@@ -5,6 +5,7 @@ import type { Camera } from "@/lib/types/camera";
 import { useCameraStream } from "@/lib/cameras/hooks/useCameraStream";
 import { useReconnect } from "@/lib/cameras/hooks/useReconnect";
 import { cameraScreenshotService } from "@/lib/services/cameraScreenshotService";
+import { cameraApi } from "@/lib/api";
 
 interface CameraPlayerProps {
   camera: Camera;
@@ -104,6 +105,50 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
     }
   }, [camera, autoStart, startStream, stopStream, startMonitoring, reconnect]);
 
+  /**
+   * ✅ 🔄 الـ HEARTBEAT يتحكم في حالة الكاميرا
+   * + تحديث localStorage للصفحات الأخرى (نفس الجهاز)
+   * + تحديث الخادم مباشرة (للأجهزة المختلفة)
+   */
+  useEffect(() => {
+    if (!autoStart) return;
+
+    const cameraId = Number(camera.id);
+    if (!Number.isFinite(cameraId) || cameraId <= 0) return;
+
+    console.log(`🔄 بدء heartbeat للكاميرا ${cameraId}...`);
+
+    // إرسال heartbeat فوراً عند فتح التبويب
+    const sendHeartbeat = async () => {
+      try {
+        await cameraApi.sendHeartbeat(cameraId);
+        console.log(`✅ heartbeat sent for camera ${cameraId}`);
+        
+        // 🔄 تحديث localStorage للصفحات الأخرى (نفس الجهاز)
+        if (typeof window !== "undefined") {
+          const timestamp = Date.now().toString();
+          localStorage.setItem(`camera-heartbeat-${cameraId}`, timestamp);
+          console.log(`📝 localStorage updated for camera ${cameraId}`);
+        }
+      } catch (err) {
+        console.error(`❌ Failed to send heartbeat for camera ${cameraId}:`, err);
+      }
+    };
+
+    // إرسال heartbeat أول مرة فوراً
+    sendHeartbeat();
+
+    // ثم تكرار كل 40 ثانية
+    const heartbeatInterval = setInterval(() => {
+      sendHeartbeat();
+    }, 40000); // 40 seconds
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      console.log(`⏹️ إيقاف heartbeat للكاميرا ${cameraId} - سيصبح INACTIVE بعد 60 ثانية`);
+    };
+  }, [camera.id, autoStart]);
+
   const handleFullscreen = () => {
     const element = videoRef.current || imgRef.current;
     if (!element) return;
@@ -156,9 +201,9 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
       {/* Loading Overlay */}
       {isConnecting && (
         <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
-          <div className="text-center text-white">
+          <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-            <p>جاري الاتصال بالكاميرا...</p>
+            <p style={{ color: '#ffffff' }}>جاري الاتصال بالكاميرا...</p>
           </div>
         </div>
       )}
@@ -210,7 +255,7 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
         <div className="absolute bottom-4 right-4 flex gap-2">
           <button
             onClick={handleFullscreen}
-            className="bg-black bg-opacity-50 text-white p-3 rounded-lg hover:bg-opacity-70 transition-colors"
+            className="bg-black text-gray-400 p-3 rounded-lg hover:bg-gray-900 transition-colors"
             title="ملء الشاشة"
           >
             <svg
@@ -227,33 +272,15 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
               />
             </svg>
           </button>
-
-          <button
-            onClick={handleManualReconnect}
-            className="bg-black bg-opacity-50 text-white p-3 rounded-lg hover:bg-opacity-70 transition-colors"
-            title="إعادة الاتصال"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          </button>
         </div>
       )}
 
       {/* Camera Info */}
-      <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
-        <p className="font-semibold">{camera.name}</p>
-        <p className="text-xs text-gray-300">{camera.settings.resolution}</p>
+      <div className="absolute top-4 right-4 z-100">
+        <div className="relative inline-flex items-center gap-3 bg-black/60 backdrop-blur-md border border-white/20 px-4 py-2 rounded-full shadow-lg">
+          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse " />
+          <p className="font-medium text-s tracking-wide" style={{ color: '#ffffff' }}>{camera.name}</p>
+        </div>
       </div>
     </div>
   );

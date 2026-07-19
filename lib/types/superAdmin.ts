@@ -43,6 +43,7 @@ export interface ManagedClient {
   isActive: boolean;
   isAiEnabled: boolean;
   maxScreens: number;
+  maxCameras: number;
   retentionDays: number;
   deactivationReason?: string | null;
   createdAtUtc: string;
@@ -54,6 +55,7 @@ export interface CreateClientInput {
   city: string;
   isAiEnabled: boolean;
   maxScreens: number;
+  maxCameras: number;
   retentionDays: number;
 }
 
@@ -64,9 +66,54 @@ export interface UpdateClientInput {
   isActive: boolean;
   isAiEnabled: boolean;
   maxScreens: number;
+  maxCameras: number;
   retentionDays: number;
 }
 
 export interface DeactivateClientInput {
   reason: string;
+}
+
+// Subscription types
+export type SubscriptionStatus = 'Draft' | 'Active' | 'Expired' | 'Cancelled';
+
+export interface Subscription {
+  id: number;
+  clientId: number;
+  planName: string;
+  startsAtUtc: string;
+  endsAtUtc: string;
+  status: SubscriptionStatus;
+  maxScreens: number;
+  maxCameras: number;
+  autoRenew: boolean;
+}
+
+export interface CreateSubscriptionInput {
+  clientId: number;
+  planName: string;
+  startsAtUtc: string;
+  endsAtUtc: string;
+  status: SubscriptionStatus;
+  maxScreens: number;
+  maxCameras: number;
+  autoRenew: boolean;
+}
+
+export interface UpdateSubscriptionInput {
+  planName?: string;
+  startsAtUtc?: string;
+  endsAtUtc?: string;
+  status?: SubscriptionStatus;
+  maxScreens?: number;
+  maxCameras?: number;
+  autoRenew?: boolean;
+}
+
+export interface RenewSubscriptionInput {
+  durationInDays: number;
+}
+
+export interface RenewSubscriptionDateInput {
+  endsAtUtc: string;
 }

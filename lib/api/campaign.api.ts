@@ -29,6 +29,21 @@ class CampaignApi {
   async delete(id: number): Promise<void> {
     return apiClient.delete<void>(`${this.basePath}/${id}`);
   }
+
+  // Activate campaign
+  async activate(id: number): Promise<Campaign> {
+    return apiClient.post<Campaign>(`${this.basePath}/${id}/activate`);
+  }
+
+  // Pause campaign
+  async pause(id: number): Promise<Campaign> {
+    return apiClient.post<Campaign>(`${this.basePath}/${id}/pause`);
+  }
+
+  // Complete campaign
+  async complete(id: number): Promise<Campaign> {
+    return apiClient.post<Campaign>(`${this.basePath}/${id}/complete`);
+  }
 }
 
 export const campaignApi = new CampaignApi();

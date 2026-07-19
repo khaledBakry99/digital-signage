@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { dashboardApi, type ClientDashboardStats } from "@/lib/api";
-import { useScreens } from "@/lib/hooks/useScreens";
+import { dashboardApi, cameraApi, type ClientDashboardStats, type Subscription } from "@/lib/api";
+import { useScreensWithHeartbeat } from "@/lib/hooks/useScreensWithHeartbeat";
+import { useTheme } from "@/lib/context/ThemeContext";
+import ScreenStatusDisplay from "@/components/ScreenStatusDisplay";
 
 function ModernStatCard({
   label,
@@ -50,69 +52,107 @@ function ModernStatCard({
   );
 }
 
-function ActionPill({
-  label,
-  desc,
-  color,
-  icon,
-  onClick,
-  index = 0,
-}: {
-  label: string;
-  desc: string;
-  color: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-  index?: number;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="group relative overflow-hidden rounded-2xl bg-slate-800/30 border border-white/5 p-5 text-right w-full hover:border-white/10 transition-all duration-300"
-      style={{ animationDelay: `${index * 80}ms` }}
-    >
-      <div
-        className="absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-0 group-hover:opacity-30 transition-opacity duration-500 blur-2xl"
-        style={{ background: color }}
-      />
-      <div className="flex items-center gap-4">
-        <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110"
-          style={{
-            background: `linear-gradient(135deg, ${color}15, ${color}05)`,
-            border: `1px solid ${color}25`,
-          }}
-        >
-          <span style={{ color }}>{icon}</span>
-        </div>
-        <div className="flex-1">
-          <p className="font-semibold text-white text-sm mb-0.5">{label}</p>
-          <p className="text-xs text-slate-400">{desc}</p>
-        </div>
-        <svg
-          className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-      </div>
-    </button>
-  );
-}
-
 export default function Home() {
   const router = useRouter();
   const { clientId, loading: authLoading } = useAuth();
-  const { screens, loading: screensLoading } = useScreens(clientId);
+  const { screens, loading: screensLoading, openScreenTabs } = useScreensWithHeartbeat(clientId);
   const [stats, setStats] = useState<ClientDashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [cameras, setCameras] = useState<any[]>([]);
+  const [camerasLoading, setCamerasLoading] = useState(true);
+  const { theme } = useTheme();
+  const isLightTheme = theme === "light";
+
+  const heroSectionClass = isLightTheme
+    ? "relative overflow-hidden rounded-3xl p-8 mb-10 border border-white/10 shadow-[0_25px_60px_rgba(15,23,42,0.12)]"
+    : "relative overflow-hidden rounded-3xl bg-gradient-to-l from-indigo-600/10 via-slate-800/20 to-transparent p-8 mb-10 border border-white/5";
+
+  const heroSectionStyle = isLightTheme
+    ? {
+      background: "linear-gradient(135deg, rgba(255,255,255,0.72), rgba(196,210,255,0.85))",
+      backdropFilter: "blur(24px)",
+    }
+    : undefined;
+
+  const miniWrapperClass = isLightTheme
+    ? "flex items-center gap-2 rounded-2xl p-1.5 border border-white/40 shadow-lg"
+    : "flex items-center gap-2 bg-slate-900/50 backdrop-blur-md rounded-2xl p-1.5 border border-slate-700/50 shadow-lg";
+
+  const miniWrapperStyle = isLightTheme
+    ? { background: "rgba(255,255,255,0.55)", backdropFilter: "blur(18px)" }
+    : undefined;
+
+  const miniChipClass = isLightTheme
+    ? "flex items-center gap-3 px-4 py-2.5 rounded-xl"
+    : "flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 rounded-xl";
+
+  const miniChipStyle = isLightTheme ? { background: "rgba(255,255,255,0.45)" } : undefined;
+  const miniChipLoadingStyle = isLightTheme ? { background: "rgba(255,255,255,0.4)" } : undefined;
+
+  const criticalSectionClass = isLightTheme
+    ? "lg:col-span-1 rounded-2xl p-5 shadow-[0_20px_55px_rgba(244,63,94,0.15)]"
+    : "lg:col-span-1 rounded-2xl bg-gradient-to-br from-rose-500/5 to-slate-800/30 border border-rose-500/10 p-5";
+
+  const criticalSectionStyle = isLightTheme
+    ? {
+      background: "linear-gradient(140deg, rgba(255,219,226,0.7), rgba(255,255,255,0.45))",
+      border: "1px solid rgba(244,114,182,0.3)",
+      backdropFilter: "blur(18px)",
+    }
+    : undefined;
+
+  const criticalCardStyle = isLightTheme
+    ? {
+      background: "rgba(255,255,255,0.55)",
+      border: "1px solid rgba(244,114,182,0.25)",
+      backdropFilter: "blur(16px)",
+    }
+    : undefined;
+
+  const campaignSectionClass = isLightTheme
+    ? "lg:col-span-2 rounded-2xl p-5 shadow-[0_20px_55px_rgba(99,102,241,0.18)]"
+    : "lg:col-span-2 rounded-2xl bg-gradient-to-br from-violet-500/5 to-slate-800/30 border border-violet-500/10 p-5";
+
+  const campaignSectionStyle = isLightTheme
+    ? {
+      background: "linear-gradient(140deg, rgba(209,219,255,0.8), rgba(255,255,255,0.5))",
+      border: "1px solid rgba(129,140,248,0.35)",
+      backdropFilter: "blur(18px)",
+    }
+    : undefined;
+
+  const campaignCardStyle = isLightTheme
+    ? {
+      background: "rgba(255,255,255,0.6)",
+      border: "1px solid rgba(129,140,248,0.25)",
+      backdropFilter: "blur(16px)",
+    }
+    : undefined;
 
   const disconnectedScreens = useMemo(
     () => screens.filter((screen) => screen.connectionStatus !== "Online"),
     [screens],
   );
+
+  // Format date to DD/MM/YYYY
+  const formatDateEnglish = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Calculate remaining days
+  const calculateRemainingDays = (endDateString: string) => {
+    const endDate = new Date(endDateString);
+    const today = new Date();
+    const diffTime = endDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
 
   // جلب إحصائيات لوحة التحكم من الـ API الحقيقي للعميل
   useEffect(() => {
@@ -135,13 +175,62 @@ export default function Home() {
     }
   }, [clientId, authLoading]);
 
+  // جلب بيانات الاشتراك
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      try {
+        setSubscriptionLoading(true);
+        const targetClientId = clientId || 1;
+        const data = await dashboardApi.getSubscriptions(targetClientId);
+        if (data && data.length > 0) {
+          setSubscription(data[0]);
+        }
+      } catch (err) {
+        console.error("فشل جلب بيانات الاشتراك:", err);
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+
+    if (!authLoading) {
+      fetchSubscription();
+    }
+  }, [clientId, authLoading]);
+
+  // جلب بيانات الكاميرات
+  useEffect(() => {
+    const fetchCameras = async () => {
+      try {
+        setCamerasLoading(true);
+        const targetClientId = clientId || 1;
+        const data = await cameraApi.getAll({ clientId: targetClientId });
+        setCameras(data);
+      } catch (err) {
+        console.error("فشل جلب بيانات الكاميرات:", err);
+      } finally {
+        setCamerasLoading(false);
+      }
+    };
+
+    if (!authLoading) {
+      fetchCameras();
+    }
+  }, [clientId, authLoading]);
+
   return (
-    <div className="min-h-screen bg-[#0a0e1a] p-8">
+    <div
+      className={`min-h-screen p-8 ${isLightTheme ? "" : "bg-[#0a0e1a]"}`}
+      style={isLightTheme ? { background: "var(--bg-primary)" } : undefined}
+    >
       {/* === HERO HEADER SECTION === */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-l from-indigo-600/10 via-slate-800/20 to-transparent p-8 mb-10 border border-white/5">
+      <section className={heroSectionClass} style={heroSectionStyle}>
         {/* Blur orbs */}
-        <div className="absolute top-0 right-20 w-72 h-72 bg-violet-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
+        <div
+          className={`absolute top-0 right-20 w-72 h-72 rounded-full blur-3xl ${isLightTheme ? "bg-violet-300/40" : "bg-violet-500/20"}`}
+        />
+        <div
+          className={`absolute bottom-0 left-10 w-64 h-64 rounded-full blur-3xl ${isLightTheme ? "bg-cyan-300/25" : "bg-blue-500/10"}`}
+        />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           {/* Title */}
@@ -156,11 +245,12 @@ export default function Home() {
 
           {/* Mini Stats Bar */}
           {statsLoading ? (
-            <div className="flex items-center gap-2 bg-slate-900/50 backdrop-blur-md rounded-2xl p-1.5 border border-slate-700/50 shadow-lg">
+            <div className={miniWrapperClass} style={miniWrapperStyle}>
               {[0, 1].map((idx) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 rounded-xl w-[180px]"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl w-[180px]"
+                  style={miniChipLoadingStyle}
                 >
                   <div className="w-8 h-8 rounded-lg bg-white/5 animate-pulse" />
                   <div className="flex-1 space-y-2">
@@ -171,27 +261,57 @@ export default function Home() {
               ))}
             </div>
           ) : stats ? (
-            <div className="flex items-center gap-2 bg-slate-900/50 backdrop-blur-md rounded-2xl p-1.5 border border-slate-700/50 shadow-lg">
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 rounded-xl">
+            <div className={miniWrapperClass} style={miniWrapperStyle}>
+              <div className={miniChipClass} style={miniChipStyle}>
                 <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/20">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-xl font-bold text-white">{stats.connectedScreens}</span>
-                  <span className="text-sm text-slate-400">من</span>
-                  <span className="text-lg font-semibold text-slate-300">{stats.totalScreens}</span>
-                  <span className="text-xs text-slate-500 mr-1">شاشة نشطة</span>
+                  <span
+                    className={`text-xl font-bold ${isLightTheme ? "" : "text-white"}`}
+                    style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                  >
+                    {stats.connectedScreens}
+                  </span>
+                  <span
+                    className={`text-sm ${isLightTheme ? "" : "text-slate-400"}`}
+                    style={isLightTheme ? { color: "var(--text-secondary)" } : undefined}
+                  >
+                    من
+                  </span>
+                  <span
+                    className={`text-lg font-semibold ${isLightTheme ? "" : "text-slate-300"}`}
+                    style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                  >
+                    {stats.totalScreens}
+                  </span>
+                  <span
+                    className={`text-xs mr-1 ${isLightTheme ? "" : "text-slate-500"}`}
+                    style={isLightTheme ? { color: "var(--text-muted)" } : undefined}
+                  >
+                    شاشة نشطة
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-800/50 rounded-xl">
+              <div className={miniChipClass} style={miniChipStyle}>
                 <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/20">
                   <svg className="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
                   </svg>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-xl font-bold text-white">{stats.activeCampaigns}</span>
-                  <span className="text-xs text-slate-500">حملة نشطة</span>
+                  <span
+                    className={`text-xl font-bold ${isLightTheme ? "" : "text-white"}`}
+                    style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                  >
+                    {stats.activeCampaigns}
+                  </span>
+                  <span
+                    className={`text-xs ${isLightTheme ? "" : "text-slate-500"}`}
+                    style={isLightTheme ? { color: "var(--text-muted)" } : undefined}
+                  >
+                    حملة نشطة
+                  </span>
                 </div>
               </div>
             </div>
@@ -200,7 +320,7 @@ export default function Home() {
       </section>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-10">
         {statsLoading ? (
           // Skeletons while loading
           Array.from({ length: 4 }).map((_, i) => (
@@ -215,9 +335,9 @@ export default function Home() {
         ) : (
           <>
             <ModernStatCard
-              label="إجمالي الشاشات"
-              value={stats?.totalScreens ?? 0}
-              sub={`${stats?.totalScreens ?? 0} شاشات مسجلة`}
+              label="الشاشات المنشأة"
+              value={`${stats?.totalScreens ?? 0}/${subscription?.maxScreens ?? 0}`}
+              sub={`${(subscription?.maxScreens ?? 0) - (stats?.totalScreens ?? 0)} شاشة متبقية للإنشاء`}
               color="#818cf8"
               index={0}
               icon={
@@ -237,10 +357,10 @@ export default function Home() {
               }
             />
             <ModernStatCard
-              label="الشاشات المتصلة"
-              value={stats?.connectedScreens ?? 0}
-              sub={`${stats?.connectedScreens ?? 0} شاشة نشطة ومتصلة`}
-              color="#34d399"
+              label="الكاميرات المنشأة"
+              value={`${cameras.length}/${subscription?.maxCameras ?? 0}`}
+              sub={`${(subscription?.maxCameras ?? 0) - cameras.length} كاميرا متبقية للإنشاء`}
+              color="#10b981"
               index={1}
               icon={
                 <svg
@@ -253,55 +373,108 @@ export default function Home() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={1.8}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
                   />
-                </svg>
-              }
-            />
-            <ModernStatCard
-              label="الشاشات غير المتصلة"
-              value={stats?.disconnectedScreens ?? 0}
-              sub={`${stats?.disconnectedScreens ?? 0} شاشة غير متصلة بالشبكة`}
-              color="#ef4444"
-              index={2}
-              icon={
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={1.8}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
                   />
                 </svg>
               }
             />
-            <ModernStatCard
-              label="الحملات النشطة"
-              value={stats?.activeCampaigns ?? 0}
-              sub={`${stats?.activeCampaigns ?? 0} حملة ترويجية نشطة`}
-              color="#c084fc"
-              index={3}
-              icon={
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.8}
-                    d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
-                  />
-                </svg>
-              }
-            />
+            {subscriptionLoading ? (
+              <div className="lg:col-span-2 rounded-2xl bg-slate-800/40 border border-white/5 p-6 h-28 animate-pulse flex items-center justify-between">
+                <div className="space-y-2.5 w-2/3">
+                  <div className="h-8 bg-white/5 rounded w-1/2" />
+                  <div className="h-4 bg-white/5 rounded w-3/4" />
+                </div>
+                <div className="w-14 h-14 rounded-2xl bg-white/5" />
+              </div>
+            ) : subscription ? (
+              <div
+                className="lg:col-span-2 group relative overflow-hidden rounded-2xl bg-slate-800/40 border border-white/5 p-6 hover:bg-slate-800/60 transition-all duration-500"
+              >
+                <div
+                  className="absolute top-0 left-0 right-0 h-1 opacity-80"
+                  style={{ background: `linear-gradient(90deg, #f59e0b40, #f59e0b)` }}
+                />
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-4xl font-bold text-white mb-1">{calculateRemainingDays(subscription.endsAtUtc)}</p>
+                    <p className="text-sm font-medium text-slate-300">أيام متبقية</p>
+                  </div>
+                  <div
+                    className="w-14 h-14 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
+                    style={{
+                      background: `linear-gradient(135deg, #f59e0b20, #f59e0b08)`,
+                      border: `1px solid #f59e0b30`,
+                    }}
+                  >
+                    <svg className="w-7 h-7" style={{ color: "#f59e0b" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.8}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex items-center gap-6 pt-4 border-t border-white/5">
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-400 mb-1">تاريخ البدء</p>
+                    <p className="text-sm font-semibold text-white">{formatDateEnglish(subscription.startsAtUtc)}</p>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-400 mb-1">تاريخ النهاية</p>
+                    <p className="text-sm font-semibold text-white">{formatDateEnglish(subscription.endsAtUtc)}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="lg:col-span-2 group relative overflow-hidden rounded-2xl bg-slate-800/40 border border-white/5 p-6 hover:bg-slate-800/60 transition-all duration-500"
+              >
+                <div
+                  className="absolute top-0 left-0 right-0 h-1 opacity-80"
+                  style={{ background: `linear-gradient(90deg, #64748b40, #64748b)` }}
+                />
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-4xl font-bold text-white mb-1">—</p>
+                    <p className="text-sm font-medium text-slate-300">أيام متبقية</p>
+                  </div>
+                  <div
+                    className="w-14 h-14 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
+                    style={{
+                      background: `linear-gradient(135deg, #64748b20, #64748b08)`,
+                      border: `1px solid #64748b30`,
+                    }}
+                  >
+                    <svg className="w-7 h-7" style={{ color: "#64748b" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.8}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex items-center gap-6 pt-4 border-t border-white/5">
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-400 mb-1">تاريخ البدء</p>
+                    <p className="text-sm font-semibold text-white">—</p>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-400 mb-1">تاريخ النهاية</p>
+                    <p className="text-sm font-semibold text-white">—</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -309,7 +482,7 @@ export default function Home() {
       {/* Alerts & Campaigns Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
         {/* Critical Alerts */}
-        <section className="lg:col-span-1 rounded-2xl bg-gradient-to-br from-rose-500/5 to-slate-800/30 border border-rose-500/10 p-5">
+        <section className={criticalSectionClass} style={criticalSectionStyle}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center">
@@ -318,11 +491,18 @@ export default function Home() {
                 </svg>
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-white">التنبيهات الحرجة</h2>
+                <h2
+                  className={`text-sm font-semibold ${isLightTheme ? "" : "text-white"}`}
+                  style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                >
+                  التنبيهات الحرجة
+                </h2>
                 {statsLoading ? (
                   <div className="h-3 w-32 bg-white/10 rounded animate-pulse" />
                 ) : (
-                  <p className="text-xs text-rose-400">{stats?.disconnectedScreens ?? 0} شاشات غير متصلة</p>
+                  <p className={`text-xs ${isLightTheme ? "text-rose-500" : "text-rose-400"}`}>
+                    {stats?.disconnectedScreens ?? 0} شاشات غير متصلة
+                  </p>
                 )}
               </div>
             </div>
@@ -333,27 +513,32 @@ export default function Home() {
               Array.from({ length: 3 }).map((_, idx) => (
                 <div
                   key={idx}
-                  className="h-14 rounded-xl bg-slate-900/40 border border-rose-500/10 animate-pulse"
+                  className={`h-14 rounded-xl animate-pulse ${isLightTheme ? "" : "bg-slate-900/40 border border-rose-500/10"
+                    }`}
+                  style={isLightTheme ? { background: "rgba(255,255,255,0.45)", border: "1px solid rgba(244,114,182,0.25)" } : undefined}
                 />
               ))
             ) : disconnectedScreens.length ? (
               disconnectedScreens.slice(0, 3).map((screen) => (
-                <a
+                <div
                   key={screen.id}
-                  href={`/screens/${screen.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/40 border border-rose-500/10 hover:border-rose-500/25 hover:bg-rose-500/5 transition-all group"
+                  className={`flex items-center gap-3 p-3 rounded-xl ${isLightTheme ? "" : "bg-slate-900/40 border border-rose-500/10"
+                    }`}
+                  style={criticalCardStyle}
                 >
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white truncate">{screen.name}</p>
-                    <p className="text-xs text-rose-400/80">غير متصلة</p>
+                    <p
+                      className={`text-sm truncate ${isLightTheme ? "" : "text-white"}`}
+                      style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                    >
+                      {screen.name}
+                    </p>
+                    <p className={`text-xs ${isLightTheme ? "text-rose-500/90" : "text-rose-400/80"}`}>
+                      غير متصلة
+                    </p>
                   </div>
-                  <svg className="w-4 h-4 text-slate-600 group-hover:text-rose-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
+                </div>
               ))
             ) : (
               <div className="text-center py-4">
@@ -369,7 +554,7 @@ export default function Home() {
         </section>
 
         {/* Active Campaigns */}
-        <section className="lg:col-span-2 rounded-2xl bg-gradient-to-br from-violet-500/5 to-slate-800/30 border border-violet-500/10 p-5">
+        <section className={campaignSectionClass} style={campaignSectionStyle}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center">
@@ -378,17 +563,27 @@ export default function Home() {
                 </svg>
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-white">الحملات النشطة</h2>
+                <h2
+                  className={`text-sm font-semibold ${isLightTheme ? "" : "text-white"}`}
+                  style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                >
+                  الحملات النشطة
+                </h2>
                 {statsLoading ? (
                   <div className="h-3 w-32 bg-white/10 rounded animate-pulse" />
                 ) : (
-                  <p className="text-xs text-violet-400">{stats?.activeCampaigns ?? 0} حملة قيد التشغيل</p>
+                  <p className={`text-xs ${isLightTheme ? "text-violet-500" : "text-violet-400"}`}>
+                    {stats?.activeCampaigns ?? 0} حملة قيد التشغيل
+                  </p>
                 )}
               </div>
             </div>
             <button
               onClick={() => router.push("/ads")}
-              className="px-3 py-1.5 text-xs font-medium text-violet-300 bg-violet-500/10 border border-violet-500/20 rounded-lg hover:bg-violet-500/20 transition-colors"
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${isLightTheme
+                ? "text-violet-800 bg-violet-100/10 border border-violet-800/20 hover:bg-violet-500/20"
+                : "text-violet-300 bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20"
+                }`}
             >
               إدارة الإعلانات
             </button>
@@ -397,13 +592,20 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {statsLoading ? (
               Array.from({ length: 3 }).map((_, idx) => (
-                <div key={idx} className="p-4 rounded-xl bg-slate-900/30 border border-violet-500/5 animate-pulse h-32" />
+                <div
+                  key={idx}
+                  className={`p-4 rounded-xl animate-pulse h-32 ${isLightTheme ? "" : "bg-slate-900/30 border border-violet-500/5"
+                    }`}
+                  style={isLightTheme ? { background: "rgba(255,255,255,0.45)", border: "1px solid rgba(129,140,248,0.2)" } : undefined}
+                />
               ))
             ) : stats?.activeCampaigns && stats.activeCampaigns > 0 ? (
               Array.from({ length: Math.min(stats.activeCampaigns, 3) }).map((_, idx) => (
                 <div
                   key={idx}
-                  className="group relative p-4 rounded-xl bg-slate-900/40 border border-violet-500/10 hover:border-violet-500/25 transition-all cursor-pointer"
+                  className={`group relative p-4 rounded-xl transition-all cursor-pointer ${isLightTheme ? "" : "bg-slate-900/40 border border-violet-500/10 hover:border-violet-500/25"
+                    }`}
+                  style={campaignCardStyle}
                   onClick={() => router.push("/ads")}
                 >
                   <div className="flex items-start gap-3">
@@ -413,8 +615,18 @@ export default function Home() {
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">حملة نشطة {idx + 1}</p>
-                      <p className="text-xs text-slate-400">تعرض على {stats?.connectedScreens ?? 0} شاشة</p>
+                      <p
+                        className={`text-sm font-medium truncate ${isLightTheme ? "" : "text-white"}`}
+                        style={isLightTheme ? { color: "var(--text-primary)" } : undefined}
+                      >
+                        حملة نشطة {idx + 1}
+                      </p>
+                      <p
+                        className={`text-xs ${isLightTheme ? "" : "text-slate-400"}`}
+                        style={isLightTheme ? { color: "var(--text-secondary)" } : undefined}
+                      >
+                        تعرض على {stats?.connectedScreens ?? 0} شاشة
+                      </p>
                     </div>
                   </div>
                   <div className="mt-3 flex items-center gap-2">
@@ -425,12 +637,21 @@ export default function Home() {
               ))
             ) : (
               <div className="col-span-full text-center py-6">
-                <div className="w-14 h-14 mx-auto mb-3 rounded-xl bg-slate-800/50 flex items-center justify-center">
+                <div
+                  className={`w-14 h-14 mx-auto mb-3 rounded-xl flex items-center justify-center ${isLightTheme ? "" : "bg-slate-800/50"
+                    }`}
+                  style={isLightTheme ? { background: "rgba(255,255,255,0.5)", border: "1px solid rgba(129,140,248,0.3)" } : undefined}
+                >
                   <svg className="w-7 h-7 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
                   </svg>
                 </div>
-                <p className="text-sm text-slate-400">لا توجد حملات نشطة حالياً</p>
+                <p
+                  className={`text-sm ${isLightTheme ? "" : "text-slate-400"}`}
+                  style={isLightTheme ? { color: "var(--text-secondary)" } : undefined}
+                >
+                  لا توجد حملات نشطة حالياً
+                </p>
                 <button
                   onClick={() => router.push("/ads/new")}
                   className="mt-3 px-4 py-2 text-sm font-medium text-violet-300 bg-violet-500/10 border border-violet-500/20 rounded-xl hover:bg-violet-500/20 transition-colors"
@@ -443,7 +664,7 @@ export default function Home() {
         </section>
       </div>
 
-      {/* Screens Orbs Section - Unique Design */}
+      {/* Screens Status Section - Display Only */}
       <section className="mb-8">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-1 h-8 rounded-full bg-gradient-to-b from-emerald-400 to-teal-500" />
@@ -453,95 +674,7 @@ export default function Home() {
         </div>
 
         <div className="rounded-2xl bg-slate-800/30 border border-white/5 p-8">
-          {screensLoading || statsLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {Array.from({ length: 5 }).map((_, idx) => (
-                <div key={idx} className="h-36 rounded-2xl bg-slate-800/40 border border-white/5 animate-pulse" />
-              ))}
-            </div>
-          ) : screens.length === 0 ? (
-            <div className="text-center py-8 text-slate-400">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-800/50 flex items-center justify-center">
-                <svg className="w-8 h-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <p className="text-sm">لا توجد شاشات مسجلة حالياً</p>
-              <p className="text-xs text-slate-500 mt-1">توجه إلى إدارة الشاشات لإضافة شاشتك الأولى</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {screens.map((screen) => {
-                const isActive = screen.connectionStatus === "Online";
-                return (
-                  <a
-                    key={screen.id}
-                    href={`/screens/${screen.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group relative flex flex-col items-center gap-2 p-4 rounded-2xl bg-slate-800/20 border border-white/5 hover:border-white/10 hover:bg-slate-800/40 transition-all duration-300 hover:-translate-y-1"
-                  >
-                    {/* Screen Orb */}
-                    <div
-                      className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${isActive ? "group-hover:scale-105" : "group-hover:scale-102"}`}
-                      style={{
-                        background: isActive
-                          ? "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05))"
-                          : "linear-gradient(135deg, rgba(100,116,139,0.15), rgba(100,116,139,0.05))",
-                        border: `2px solid ${isActive ? "rgba(16,185,129,0.4)" : "rgba(100,116,139,0.3)"}`,
-                        boxShadow: isActive ? "0 0 25px rgba(16,185,129,0.12)" : "none",
-                      }}
-                    >
-                      {/* Pulse Ring for Active */}
-                      {isActive && (
-                        <span className="absolute inset-[-3px] rounded-full animate-ping opacity-15" style={{ border: "2px solid rgba(16,185,129,0.4)" }} />
-                      )}
-
-                      {/* Inner Circle with ID */}
-                      <div
-                        className="w-11 h-11 rounded-full flex items-center justify-center text-base font-bold transition-all duration-300 group-hover:scale-110"
-                        style={{
-                          background: isActive
-                            ? "linear-gradient(135deg, rgba(16,185,129,0.25), rgba(16,185,129,0.1))"
-                            : "linear-gradient(135deg, rgba(100,116,139,0.2), rgba(100,116,139,0.05))",
-                          color: isActive ? "#34d399" : "#64748b",
-                          border: `1px solid ${isActive ? "rgba(16,185,129,0.3)" : "rgba(100,116,139,0.2)"}`,
-                        }}
-                      >
-                        {screen.id}
-                      </div>
-
-                      {/* Status Indicator Dot */}
-                      <span
-                        className={`absolute bottom-0 w-3.5 h-3.5 rounded-full border-2 border-slate-900 ${isActive ? "bg-emerald-400" : "bg-slate-500"}`}
-                      />
-                    </div>
-
-                    {/* Screen Name - More Visible */}
-                    <div className="w-full text-center">
-                      <p className="text-sm font-semibold text-white text-center leading-tight line-clamp-2 min-h-[2.5rem] flex items-center justify-center">
-                        {screen.name}
-                      </p>
-                    </div>
-
-                    {/* Status Badge */}
-                    <span
-                      className={`text-[11px] px-3 py-1 rounded-full font-medium ${isActive ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" : "bg-slate-500/15 text-slate-400 border border-slate-500/20"}`}
-                    >
-                      {isActive ? "متصل" : "غير متصل"}
-                    </span>
-
-                    {/* New Tab Indicator */}
-                    <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </div>
-                  </a>
-                );
-              })}
-            </div>
-          )}
+          <ScreenStatusDisplay screens={screens} loading={screensLoading || statsLoading} />
         </div>
       </section>
     </div>

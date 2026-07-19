@@ -3,10 +3,11 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { subscriptionsApi } from "@/lib/api/subscriptions.api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -21,6 +22,31 @@ export default function LoginPage() {
     try {
       const result = await login(email, password);
       if (result.success) {
+        // Update expiration status and check subscription for non-SuperAdmin users
+        if (result.user?.role !== "SuperAdmin" && result.user?.clientId) {
+          try {
+            // Update expiration status first to ensure accurate status
+            await subscriptionsApi.updateExpirationStatusByClient(result.user.clientId);
+            // Then load the subscription data
+            const subscription = await subscriptionsApi.getClientSubscription(result.user.clientId);
+            // Check if subscription is expired
+            const now = new Date();
+            const endDate = new Date(subscription.endsAtUtc);
+            const isExpired = endDate < now;
+
+            if (isExpired || subscription.status === "Expired") {
+              // Logout the user since subscription is expired
+              logout();
+              setError("انتهت صلاحية الاشتراك. يرجى التواصل مع المسؤول للتجديد.");
+              setLoading(false);
+              return;
+            }
+          } catch (subError) {
+            // If we can't check subscription, allow login but log the error
+            console.error("Failed to check subscription status:", subError);
+          }
+        }
+
         const destination = result.user?.role === "SuperAdmin" ? "/super-admin" : "/";
         router.push(destination);
       } else {
@@ -47,7 +73,7 @@ export default function LoginPage() {
       <div className="w-full max-w-lg relative">
         {/* Card Glow */}
         <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl opacity-20 blur-lg"></div>
-        
+
         <div className="relative rounded-3xl p-8" style={{
           background: 'linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
           backdropFilter: 'blur(20px)',
@@ -59,7 +85,7 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center mb-5 relative">
               {/* Glow Ring */}
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl blur-xl opacity-40 animate-pulse"></div>
-              
+
               <div className="relative w-20 h-20 rounded-3xl flex items-center justify-center" style={{
                 background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%)',
                 boxShadow: '0 20px 40px rgba(99, 102, 241, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.2)'
@@ -223,7 +249,7 @@ export default function LoginPage() {
               {!loading && (
                 <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
               )}
-              
+
               {loading ? (
                 <div className="flex items-center justify-center gap-3">
                   <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
