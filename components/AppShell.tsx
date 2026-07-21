@@ -5,6 +5,7 @@ import Sidebar from "./Sidebar";
 import AuthGuard from "./AuthGuard";
 import SuperAdminSidebar from "./SuperAdminSidebar";
 import SuperAdminGuard from "./SuperAdminGuard";
+import PoweredBy from "./PoweredBy";
 
 // صفحات الشاشات والكاميرات تعمل بدون sidebar (fullscreen)
 const SCREEN_VIEW_PREFIX = "/screens/";
@@ -23,20 +24,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (isScreenView || isCameraView) {
-    return <AuthGuard>{children}</AuthGuard>;
+    return (
+      <AuthGuard>
+        <div className="relative min-h-screen">
+          {children}
+          <PoweredBy />
+        </div>
+      </AuthGuard>
+    );
   }
 
   if (isSuperAdminRoute) {
     return (
       <SuperAdminGuard>
-        <div
-          className="flex min-h-screen"
-          style={{ background: "var(--bg-primary)" }}
-        >
-          <SuperAdminSidebar />
-          <main className="flex-1 overflow-y-auto min-h-screen transition-all duration-500">
-            {children}
-          </main>
+        <div className="relative min-h-screen" style={{ background: "var(--bg-primary)" }}>
+          <div className="flex min-h-screen">
+            <SuperAdminSidebar />
+            <main className="flex-1 overflow-y-auto min-h-screen transition-all duration-500">
+              {children}
+            </main>
+          </div>
+          <PoweredBy />
         </div>
       </SuperAdminGuard>
     );
@@ -44,21 +52,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthGuard>
-      <div
-        className="flex min-h-screen"
-        style={{
-          background: "var(--bg-primary)",
-          paddingRight: "var(--client-sidebar-width, 280px)",
-          transition: "padding-right 0.35s ease"
-        }}
-      >
-        <Sidebar />
-        <main
-          className="flex-1 overflow-y-auto"
-          style={{ minHeight: "100vh" }}
+      <div className="relative min-h-screen" style={{ background: "var(--bg-primary)" }}>
+        <div
+          className="flex min-h-screen"
+          style={{
+            paddingRight: "var(--client-sidebar-width, 280px)",
+            transition: "padding-right 0.35s ease"
+          }}
         >
-          {children}
-        </main>
+          <Sidebar />
+          <main
+            className="flex-1 overflow-y-auto"
+            style={{ minHeight: "100vh" }}
+          >
+            {children}
+          </main>
+        </div>
+        <PoweredBy />
       </div>
     </AuthGuard>
   );

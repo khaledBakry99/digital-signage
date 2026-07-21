@@ -6,8 +6,8 @@ import CameraTabStateSync from "@/components/CameraTabStateSync";
 import { ThemeProvider } from "@/lib/context/ThemeContext";
 
 export const metadata: Metadata = {
-  title: "نظام إدارة الشاشات الرقمية",
-  description: "Digital Signage Management System",
+  title: "نظام إدارة الشاشات الرقمية Firasah Live",
+  description: "Digital Signage Management System Firasah Live",
 };
 
 export default function RootLayout({
