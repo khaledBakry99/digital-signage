@@ -122,24 +122,20 @@ export default function SuperAdminSidebar() {
         {/* Header Section */}
         <div className={`p-5 border-b border-white/5 ${isCollapsed ? "text-center" : ""}`}>
           {!isCollapsed ? (
-            <>
-              <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 border border-indigo-500/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-indigo-400/80">Smart HQ</p>
-                  <h2 className="text-lg font-bold text-white">Super Admin</h2>
-                </div>
-              </div>
-            </>
+            <div className="flex items-center justify-center">
+              <img
+                src="/logo-midume.png"
+                alt="Firasa Logo"
+                className="h-12 w-auto object-contain"
+              />
+            </div>
           ) : (
-            <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 border border-indigo-500/20 flex items-center justify-center">
-              <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+            <div className="flex flex-col items-center">
+              <img
+                src="/logo-small.png"
+                alt="Firasa Logo"
+                className="h-10 w-auto object-contain"
+              />
             </div>
           )}
         </div>
