@@ -208,8 +208,8 @@ export default function ScreenPlayer({
   useEffect(() => {
     if (isVideo && videoRef.current && resolvedUrl) {
       const videoElement = videoRef.current;
-      videoElement.muted = false;
-      videoElement.volume = 1;
+      videoElement.muted = true;
+      videoElement.volume = 0;
       videoElement.currentTime = 0;
 
       tryPlay(videoElement).catch((err) => {
@@ -342,6 +342,7 @@ export default function ScreenPlayer({
         autoPlay
         loop={shouldLoop}
         playsInline
+        muted
         preload="auto"
         onLoadedMetadata={() => {
           const v = videoRef.current;

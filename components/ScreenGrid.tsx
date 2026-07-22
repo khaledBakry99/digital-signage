@@ -213,9 +213,18 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
       return;
     }
 
-    const newTab = window.open(`/screens/${screenId}`, "_blank");
-    if (!newTab) {
-      console.error("❌ لم يتم فتح تبويب الشاشة - ربما تم منع النوافذ المنبثقة");
+    const width = window.screen.width * 0.8;
+    const height = window.screen.height * 0.8;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+
+    const newWindow = window.open(
+      `/screens/${screenId}`,
+      "_blank",
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
+    if (!newWindow) {
+      console.error("❌ لم يتم فتح نافذة الشاشة - ربما تم منع النوافذ المنبثقة");
       return;
     }
 
@@ -349,8 +358,8 @@ function ScreenCard({
     >
       {/* Live Status Badge */}
       <div className="absolute top-4 left-4 flex items-center gap-2 backdrop-blur-md px-3.5 py-1.5 rounded-full border shadow-lg select-none z-10" style={{
-        background: isLightTheme 
-          ? isActive 
+        background: isLightTheme
+          ? isActive
             ? "rgba(34, 197, 94, 0.15)" // أخضر فاتح للنشط
             : "rgba(239, 68, 68, 0.15)" // أحمر فاتح للخامل
           : "rgba(10, 15, 29, 0.8)",
@@ -358,16 +367,14 @@ function ScreenCard({
           ? isLightTheme ? "1px solid rgba(34, 197, 94, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)"
           : isLightTheme ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)"
       }}>
-        <span className={`w-2 h-2 rounded-full ${
-          isActive 
-            ? "bg-green-500 animate-pulse" 
+        <span className={`w-2 h-2 rounded-full ${isActive
+            ? "bg-green-500 animate-pulse"
             : isLightTheme ? "bg-red-500" : "bg-slate-500"
-        }`} />
-        <span className={`text-[11px] font-bold tracking-wide ${
-          isActive 
+          }`} />
+        <span className={`text-[11px] font-bold tracking-wide ${isActive
             ? isLightTheme ? "text-green-700" : "text-white"
             : isLightTheme ? "text-red-700" : "text-white"
-        }`}>
+          }`}>
           {isActive ? "نشط" : "خامل"}
         </span>
       </div>
@@ -448,9 +455,8 @@ function ScreenCard({
         <button
           onClick={(e) => onOpenScreen(screen.id, e)}
           disabled={isScreenOpen}
-          className={`flex-1 py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100 cursor-pointer hover:scale-105 active:scale-95 ${
-            isScreenOpen ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
-          }`}
+          className={`flex-1 py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100 cursor-pointer hover:scale-105 active:scale-95 ${isScreenOpen ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
+            }`}
           style={{
             background: isScreenOpen
               ? "rgba(100,116,139,0.15)"

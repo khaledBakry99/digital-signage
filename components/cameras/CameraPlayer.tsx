@@ -15,7 +15,6 @@ interface CameraPlayerProps {
 export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const { isPlaying, isConnecting, error, startStream, stopStream, reconnect } =
     useCameraStream(camera);
@@ -123,7 +122,7 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
       try {
         await cameraApi.sendHeartbeat(cameraId);
         console.log(`✅ heartbeat sent for camera ${cameraId}`);
-        
+
         // 🔄 تحديث localStorage للصفحات الأخرى (نفس الجهاز)
         if (typeof window !== "undefined") {
           const timestamp = Date.now().toString();
@@ -149,18 +148,6 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
     };
   }, [camera.id, autoStart]);
 
-  const handleFullscreen = () => {
-    const element = videoRef.current || imgRef.current;
-    if (!element) return;
-
-    if (!isFullscreen) {
-      element.requestFullscreen?.();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.();
-      setIsFullscreen(false);
-    }
-  };
 
   const handleManualReconnect = async () => {
     const element =
@@ -171,6 +158,11 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
     if (element) {
       await reconnect(element);
     }
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
   };
 
   const showVideo =
@@ -186,6 +178,7 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
           autoPlay
           playsInline
           muted
+          onDoubleClick={handleDoubleClick}
         />
       )}
 
@@ -195,6 +188,7 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
           ref={imgRef}
           className="w-full h-full object-contain"
           alt={camera.name}
+          onDoubleClick={handleDoubleClick}
         />
       )}
 
@@ -250,30 +244,6 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
         </div>
       )}
 
-      {/* Controls */}
-      {isPlaying && !error && (
-        <div className="absolute bottom-4 right-4 flex gap-2">
-          <button
-            onClick={handleFullscreen}
-            className="bg-black text-gray-400 p-3 rounded-lg hover:bg-gray-900 transition-colors"
-            title="ملء الشاشة"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-              />
-            </svg>
-          </button>
-        </div>
-      )}
 
       {/* Camera Info */}
       <div className="absolute top-4 right-4 z-100">

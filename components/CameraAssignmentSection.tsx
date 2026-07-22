@@ -42,8 +42,8 @@ export default function CameraAssignmentSection({
   const loadCameras = async () => {
     try {
       setLoading(true);
-      // جلب الكاميرات النشطة فقط
-      const data = await cameraApi.getAll({ clientId, state: "Active" });
+      // جلب جميع الكاميرات (نشطة وغير نشطة)
+      const data = await cameraApi.getAll({ clientId });
       setCameras(data);
     } catch (err) {
       setError(extractApiError(err));
@@ -392,7 +392,7 @@ export default function CameraAssignmentSection({
                 <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p>لا توجد كاميرات نشطة متاحة حالياً</p>
+                <p>لا توجد كاميرات متاحة حالياً</p>
               </div>
             )}
 
@@ -431,18 +431,23 @@ export default function CameraAssignmentSection({
       {showConfirm && (
         <div
           className="fixed inset-0 flex items-center justify-center z-[100] p-4 animate-fade-in"
-          style={{ background: "rgba(3, 7, 18, 0.85)", backdropFilter: "blur(8px)" }}
+          style={{
+            background: isLightTheme ? "rgba(15, 23, 42, 0.6)" : "rgba(3, 7, 18, 0.85)",
+            backdropFilter: "blur(8px)"
+          }}
         >
           <div
-            className="w-full max-w-md rounded-3xl p-7 shadow-2xl animate-scale-in border border-white/10"
+            className={`w-full max-w-md rounded-3xl p-7 shadow-2xl animate-scale-in ${isLightTheme ? "border-slate-200" : "border border-white/10"}`}
             style={{
-              background: "linear-gradient(145deg, #1e293b, #0f172a)",
+              background: isLightTheme
+                ? "linear-gradient(145deg, #ffffff, #f8fafc)"
+                : "linear-gradient(145deg, #1e293b, #0f172a)",
             }}
           >
-            <h3 className="text-xl font-bold mb-3 text-white">
+            <h3 className={`text-xl font-bold mb-3 ${isLightTheme ? "text-slate-900" : "text-white"}`}>
               {confirmAction === "assign" ? "تأكيد ربط الكاميرا" : "تأكيد إزالة الكاميرا"}
             </h3>
-            <p className="mb-8 text-white/60 leading-relaxed">
+            <p className={`mb-8 leading-relaxed ${isLightTheme ? "text-slate-600" : "text-white/60"}`}>
               {confirmAction === "assign"
                 ? `هل أنت متأكد من ربط الكاميرا "${cameras.find((c) => c.id === selectedCameraId)?.name}" بهذه الشاشة؟ سيتم البدء بتحليل الجمهور فوراً.`
                 : `هل أنت متأكد من إزالة الكاميرا "${currentCamera?.name}" من هذه الشاشة؟ سيتوقف تحليل الجمهور التلقائي.`}
@@ -465,7 +470,10 @@ export default function CameraAssignmentSection({
               <button
                 onClick={() => setShowConfirm(false)}
                 disabled={assigning}
-                className="px-8 py-3 rounded-2xl text-sm font-bold cursor-pointer bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 transition-all"
+                className={`px-8 py-3 rounded-2xl text-sm font-bold cursor-pointer transition-all ${isLightTheme
+                  ? "bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200"
+                  : "bg-white/5 border border-white/10 text-white/70 hover:bg-white/10"
+                  }`}
               >
                 إلغاء
               </button>
