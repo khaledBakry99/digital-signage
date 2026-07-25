@@ -65,7 +65,6 @@ export function useCameraStream(camera: Camera | null): UseCameraStreamReturn {
       } catch (err) {
         const message = err instanceof Error ? err.message : "فشل بدء البث";
         setError(message);
-        console.error("Failed to start stream:", err);
       } finally {
         setIsConnecting(false);
       }
@@ -94,7 +93,6 @@ export function useCameraStream(camera: Camera | null): UseCameraStreamReturn {
       setIsPlaying(false);
       setError(null);
     } catch (err) {
-      console.error("Failed to stop stream:", err);
     }
   }, [camera]);
 

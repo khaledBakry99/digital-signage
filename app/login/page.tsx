@@ -47,7 +47,6 @@ export default function LoginPage() {
             }
           } catch (subError) {
             // If we can't check subscription, allow login but log the error
-            console.error("Failed to check subscription status:", subError);
           }
         }
 
@@ -94,7 +93,7 @@ export default function LoginPage() {
           {/* Top Section with Logo */}
           <div className="text-center" style={{
             background: isDark
-              ? 'linear-gradient(135deg, #9d9af7 60%, #824edb 100%)'
+              ? 'linear-gradient(135deg, #8380dd 60%, #824edb 100%)'
               : 'linear-gradient(135deg, #c7c7f4 0%, #cfbdf9 100%)',
             borderBottom: isDark ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(99, 102, 241, 0.25)'
           }}>

@@ -7,15 +7,15 @@ export type Resolution = "720p" | "1080p" | "4k";
 
 export interface Camera {
   id: string; // UUID
-  name: string; // اسم الكاميرا
-  location: string; // موقع الكاميرا
-  type: CameraType; // نوع المصدر
-  source: string; // deviceId للمحلية أو URL للشبكية
-  status: CameraStatus; // حالة الاتصال
-  thumbnail?: string; // معاينة صغيرة
-  timeToScreenshot?: number; // فاصل التقاط الصور بالثواني
+  name: string; // Camera name
+  location: string; // Camera location
+  type: CameraType; // Source type
+  source: string; // deviceId for local or URL for network
+  status: CameraStatus; // Connection status
+  thumbnail?: string; // Thumbnail preview
+  timeToScreenshot?: number; // Screenshot interval in seconds
   settings: CameraStreamSettings;
-  createdAtUtc?: string; // تاريخ الإنشاء من الـ API
+  createdAtUtc?: string; // Creation date from API
   createdAt: Date;
   updatedAt: Date;
 }

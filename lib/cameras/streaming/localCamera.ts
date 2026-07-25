@@ -34,7 +34,7 @@ class LocalCameraHandler {
         }
       }
 
-      throw new Error("فشل الوصول للكاميرا");
+      throw new Error("Failed to access camera");
     }
   }
 
@@ -52,7 +52,6 @@ class LocalCameraHandler {
       // Filter video input devices only
       return devices.filter((device) => device.kind === "videoinput");
     } catch (error) {
-      console.error("Failed to get devices:", error);
       throw error;
     }
   }
@@ -93,9 +92,6 @@ class LocalCameraHandler {
           stream = await navigator.mediaDevices.getUserMedia(constraints);
         } catch (e) {
           if (e instanceof DOMException && e.name === "OverconstrainedError") {
-            console.warn(
-              "OverconstrainedError: retrying with 1280x720 constraints...",
-            );
             try {
               stream = await navigator.mediaDevices.getUserMedia({
                 video: deviceId
@@ -117,9 +113,6 @@ class LocalCameraHandler {
                 e2 instanceof DOMException &&
                 e2.name === "OverconstrainedError"
               ) {
-                console.warn(
-                  "OverconstrainedError: retrying with deviceId only or basic constraints...",
-                );
                 try {
                   stream = await navigator.mediaDevices.getUserMedia({
                     video: deviceId ? { deviceId: { exact: deviceId } } : true,
@@ -127,10 +120,6 @@ class LocalCameraHandler {
                   });
                 } catch (e3) {
                   if (deviceId) {
-                    console.warn(
-                      "Failed to start requested deviceId; refusing to auto-select a different camera",
-                      { deviceId },
-                    );
                     throw e3;
                   } else {
                     throw e3;
@@ -146,9 +135,7 @@ class LocalCameraHandler {
         }
         this.activeStreams.set(cameraKey, stream);
         this.streamUsers.set(cameraKey, new Set());
-        console.log(`Created new stream for device: ${cameraKey}`);
       } else {
-        console.log(`Reusing existing stream for device: ${cameraKey}`);
       }
 
       // Attach stream to video element
@@ -158,7 +145,6 @@ class LocalCameraHandler {
       const users = this.streamUsers.get(cameraKey);
       if (users) {
         users.add(videoElement);
-        console.log(`Device ${cameraKey} now has ${users.size} users`);
       }
 
       // Play the video
@@ -176,7 +162,6 @@ class LocalCameraHandler {
 
       return stream;
     } catch (error) {
-      console.error("Local camera error details:", error);
 
       if (error instanceof DOMException) {
         if (error.name === "NotAllowedError") {
@@ -185,10 +170,10 @@ class LocalCameraHandler {
           throw new Error(ERROR_MESSAGES.CAMERA_NOT_FOUND);
         } else if (error.name === "NotReadableError") {
           throw new Error(
-            "الكاميرا مستخدمة من قبل تطبيق آخر. الرجاء إغلاق التطبيقات الأخرى التي تستخدم الكاميرا",
+            "Camera is in use by another application. Please close other applications using the camera",
           );
         } else if (error.name === "OverconstrainedError") {
-          throw new Error("إعدادات الكاميرا غير مدعومة. جرب كاميرا أخرى");
+          throw new Error("Camera settings not supported. Try another camera");
         } else if (error.name === "AbortError") {
           // This is OK - just means play was interrupted
           const cameraKey = deviceId || "default";
@@ -200,7 +185,7 @@ class LocalCameraHandler {
       }
 
       throw new Error(
-        "فشل بدء البث من الكاميرا. الرجاء السماح بالوصول للكاميرا من إعدادات المتصفح",
+        "Failed to start camera stream. Please allow camera access in browser settings",
       );
     }
   }
@@ -223,9 +208,6 @@ class LocalCameraHandler {
       // Check if any other elements are using this stream
       const users = this.streamUsers.get(cameraKey);
       if (users && users.size > 0) {
-        console.log(
-          `Stream for ${cameraKey} still has ${users.size} users, not stopping`,
-        );
         return;
       }
 
@@ -237,9 +219,7 @@ class LocalCameraHandler {
       this.activeStreams.delete(cameraKey);
       this.streamUsers.delete(cameraKey);
 
-      console.log(`Stopped stream for ${cameraKey}`);
     } catch (error) {
-      console.error("Failed to stop stream:", error);
     }
   }
 
@@ -251,9 +231,6 @@ class LocalCameraHandler {
     const users = this.streamUsers.get(cameraKey);
     if (users) {
       users.delete(videoElement);
-      console.log(
-        `Removed user from device ${cameraKey}, remaining users: ${users.size}`,
-      );
 
       // If no more users, stop the stream
       if (users.size === 0) {

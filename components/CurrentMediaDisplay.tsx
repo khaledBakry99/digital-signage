@@ -124,13 +124,11 @@ export default function CurrentMediaDisplay({
         setCurrentMedia(data);
         setLastUpdated(new Date());
       } else {
-        console.warn("Invalid or empty current media response:", data);
         setCurrentMedia(null);
       }
       setLoading(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      console.error("Failed to fetch current media:", errorMessage, err);
       setCurrentMedia(null);
       setLoading(false);
     }

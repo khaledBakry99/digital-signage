@@ -107,7 +107,6 @@ export default function MediaSlotAssignment({ screenId, clientId, currentSlots }
           const assets = await mediaAssetApi.getAll({ clientId });
           setMediaAssets(assets);
         } catch (err) {
-          console.error("Failed to fetch media assets:", err);
         } finally {
           setMediaAssetsLoading(false);
         }
@@ -133,7 +132,6 @@ export default function MediaSlotAssignment({ screenId, clientId, currentSlots }
       // Refresh the data by calling the parent's refresh function
       window.location.reload();
     } catch (err) {
-      console.error("Failed to assign media:", err);
     } finally {
       setAssigning(false);
       handleCloseModal();

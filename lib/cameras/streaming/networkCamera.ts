@@ -60,7 +60,6 @@ class NetworkCameraHandler {
           throw new Error(ERROR_MESSAGES.UNSUPPORTED_FORMAT);
       }
     } catch (error) {
-      console.error("Failed to start network stream:", error);
       throw error;
     }
   }
@@ -83,7 +82,6 @@ class NetworkCameraHandler {
           break;
       }
     } catch (error) {
-      console.error("Failed to stop network stream:", error);
     }
   }
 
@@ -107,7 +105,6 @@ class NetworkCameraHandler {
 
       return response.ok || response.type === "opaque";
     } catch (error) {
-      console.error("Connection check failed:", error);
       return false;
     }
   }

@@ -43,9 +43,7 @@ class MediapipeService {
         });
 
         this.initialized = true;
-        console.log("✅ Mediapipe Object Detector initialized successfully");
       } catch (error) {
-        console.error("❌ Failed to initialize Mediapipe:", error);
         throw error;
       }
     })();
@@ -68,17 +66,15 @@ class MediapipeService {
     try {
       // Ensure the video is ready and playing
       if (!videoElement || videoElement.paused || videoElement.ended) {
-        console.warn("⏸️ Mediapipe: video paused, skipping analysis");
         return { personsDetected: 0, timestamp: Date.now(), confidence: 0 };
       }
 
       if (videoElement.readyState < 2) {
-        console.warn(`⏳ Mediapipe: video not ready yet (readyState: ${videoElement.readyState})`);
+        ;
         return { personsDetected: 0, timestamp: Date.now(), confidence: 0 };
       }
 
       if (videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
-        console.warn(`📐 Mediapipe: invalid video dimensions (${videoElement.videoWidth}x${videoElement.videoHeight})`);
         return { personsDetected: 0, timestamp: Date.now(), confidence: 0 };
       }
 
@@ -114,7 +110,6 @@ class MediapipeService {
         confidence,
       };
     } catch (error) {
-      console.error("❌ Mediapipe detection error:", error);
       throw error;
     }
   }
@@ -163,7 +158,6 @@ class MediapipeService {
         confidence,
       };
     } catch (error) {
-      console.error("❌ Mediapipe detection error:", error);
       throw error;
     }
   }
@@ -208,7 +202,6 @@ class MediapipeService {
     try {
       apiResponse = await sendToApi(file);
     } catch (error) {
-      console.warn("⚠️ API call failed, using Mediapipe result only:", error);
     }
 
     return {

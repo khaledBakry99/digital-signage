@@ -59,7 +59,7 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
         }
       });
 
-      // ✅ بدء ObjectDetector وإرسال اللقطة فقط عند تغير عدد البشر
+      // Start ObjectDetector and send screenshot only when person count changes
       let stopCapture: (() => void) | null = null;
       if (
         element instanceof HTMLVideoElement &&
@@ -72,14 +72,13 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
             true,
           );
         } catch (error) {
-          console.error(`❌ فشل بدء ObjectDetector للكاميرا ${camera.id}:`, error);
         }
       }
 
       return () => {
         stopStream();
 
-        // ✅ إيقاف التقاط اللقطات
+        // Stop screenshot capture
         if (stopCapture) {
           stopCapture();
         }
@@ -105,9 +104,9 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
   }, [camera, autoStart, startStream, stopStream, startMonitoring, reconnect]);
 
   /**
-   * ✅ 🔄 الـ HEARTBEAT يتحكم في حالة الكاميرا
-   * + تحديث localStorage للصفحات الأخرى (نفس الجهاز)
-   * + تحديث الخادم مباشرة (للأجهزة المختلفة)
+   * HEARTBEAT controls camera status
+   * + Updates localStorage for other pages (same device)
+   * + Updates server directly (different devices)
    */
   useEffect(() => {
     if (!autoStart) return;
@@ -115,36 +114,29 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
     const cameraId = Number(camera.id);
     if (!Number.isFinite(cameraId) || cameraId <= 0) return;
 
-    console.log(`🔄 بدء heartbeat للكاميرا ${cameraId}...`);
 
-    // إرسال heartbeat فوراً عند فتح التبويب
+    // Send heartbeat immediately when tab opens
     const sendHeartbeat = async () => {
       try {
         await cameraApi.sendHeartbeat(cameraId);
-        console.log(`✅ heartbeat sent for camera ${cameraId}`);
 
-        // 🔄 تحديث localStorage للصفحات الأخرى (نفس الجهاز)
+        // Update localStorage for other pages (same device)
         if (typeof window !== "undefined") {
           const timestamp = Date.now().toString();
           localStorage.setItem(`camera-heartbeat-${cameraId}`, timestamp);
-          console.log(`📝 localStorage updated for camera ${cameraId}`);
         }
       } catch (err) {
-        console.error(`❌ Failed to send heartbeat for camera ${cameraId}:`, err);
       }
     };
 
-    // إرسال heartbeat أول مرة فوراً
     sendHeartbeat();
 
-    // ثم تكرار كل 40 ثانية
     const heartbeatInterval = setInterval(() => {
       sendHeartbeat();
     }, 40000); // 40 seconds
 
     return () => {
       clearInterval(heartbeatInterval);
-      console.log(`⏹️ إيقاف heartbeat للكاميرا ${cameraId} - سيصبح INACTIVE بعد 60 ثانية`);
     };
   }, [camera.id, autoStart]);
 

@@ -73,7 +73,6 @@ export function useReconnect(
 
       return success;
     } catch (error) {
-      console.error("Manual reconnect failed:", error);
       setIsReconnecting(false);
       return false;
     }

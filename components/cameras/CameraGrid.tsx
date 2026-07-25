@@ -44,7 +44,6 @@ export function CameraGrid({
   const handleViewCamera = (camera: Camera) => {
     const cameraId = Number(camera.id);
     if (!Number.isFinite(cameraId) || cameraId <= 0) {
-      console.error("❌ رقم كاميرا غير صالح", camera.id);
       return;
     }
 
@@ -52,7 +51,6 @@ export function CameraGrid({
     // ✅ الـ heartbeat في CameraPlayer سيتحكم في الحالة
     const newTab = window.open(`/cameras/${cameraId}`, "_blank");
     if (!newTab) {
-      console.error("❌ لم يتم فتح تبويب الكاميرا - ربما تم منع النوافذ المنبثقة");
       return;
     }
 

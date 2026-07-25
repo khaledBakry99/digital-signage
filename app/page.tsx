@@ -54,7 +54,7 @@ function ModernStatCard({
 
 export default function Home() {
   const router = useRouter();
-  const { clientId, loading: authLoading } = useAuth();
+  const { clientId, loading: authLoading, isAuthenticated } = useAuth();
   const { screens, loading: screensLoading, openScreenTabs } = useScreensWithHeartbeat(clientId);
   const [stats, setStats] = useState<ClientDashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -154,68 +154,67 @@ export default function Home() {
     return diffDays > 0 ? diffDays : 0;
   };
 
-  // جلب إحصائيات لوحة التحكم من الـ API الحقيقي للعميل
+
   useEffect(() => {
     const fetchDashboardStats = async () => {
       try {
         setStatsLoading(true);
-        // نستخدم معرف العميل المسجل حالياً أو الافتراضي (1)
-        const targetClientId = clientId || 1;
-        const data = await dashboardApi.getClientStats(targetClientId);
+        const data = await dashboardApi.getClientStats(clientId!);
         setStats(data);
       } catch (err) {
-        console.error("فشل جلب إحصائيات لوحة التحكم:", err);
       } finally {
         setStatsLoading(false);
       }
     };
 
-    if (!authLoading) {
+    if (!authLoading && isAuthenticated && clientId) {
       fetchDashboardStats();
+    } else if (!authLoading && !isAuthenticated) {
+      router.push('/login');
     }
-  }, [clientId, authLoading]);
+  }, [clientId, authLoading, isAuthenticated, router]);
 
   // جلب بيانات الاشتراك
   useEffect(() => {
     const fetchSubscription = async () => {
       try {
         setSubscriptionLoading(true);
-        const targetClientId = clientId || 1;
-        const data = await dashboardApi.getSubscriptions(targetClientId);
+        const data = await dashboardApi.getSubscriptions(clientId!);
         if (data && data.length > 0) {
           setSubscription(data[0]);
         }
       } catch (err) {
-        console.error("فشل جلب بيانات الاشتراك:", err);
       } finally {
         setSubscriptionLoading(false);
       }
     };
 
-    if (!authLoading) {
+    if (!authLoading && isAuthenticated && clientId) {
       fetchSubscription();
+    } else if (!authLoading && !isAuthenticated) {
+      router.push('/login');
     }
-  }, [clientId, authLoading]);
+  }, [clientId, authLoading, isAuthenticated, router]);
 
   // جلب بيانات الكاميرات
   useEffect(() => {
     const fetchCameras = async () => {
       try {
         setCamerasLoading(true);
-        const targetClientId = clientId || 1;
-        const data = await cameraApi.getAll({ clientId: targetClientId });
+        const data = await cameraApi.getAll({ clientId: clientId! });
         setCameras(data);
       } catch (err) {
-        console.error("فشل جلب بيانات الكاميرات:", err);
       } finally {
         setCamerasLoading(false);
       }
     };
 
-    if (!authLoading) {
+    if (!authLoading && isAuthenticated && clientId) {
       fetchCameras();
+    } else if (!authLoading && !isAuthenticated) {
+      router.push('/login');
     }
-  }, [clientId, authLoading]);
+  }, [clientId, authLoading, isAuthenticated, router]);
 
   return (
     <div

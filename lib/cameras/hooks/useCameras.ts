@@ -32,7 +32,7 @@ interface UseCamerasReturn {
   refreshCameras: () => Promise<void>;
 }
 
-// دالة تحويل الكائن القادم من الخادم لكائن متوافق مع الواجهة
+// Function to convert server object to interface-compatible object
 function deriveTypeFromSource(source: string): CameraType {
   const s = (source || "").toLowerCase();
   if (s.startsWith("rtsp:")) return "rtsp";
@@ -42,7 +42,7 @@ function deriveTypeFromSource(source: string): CameraType {
 }
 
 export function mapBackendToFrontendCamera(bc: BackendCamera, isOnline?: boolean | number): Camera {
-  // إذا كان isOnline رقماً، فهو index من map() - نتجاهله
+  // If isOnline is a number, it's an index from map() - ignore it
   const onlineStatus = typeof isOnline === 'boolean' ? isOnline : undefined;
 
   return {
@@ -51,7 +51,7 @@ export function mapBackendToFrontendCamera(bc: BackendCamera, isOnline?: boolean
     location: bc.location,
     type: deriveTypeFromSource(bc.cameraDeviceName),
     source: bc.cameraDeviceName,
-    // 🔄 الحالة تعتمد على heartbeat وليس على state
+    // Status depends on heartbeat, not state
     status: onlineStatus !== undefined ? (onlineStatus ? "connected" : "disconnected") : (bc.state === "Active" ? "connected" : "disconnected"),
     timeToScreenshot: bc.timeToScreenshot,
     settings: {
@@ -67,10 +67,10 @@ export function mapBackendToFrontendCamera(bc: BackendCamera, isOnline?: boolean
 
 /**
  * useCameras Hook
- * ✅ نظام الـ heartbeat يتحكم في حالة الكاميرا:
- *    - heartbeat كل 40 ثانية من تبويب مفتوح = ACTIVE
- *    - توقف heartbeat 60+ ثانية = INACTIVE
- *    - الخادم يقرر الحالة من آخر heartbeat
+ * Heartbeat system controls camera status:
+ *    - heartbeat every 40 seconds from open tab = ACTIVE
+ *    - heartbeat stops for 60+ seconds = INACTIVE
+ *    - Server determines status from last heartbeat
  */
 export function useCameras(): UseCamerasReturn {
   const { clientId, loading: authLoading } = useAuth();
@@ -81,29 +81,31 @@ export function useCameras(): UseCamerasReturn {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * تحميل الكاميرات من الخادم
+   * Load cameras from server
    */
   const loadCameras = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const targetClientId = clientId || 1;
-      const response = await cameraApi.getAll({ clientId: targetClientId });
+      if (!clientId) {
+        setError("No client ID provided");
+        setLoading(false);
+        return;
+      }
+
+      const response = await cameraApi.getAll({ clientId });
 
       setBackendCameras(response);
-      // 🔄 عند Login: تحديث حالة جميع الكاميرات من آخر heartbeat
-      console.log("🔄 Checking online status for all cameras...");
+      // On Login: Update all cameras status from last heartbeat
       const statusMap: { [cameraId: number]: boolean } = {};
 
       for (const camera of response) {
         try {
           const statusResponse = await cameraApi.checkOnlineStatus(camera.id);
-          // ✅ الحالة تعتمد على heartbeat من الخادم
+          // Status depends on heartbeat from server
           statusMap[camera.id] = statusResponse.state === "Active";
-          console.log(`✅ Camera ${camera.id}: ${statusMap[camera.id] ? 'ONLINE' : 'OFFLINE'}`);
         } catch (err) {
-          console.error(`❌ Failed to check camera ${camera.id}:`, err);
           statusMap[camera.id] = false;
         }
       }
@@ -112,28 +114,25 @@ export function useCameras(): UseCamerasReturn {
       setCameras(response.map(cam => mapBackendToFrontendCamera(cam, statusMap[cam.id])));
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "فشل تحميل الكاميرات من الخادم";
+        err instanceof Error ? err.message : "Failed to load cameras from server";
       setError(message);
-      console.error("Failed to load cameras from API:", err);
     } finally {
       setLoading(false);
     }
   }, [clientId]);
 
   /**
-   * جديد: إرسال heartbeat لكاميرا واحدة
+   * Send heartbeat for single camera
    */
   const sendHeartbeatForCamera = useCallback(async (cameraId: number) => {
     try {
       await cameraApi.sendHeartbeat(cameraId);
-      console.log(`Heartbeat sent for camera ${cameraId}`);
     } catch (err) {
-      console.error(`Failed to send heartbeat for camera ${cameraId}:`, err);
     }
   }, []);
 
   /**
-   * جديد: التحقق من حالة الكاميرا (هل هي online أم offline)
+   * Check camera status (online or offline)
    */
   const checkCameraStatus = useCallback(async (cameraId: number) => {
     try {
@@ -145,10 +144,8 @@ export function useCameras(): UseCamerasReturn {
         [cameraId]: isOnline
       }));
 
-      console.log(`Camera ${cameraId} status: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
     } catch (err) {
-      console.error(`Failed to check status for camera ${cameraId}:`, err);
-      // في حالة الخطأ، نعتبر الكاميرا offline
+      // On error, consider camera offline
       setCameraOnlineStatus(prev => ({
         ...prev,
         [cameraId]: false
@@ -157,16 +154,16 @@ export function useCameras(): UseCamerasReturn {
   }, []);
 
   /**
-   * جديد: بدء دورة heartbeat لجميع الكاميرات (كل 40 ثانية)
+   * Start heartbeat cycle for all cameras (every 40 seconds)
    */
   const startHeartbeatCycle = useCallback(async () => {
     if (backendCameras.length === 0) return;
 
     backendCameras.forEach(camera => {
-      // إرسال heartbeat
+      // Send heartbeat
       sendHeartbeatForCamera(camera.id);
 
-      // التحقق من الحالة
+      // Check status
       checkCameraStatus(camera.id);
     });
   }, [backendCameras, sendHeartbeatForCamera, checkCameraStatus]);
@@ -183,10 +180,13 @@ export function useCameras(): UseCamerasReturn {
     }): Promise<BackendCamera> => {
       try {
         setError(null);
-        const targetClientId = clientId || 1;
+
+        if (!clientId) {
+          throw new Error("No client ID provided");
+        }
 
         const newCamera = await cameraApi.create({
-          clientId: targetClientId,
+          clientId,
           name: data.name,
           location: data.location,
           cameraDeviceName: data.cameraDeviceName,
@@ -197,7 +197,7 @@ export function useCameras(): UseCamerasReturn {
         return newCamera;
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "فشل إضافة الكاميرا عبر السيرفر";
+          err instanceof Error ? err.message : "Failed to add camera via server";
         setError(message);
         throw err;
       }
@@ -233,7 +233,7 @@ export function useCameras(): UseCamerasReturn {
         return updated;
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "فشل تحديث الكاميرا عبر السيرفر";
+          err instanceof Error ? err.message : "Failed to update camera via server";
         setError(message);
         throw err;
       }
@@ -252,7 +252,7 @@ export function useCameras(): UseCamerasReturn {
       await cameraApi.delete(numericId);
       await loadCameras();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "فشل حذف الكاميرا من السيرفر";
+      const message = err instanceof Error ? err.message : "Failed to delete camera from server";
       setError(message);
       throw err;
     }
@@ -269,7 +269,7 @@ export function useCameras(): UseCamerasReturn {
       await loadCameras();
       return updated;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "فشل تفعيل الكاميرا";
+      const message = err instanceof Error ? err.message : "Failed to activate camera";
       setError(message);
       throw err;
     }
@@ -286,7 +286,7 @@ export function useCameras(): UseCamerasReturn {
       await loadCameras();
       return updated;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "فشل إيقاف تفعيل الكاميرا";
+      const message = err instanceof Error ? err.message : "Failed to deactivate camera";
       setError(message);
       throw err;
     }
@@ -310,9 +310,9 @@ export function useCameras(): UseCamerasReturn {
   }, [loadCameras, authLoading]);
 
   /**
-   * ✅ 🔄 localStorage listener
-   * الاستماع لـ heartbeat من التبويبات الأخرى (نفس الجهاز)
-   * تحديث فوري بدون reload
+   * localStorage listener
+   * Listen for heartbeat from other tabs (same device)
+   * Instant update without reload
    */
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -321,14 +321,13 @@ export function useCameras(): UseCamerasReturn {
       if (e.key?.startsWith("camera-heartbeat-")) {
         const cameraId = parseInt(e.key.split("-")[2], 10);
         if (Number.isFinite(cameraId)) {
-          console.log(`📝 Storage update: Camera ${cameraId} is ACTIVE`);
 
           setCameraOnlineStatus(prev => ({
             ...prev,
             [cameraId]: true
           }));
 
-          // تحديث الكاميرا في القائمة
+          // Update camera in list
           setCameras(prev =>
             prev.map(cam =>
               Number(cam.id) === cameraId
@@ -345,15 +344,14 @@ export function useCameras(): UseCamerasReturn {
   }, [backendCameras]);
 
   /**
-   * ✅ ⏱️ Periodic check كل 60 ثانية
-   * للتحقق من الحالة الفعلية من الخادم
-   * (ضروري للأجهزة المختلفة والتحديثات المتأخرة)
+   * Periodic check every 60 seconds
+   * Verify actual status from server
+   * (necessary for different devices and delayed updates)
    */
   useEffect(() => {
     if (backendCameras.length === 0) return;
 
     const checkAllCamerasStatus = async () => {
-      console.log("🔄 Periodic check: checking all cameras status...");
 
       const statusMap: { [cameraId: number]: boolean } = {};
 
@@ -363,13 +361,10 @@ export function useCameras(): UseCamerasReturn {
           // Check if response has the expected structure
           if (statusResponse && typeof statusResponse.state === 'string') {
             statusMap[camera.id] = statusResponse.state === "Active";
-            console.log(`✅ Camera ${camera.id}: ${statusMap[camera.id] ? 'ONLINE' : 'OFFLINE'}`);
           } else {
-            console.warn(`⚠️ Invalid response for camera ${camera.id}:`, statusResponse);
             statusMap[camera.id] = false;
           }
         } catch (err) {
-          console.error(`❌ Failed to check camera ${camera.id}:`, err);
           statusMap[camera.id] = false;
         }
       }
@@ -382,12 +377,12 @@ export function useCameras(): UseCamerasReturn {
       );
     };
 
-    // أول مرة بعد 30 ثانية (تجنب عدم الاستقرار في البداية)
+    // First time after 30 seconds (avoid initial instability)
     const initialTimer = setTimeout(() => {
       checkAllCamerasStatus();
     }, 30000);
 
-    // ثم كل 60 ثانية
+    // Then every 60 seconds
     const interval = setInterval(() => {
       checkAllCamerasStatus();
     }, 60000);

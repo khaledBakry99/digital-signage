@@ -1,4 +1,4 @@
-// Types لـ Screens
+// Screen Types
 
 export type ConnectionStatus = 'Online' | 'Offline' | 'Unknown';
 export type OperationalStatus = 'Draft' | 'Active' | 'Inactive';
@@ -21,13 +21,13 @@ export interface Screen {
   currentCampaignId?: number;
   campaignIds: number[];
   currentMediaAssetId?: number;
-  // حقول الإعلانات من الحملة
+  // Campaign ad fields
   boysKidsMediaAssetId?: number;
   girlsKidsMediaAssetId?: number;
   menMediaAssetId?: number;
   womenMediaAssetId?: number;
   defaultMediaAssetId?: number;
-  // حقول الإعلانات الحالية المعروضة
+  // Currently displayed ad fields
   currentBoysKidsMediaAssetId?: number;
   currentGirlsKidsMediaAssetId?: number;
   currentMenMediaAssetId?: number;

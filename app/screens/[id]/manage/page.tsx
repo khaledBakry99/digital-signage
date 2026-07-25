@@ -50,7 +50,6 @@ export default function ScreenManagePage({ params }: PageProps) {
           const camera = await cameraApi.getById(screen.cameraId);
           setCameraName(camera.name);
         } catch (err) {
-          console.error("Failed to fetch camera name:", err);
           setCameraName(null);
         }
       } else {

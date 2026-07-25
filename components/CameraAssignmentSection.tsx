@@ -42,7 +42,7 @@ export default function CameraAssignmentSection({
   const loadCameras = async () => {
     try {
       setLoading(true);
-      // جلب جميع الكاميرات (نشطة وغير نشطة)
+      // Fetch all cameras (active and inactive)
       const data = await cameraApi.getAll({ clientId });
       setCameras(data);
     } catch (err) {

@@ -31,7 +31,6 @@ function serializeCache(cache: LiveScreenMediaMap) {
   try {
     localStorage.setItem(LIVE_SCREEN_MEDIA_STORAGE_KEY, JSON.stringify(cache));
   } catch (error) {
-    console.error("Failed to persist live screen media cache", error);
   }
 }
 

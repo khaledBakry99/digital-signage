@@ -216,7 +216,6 @@ export default function ScreenPlayer({
         if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
           return;
         }
-        console.error("فشل تشغيل الفيديو:", err);
         if (videoRetryRef.current < 1) {
           videoRetryRef.current += 1;
           try {
@@ -249,7 +248,6 @@ export default function ScreenPlayer({
         if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
           return;
         }
-        console.error("فشل تشغيل الفيديو:", err);
         scheduleError("فشل تشغيل الفيديو من الخادم");
         onPlaybackError?.(err);
       });
@@ -366,7 +364,6 @@ export default function ScreenPlayer({
         }}
         onError={() => {
           const err = videoRef.current?.error;
-          console.error("Video element error:", err);
           if (videoRetryRef.current < 1 && videoRef.current) {
             videoRetryRef.current += 1;
             try {

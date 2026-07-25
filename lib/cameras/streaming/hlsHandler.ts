@@ -52,7 +52,6 @@ class HLSHandler {
 
           hls.on(Hls.Events.ERROR, (event, data) => {
             if (data.fatal) {
-              console.error("HLS Error:", data);
               if (!resolved) {
                 resolved = true;
                 reject(new Error(`HLS Error: ${data.type}`));
@@ -76,10 +75,9 @@ class HLSHandler {
         videoElement.src = url;
         await videoElement.play();
       } else {
-        throw new Error("HLS غير مدعوم في هذا المتصفح");
+        throw new Error("HLS is not supported in this browser");
       }
     } catch (error) {
-      console.error("Failed to start HLS stream:", error);
       throw new Error(ERROR_MESSAGES.CONNECTION_FAILED);
     }
   }
@@ -96,7 +94,6 @@ class HLSHandler {
         this.hlsInstances.delete(url);
       }
     } catch (error) {
-      console.error("Failed to stop HLS stream:", error);
     }
   }
 
