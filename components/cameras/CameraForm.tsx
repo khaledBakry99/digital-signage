@@ -89,7 +89,6 @@ export function CameraForm({
           setDevices([]);
         }
       } catch (err) {
-        console.warn("فشل الكشف التلقائي عن كاميرات الويب:", err);
       } finally {
         setLoadingDevices(false);
       }
@@ -107,7 +106,6 @@ export function CameraForm({
           setCameraDeviceName(response.cameraDeviceName);
         }
       } catch (err) {
-        console.warn("فشل جلب اسم جهاز الكاميرا:", err);
       }
     }
     fetchCameraDeviceName();

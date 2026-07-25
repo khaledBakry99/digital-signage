@@ -56,20 +56,12 @@ export default function CameraTabStateSync() {
             try {
               await cameraApi.activate(id);
             } catch (error) {
-              console.error(
-                `❌ Failed to auto-activate camera ${id}:`,
-                extractApiError(error, "فشل تفعيل الكاميرا"),
-              );
             }
           }),
           ...toDeactivate.map(async (id) => {
             try {
               await cameraApi.deactivate(id);
             } catch (error) {
-              console.error(
-                `❌ Failed to auto-deactivate camera ${id}:`,
-                extractApiError(error, "فشل تعطيل الكاميرا"),
-              );
             }
           }),
         ]);

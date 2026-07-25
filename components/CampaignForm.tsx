@@ -112,7 +112,6 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
       defaultMediaAssetId,
     };
 
-    console.log("🚀 Payload constructed in CampaignForm:", JSON.stringify(data, null, 2));
     onSubmit(data);
   };
 

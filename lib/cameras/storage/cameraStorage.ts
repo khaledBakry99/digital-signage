@@ -26,7 +26,6 @@ class CameraStorageService {
 
       localStorage.setItem(STORAGE_KEYS.CAMERAS, JSON.stringify(cameras));
     } catch (error) {
-      console.error("Failed to save camera:", error);
       throw new Error("فشل حفظ الكاميرا");
     }
   }
@@ -50,7 +49,6 @@ class CameraStorageService {
         updatedAt: new Date(camera.updatedAt),
       };
     } catch (error) {
-      console.error("Failed to get camera:", error);
       return null;
     }
   }
@@ -76,7 +74,6 @@ class CameraStorageService {
 
       return cameras;
     } catch (error) {
-      console.error("Failed to get all cameras:", error);
       return {};
     }
   }
@@ -105,7 +102,6 @@ class CameraStorageService {
       await this.saveCamera(updatedCamera);
       return updatedCamera;
     } catch (error) {
-      console.error("Failed to update camera:", error);
       throw new Error("فشل تحديث الكاميرا");
     }
   }
@@ -120,7 +116,6 @@ class CameraStorageService {
 
       localStorage.setItem(STORAGE_KEYS.CAMERAS, JSON.stringify(cameras));
     } catch (error) {
-      console.error("Failed to delete camera:", error);
       throw new Error("فشل حذف الكاميرا");
     }
   }
@@ -143,7 +138,6 @@ class CameraStorageService {
         JSON.stringify(settingsData),
       );
     } catch (error) {
-      console.error("Failed to save settings:", error);
       throw new Error("فشل حفظ الإعدادات");
     }
   }
@@ -173,7 +167,6 @@ class CameraStorageService {
         lastUpdate: new Date(settings.lastUpdate),
       };
     } catch (error) {
-      console.error("Failed to get settings:", error);
       // Return default settings on error
       return {
         autoReconnect: true,
@@ -193,7 +186,6 @@ class CameraStorageService {
       localStorage.removeItem(STORAGE_KEYS.CAMERAS);
       localStorage.removeItem(STORAGE_KEYS.CAMERA_SETTINGS);
     } catch (error) {
-      console.error("Failed to clear storage:", error);
       throw new Error("فشل مسح البيانات");
     }
   }

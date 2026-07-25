@@ -395,7 +395,7 @@ export default function CampaignList({ campaigns, onEdit, onDelete, onStatusChan
                 "حالة الحملة",
                 "الإجراءات",
               ].map((heading) => (
-                <th key={heading} className="text-right px-6 py-4 text-[11px] font-black uppercase tracking-[0.2em]">
+                <th key={heading} className="text-center px-6 py-4 text-[11px] font-black uppercase tracking-[0.2em]">
                   {heading}
                 </th>)
               )}
@@ -418,20 +418,14 @@ export default function CampaignList({ campaigns, onEdit, onDelete, onStatusChan
                 </td>
                 <td className="px-6 py-4 align-middle">
                   <span className={highlightPillBase} style={startDatePillStyle}>
-                    {new Date(campaign.startsAtUtc).toLocaleDateString("ar-SA", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {new Date(campaign.startsAtUtc).toLocaleDateString("en-GB")
+                      .replace(/\//g, '-')}
                   </span>
                 </td>
                 <td className="px-6 py-4 align-middle">
                   <span className={highlightPillBase} style={endDatePillStyle}>
-                    {new Date(campaign.endsAtUtc).toLocaleDateString("ar-SA", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {new Date(campaign.endsAtUtc).toLocaleDateString("en-GB")
+                      .replace(/\//g, '-')}
                   </span>
                 </td>
                 <td className="px-6 py-4 align-middle">

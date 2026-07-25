@@ -106,9 +106,6 @@ export default function ScreenPage() {
     try {
       const screenData = await screenApi.getById(screenId);
 
-      console.log("🔍 Screen Data:", screenData);
-      console.log("📷 Camera ID:", screenData?.cameraId);
-      console.log("📋 Campaign ID:", screenData?.currentCampaignId);
 
       setLinkedCameraId(screenData?.cameraId ?? null);
       setScreenDefaultMediaId(screenData?.defaultMediaAssetId ?? null);
@@ -118,12 +115,9 @@ export default function ScreenPage() {
         setCameraWarning(false);
         try {
           const camera = await cameraApi.getById(screenData.cameraId);
-          console.log("✅ Camera loaded:", camera);
         } catch (err) {
-          console.error("❌ Failed to load camera:", err);
         }
       } else {
-        console.warn("⚠️ No camera linked to this screen!");
         setCameraWarning(true);
       }
 
@@ -133,12 +127,10 @@ export default function ScreenPage() {
       if (screenData?.currentCampaignId) {
         try {
           const campaign = await campaignApi.getById(screenData.currentCampaignId);
-          console.log("✅ Campaign loaded:", campaign);
           setCurrentCampaignId(campaign.id);
           const endsAtMs = new Date(campaign.endsAtUtc).getTime();
           const isCampaignExpired = Number.isFinite(endsAtMs) && endsAtMs <= Date.now();
           if (isCampaignExpired) {
-            console.warn("⚠️ Campaign has expired; falling back to screen default");
             setCampaign(null);
             campaignRef.current = null;
             setCurrentCampaignId(null);
@@ -150,14 +142,12 @@ export default function ScreenPage() {
             fallbackIds = [campaign.defaultMediaAssetId].filter(Boolean) as number[];
           }
         } catch (err) {
-          console.error("❌ Failed to load campaign:", err);
           // Fallback to screen's default if campaign fails
           fallbackIds = [screenData?.defaultMediaAssetId].filter(Boolean) as number[];
           setCampaign(null);
           campaignRef.current = null;
         }
       } else {
-        console.warn("⚠️ No campaign linked to this screen!");
         // Use screen's default media asset
         fallbackIds = [screenData?.defaultMediaAssetId].filter(Boolean) as number[];
         setCampaign(null);
@@ -169,14 +159,11 @@ export default function ScreenPage() {
       if (resolvedFallback) {
         setFallbackAd(resolvedFallback);
         setAdvertisement(resolvedFallback);
-        console.log("✅ Fallback ad loaded:", resolvedFallback.name);
       } else {
-        console.warn("⚠️ No fallback ad available");
         setFallbackAd(null);
         setAdvertisement(null);
       }
     } catch (err) {
-      console.error("❌ Failed to load fallback ad:", err);
     } finally {
       setLoading(false);
     }
@@ -224,7 +211,6 @@ export default function ScreenPage() {
 
   const playMediaAsset = useCallback(async (mediaAssetId: number, source: PendingMediaUpdate["source"], selectedSlot?: string) => {
     const targetAd = await mediaAssetApi.getById(mediaAssetId);
-    console.log(`✅ Loading media from ${source}: ${targetAd.name}${selectedSlot ? ` (${selectedSlot})` : ""}`);
     setAdvertisement(targetAd);
     updateScreenState("PLAYING");
 
@@ -257,7 +243,6 @@ export default function ScreenPage() {
     if (screenStateRef.current === "DETECTING") {
       await playLatestDetectionIfPossible();
     } else {
-      console.log("⏳ Stored latest media update until ad ends", { mediaAssetId, source, selectedSlot });
     }
   }, [playLatestDetectionIfPossible]);
 
@@ -267,14 +252,12 @@ export default function ScreenPage() {
   }, [loadFallbackAd]);
 
   const handleSignalRMediaUpdated = useCallback(async (event: { currentMediaAssetId: number; selectedSlot: string }) => {
-    console.log("🔔 Media updated via SignalR:", event);
 
     // Load the specific media asset from the event
     if (event.currentMediaAssetId) {
       try {
         await scheduleMediaUpdate(event.currentMediaAssetId, "signalr", event.selectedSlot);
       } catch (err) {
-        console.error("❌ Failed to load media from SignalR:", err);
         loadFallbackAd();
       }
     } else {
@@ -283,7 +266,6 @@ export default function ScreenPage() {
   }, [loadFallbackAd, scheduleMediaUpdate]);
 
   const handleSignalRRefreshRequested = useCallback(() => {
-    console.log("🔔 Refresh requested via SignalR");
     loadFallbackAd();
   }, [loadFallbackAd]);
 
@@ -302,8 +284,7 @@ export default function ScreenPage() {
   useEffect(() => {
     screenApi.activate(screenId)
       .then(() => {
-        console.log(`✅ Screen ${screenId} activated`);
-        // تسجيل تبويب الشاشة المفتوح
+        // Register open screen tab
         if (typeof window !== "undefined") {
           const stored = localStorage.getItem("openScreenTabs");
           let ids: number[] = [];
@@ -320,13 +301,12 @@ export default function ScreenPage() {
           localStorage.setItem("openScreenTabs", JSON.stringify(ids));
         }
       })
-      .catch((err) => console.error(`❌ Failed to activate screen ${screenId}:`, err));
+      .catch((err) => { });
 
     return () => {
       screenApi.deactivate(screenId)
         .then(() => {
-          console.log(`✅ Screen ${screenId} deactivated`);
-          // إلغاء تسجيل تبويب الشاشة
+          // Unregister screen tab
           if (typeof window !== "undefined") {
             const stored = localStorage.getItem("openScreenTabs");
             let ids: number[] = [];
@@ -341,48 +321,41 @@ export default function ScreenPage() {
             localStorage.setItem("openScreenTabs", JSON.stringify(ids));
           }
         })
-        .catch((err) => console.error(`❌ Failed to deactivate screen ${screenId}:`, err));
+        .catch((err) => { });
     };
   }, [screenId]);
 
   /**
-   * ✅ 🔄 الـ HEARTBEAT يتحكم في حالة الشاشة
-   * + تحديث localStorage للصفحات الأخرى (نفس الجهاز)
-   * + تحديث الخادم مباشرة (للأجهزة المختلفة)
+   * HEARTBEAT controls screen status
+   * + Updates localStorage for other pages (same device)
+   * + Updates server directly (different devices)
    */
   useEffect(() => {
     if (!screenId || !Number.isFinite(screenId) || screenId <= 0) return;
 
-    console.log(`🔄 بدء heartbeat للشاشة ${screenId}...`);
 
-    // إرسال heartbeat فوراً عند فتح التبويب
+    // Send heartbeat immediately when tab opens
     const sendHeartbeat = async () => {
       try {
         await screenApi.sendHeartbeat(screenId);
-        console.log(`✅ heartbeat sent for screen ${screenId}`);
 
-        // 🔄 تحديث localStorage للصفحات الأخرى (نفس الجهاز)
+        // Update localStorage for other pages (same device)
         if (typeof window !== "undefined") {
           const timestamp = Date.now().toString();
           localStorage.setItem(`screen-heartbeat-${screenId}`, timestamp);
-          console.log(`📝 localStorage updated for screen ${screenId}`);
         }
       } catch (err) {
-        console.error(`❌ Failed to send heartbeat for screen ${screenId}:`, err);
       }
     };
 
-    // إرسال heartbeat أول مرة فوراً
     sendHeartbeat();
 
-    // ثم تكرار كل 40 ثانية
     const heartbeatInterval = setInterval(() => {
       sendHeartbeat();
     }, 40000); // 40 seconds
 
     return () => {
       clearInterval(heartbeatInterval);
-      console.log(`⏹️ إيقاف heartbeat للشاشة ${screenId} - سيصبح OFFLINE بعد 60 ثانية`);
     };
   }, [screenId]);
 
@@ -396,7 +369,6 @@ export default function ScreenPage() {
 
   // Handle ad ended
   const handleAdEnded = useCallback(() => {
-    console.log("🎬 Ad ended, resuming detection");
 
     playLatestDetectionIfPossible()
       .then((applied) => {
@@ -410,7 +382,6 @@ export default function ScreenPage() {
         updateScreenState("DETECTING");
       })
       .catch((err) => {
-        console.error("❌ Failed to apply pending media update:", err);
         if (fallbackAd) {
           if (advertisement?.id && advertisement.id === fallbackAd.id) {
             setPlayerNonce((prev) => prev + 1);
@@ -469,7 +440,6 @@ export default function ScreenPage() {
     }
     lastPlaybackErrorAtRef.current = now;
 
-    console.error("❌ Screen playback error", { screenId, err, advertisementId: advertisement?.id, url: advertisement?.url });
 
     if (!fallbackAd) {
       return;

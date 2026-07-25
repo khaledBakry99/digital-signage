@@ -208,15 +208,14 @@ export default function ScreenPlayer({
   useEffect(() => {
     if (isVideo && videoRef.current && resolvedUrl) {
       const videoElement = videoRef.current;
-      videoElement.muted = false;
-      videoElement.volume = 1;
+      videoElement.muted = true;
+      videoElement.volume = 0;
       videoElement.currentTime = 0;
 
       tryPlay(videoElement).catch((err) => {
         if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
           return;
         }
-        console.error("فشل تشغيل الفيديو:", err);
         if (videoRetryRef.current < 1) {
           videoRetryRef.current += 1;
           try {
@@ -249,7 +248,6 @@ export default function ScreenPlayer({
         if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
           return;
         }
-        console.error("فشل تشغيل الفيديو:", err);
         scheduleError("فشل تشغيل الفيديو من الخادم");
         onPlaybackError?.(err);
       });
@@ -342,6 +340,7 @@ export default function ScreenPlayer({
         autoPlay
         loop={shouldLoop}
         playsInline
+        muted
         preload="auto"
         onLoadedMetadata={() => {
           const v = videoRef.current;
@@ -365,7 +364,6 @@ export default function ScreenPlayer({
         }}
         onError={() => {
           const err = videoRef.current?.error;
-          console.error("Video element error:", err);
           if (videoRetryRef.current < 1 && videoRef.current) {
             videoRetryRef.current += 1;
             try {

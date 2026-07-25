@@ -6,7 +6,7 @@ import type { Screen, CreateScreenInput, UpdateScreenInput } from "@/lib/types/s
 import { useAuth } from "@/lib/hooks/useAuth";
 
 /**
- * مساعد: تسجيل تبويب شاشة مفتوح
+ * Helper: Register open screen tab
  */
 function registerOpenScreenTab(screenId: number): number[] {
   if (typeof window === "undefined") return [];
@@ -27,7 +27,7 @@ function registerOpenScreenTab(screenId: number): number[] {
 }
 
 /**
- * مساعد: إلغاء تسجيل تبويب شاشة (عند الإغلاق)
+ * Helper: Unregister screen tab (on close)
  */
 function unregisterOpenScreenTab(screenId: number): number[] {
   if (typeof window === "undefined") return [];
@@ -60,11 +60,11 @@ interface UseScreensWithHeartbeatReturn {
 }
 
 /**
- * Custom Hook للشاشات مع نظام Heartbeat
- * ✅ نظام الـ heartbeat يتحكم في حالة الشاشة:
- *    - heartbeat كل 40 ثانية من تبويب مفتوح = ONLINE
- *    - توقف heartbeat 10+ ثاني = OFFLINE
- *    - الخادم يقرر الحالة من آخر heartbeat
+ * Custom Hook for screens with Heartbeat system
+ * Heartbeat system controls screen status:
+ *    - heartbeat every 40 seconds from open tab = ONLINE
+ *    - heartbeat stops for 10+ seconds = OFFLINE
+ *    - Server determines status from last heartbeat
  */
 export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartbeatReturn {
   const { clientId: authClientId, loading: authLoading } = useAuth();
@@ -74,7 +74,7 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const targetClientId = clientId || authClientId || 1;
+  const targetClientId = clientId || authClientId;
 
   // Track opened screen tabs via localStorage
   useEffect(() => {
@@ -94,7 +94,7 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("focus", handleStorageChange);
 
-    const interval = setInterval(handleStorageChange, 500); // تقليل الفاصل الزمني
+    const interval = setInterval(handleStorageChange, 500);
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
@@ -109,12 +109,12 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
     if (stored) {
       try {
         const ids: number[] = JSON.parse(stored);
-        // الاحتفاظ فقط بالشاشات المتصلة
+        // Keep only connected screens
         const updated = ids.filter(id => {
           const screen = screens.find(s => s.id === id);
           return screen && screen.connectionStatus === "Online";
         });
-        
+
         if (updated.length !== ids.length) {
           localStorage.setItem("openScreenTabs", JSON.stringify(updated));
           setOpenScreenTabs(new Set(updated));
@@ -126,29 +126,30 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
   }, [screens]);
 
   /**
-   * تحميل الشاشات من الخادم
+   * Load screens from server
    */
   const loadScreens = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
+      if (!targetClientId) {
+        setError("No client ID provided");
+        setLoading(false);
+        return;
+      }
+
       const response = await screenApi.getAll({ clientId: targetClientId });
 
-      // 🔄 عند Login: تحديث حالة جميع الشاشات من آخر heartbeat
-      console.log("🔄 Checking online status for all screens...");
+      // On Login: Update all screens status from last heartbeat
       const statusMap: { [screenId: number]: boolean } = {};
 
       for (const screen of response) {
         try {
           const statusResponse = await screenApi.checkOnlineStatus(screen.id);
-          // ✅ الحالة تعتمد على heartbeat من الخادم
+          // Status depends on heartbeat from server
           statusMap[screen.id] = statusResponse.connectionStatus === "Online";
-          console.log(
-            `✅ Screen ${screen.id}: ${statusMap[screen.id] ? "ONLINE" : "OFFLINE"}`,
-          );
         } catch (err) {
-          console.error(`❌ Failed to check screen ${screen.id}:`, err);
           statusMap[screen.id] = false;
         }
       }
@@ -157,28 +158,25 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
       setScreens(response);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "فشل تحميل الشاشات من الخادم";
+        err instanceof Error ? err.message : "Failed to load screens from server";
       setError(message);
-      console.error("Failed to load screens from API:", err);
     } finally {
       setLoading(false);
     }
   }, [targetClientId]);
 
   /**
-   * جديد: إرسال heartbeat لشاشة واحدة
+   * Send heartbeat for single screen
    */
   const sendHeartbeatForScreen = useCallback(async (screenId: number) => {
     try {
       await screenApi.sendHeartbeat(screenId);
-      console.log(`Heartbeat sent for screen ${screenId}`);
     } catch (err) {
-      console.error(`Failed to send heartbeat for screen ${screenId}:`, err);
     }
   }, []);
 
   /**
-   * جديد: التحقق من حالة الشاشة (هل هي online أم offline)
+   * Check screen status (online or offline)
    */
   const checkScreenStatus = useCallback(async (screenId: number) => {
     try {
@@ -190,10 +188,8 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
         [screenId]: isOnline,
       }));
 
-      console.log(`Screen ${screenId} status: ${isOnline ? "ONLINE" : "OFFLINE"}`);
     } catch (err) {
-      console.error(`Failed to check status for screen ${screenId}:`, err);
-      // في حالة الخطأ، نعتبر الشاشة offline
+      // On error, consider screen offline
       setScreenOnlineStatus((prev) => ({
         ...prev,
         [screenId]: false,
@@ -209,7 +205,7 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
         await loadScreens();
         return screen;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "فشل إنشاء الشاشة");
+        setError(err instanceof Error ? err.message : "Failed to create screen");
         return null;
       }
     },
@@ -224,7 +220,7 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
         await loadScreens();
         return screen;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "فشل تحديث الشاشة");
+        setError(err instanceof Error ? err.message : "Failed to update screen");
         return null;
       }
     },
@@ -239,7 +235,7 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
         await loadScreens();
         return true;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "فشل حذف الشاشة");
+        setError(err instanceof Error ? err.message : "Failed to delete screen");
         return false;
       }
     },
@@ -254,7 +250,7 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
         await loadScreens();
         return screen;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "فشل تعيين الحملة");
+        setError(err instanceof Error ? err.message : "Failed to assign campaign");
         return null;
       }
     },
@@ -269,7 +265,7 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
         await loadScreens();
         return screen;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "فشل إزالة الحملة");
+        setError(err instanceof Error ? err.message : "Failed to remove campaign");
         return null;
       }
     },
@@ -288,9 +284,9 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
   }, [loadScreens, authLoading]);
 
   /**
-   * ✅ 🔄 localStorage listener
-   * الاستماع لـ heartbeat من التبويبات الأخرى (نفس الجهاز)
-   * تحديث فوري بدون reload
+   * localStorage listener
+   * Listen for heartbeat from other tabs (same device)
+   * Instant update without reload
    */
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -299,14 +295,13 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
       if (e.key?.startsWith("screen-heartbeat-")) {
         const screenId = parseInt(e.key.split("-")[2], 10);
         if (Number.isFinite(screenId)) {
-          console.log(`📝 Storage update: Screen ${screenId} is ACTIVE`);
 
           setScreenOnlineStatus((prev) => ({
             ...prev,
             [screenId]: true,
           }));
 
-          // تحديث الشاشة في القائمة
+          // Update screen in list
           setScreens((prev) =>
             prev.map((screen) =>
               screen.id === screenId
@@ -323,16 +318,15 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
   }, []);
 
   /**
-   * ✅ ⏱️ Periodic check كل 10 ثواني (محسّن)
-   * للتحقق من الحالة الفعلية من الخادم
-   * (ضروري للأجهزة المختلفة والتحديثات المتأخرة)
-   * وقت Offline: بعد 10 ثواني من توقف heartbeat
+   * Periodic check every 10 seconds (improved)
+   * Verify actual status from server
+   * (necessary for different devices and delayed updates)
+   * Offline time: after 10 seconds of heartbeat stop
    */
   useEffect(() => {
     if (screens.length === 0) return;
 
     const checkAllScreensStatus = async () => {
-      console.log("🔄 Periodic check: checking all screens status...");
 
       const statusMap: { [screenId: number]: boolean } = {};
 
@@ -340,11 +334,7 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
         try {
           const statusResponse = await screenApi.checkOnlineStatus(screen.id);
           statusMap[screen.id] = statusResponse.connectionStatus === "Online";
-          console.log(
-            `✅ Screen ${screen.id}: ${statusMap[screen.id] ? "ONLINE" : "OFFLINE"}`,
-          );
         } catch (err) {
-          console.error(`❌ Failed to check screen ${screen.id}:`, err);
           statusMap[screen.id] = false;
         }
       }
@@ -358,12 +348,12 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
       );
     };
 
-    // أول مرة بعد 5 ثواني (تجنب عدم الاستقرار في البداية)
+    // First time after 5 seconds (avoid initial instability)
     const initialTimer = setTimeout(() => {
       checkAllScreensStatus();
     }, 5000);
 
-    // ثم كل 10 ثواني (بدلاً من 60)
+    // Then every 10 seconds (instead of 60)
     const interval = setInterval(() => {
       checkAllScreensStatus();
     }, 10000);

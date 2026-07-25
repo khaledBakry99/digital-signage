@@ -10,10 +10,10 @@ interface CameraDeactivatedEvent {
 }
 
 /**
- * Hook للاستماع لأحداث SignalR الخاصة بالكاميرات
+ * Hook to listen to SignalR events for cameras
  * 
- * @param cameraId - رقم الكاميرا
- * @param onDeactivated - callback عند إيقاف الكاميرا من السيرفر
+ * @param cameraId - Camera ID
+ * @param onDeactivated - callback when camera is deactivated from server
  */
 export function useCameraSignalR(
   cameraId: number,
@@ -28,31 +28,29 @@ export function useCameraSignalR(
 
     async function setupConnection() {
       try {
-        // الحصول على token من localStorage
+        // Get token from localStorage
         const token = localStorage.getItem("accessToken");
         if (!token) {
           setError("No access token found");
           return;
         }
 
-        // الاتصال بـ SignalR
+        // Connect to SignalR
         const connection = await signalRService.connect(token);
-        
+
         if (!mounted) return;
 
-        // الاستماع لحدث إيقاف الكاميرا
+        // Listen for camera deactivation event
         connection.on("CameraDeactivated", (event: CameraDeactivatedEvent) => {
           if (event.cameraId === cameraId && onDeactivated) {
-            console.log("📷❌ CameraDeactivated:", event);
             onDeactivated(event);
           }
         });
 
-        // الانضمام لمجموعة الكاميرا
+        // Join camera group
         if (!joinedRef.current) {
           await connection.invoke("JoinCamera", cameraId);
           joinedRef.current = true;
-          console.log(`✅ Joined camera group: ${cameraId}`);
         }
 
         setConnected(true);
@@ -61,7 +59,6 @@ export function useCameraSignalR(
         if (mounted) {
           const errorMessage = err instanceof Error ? err.message : "SignalR connection failed";
           setError(errorMessage);
-          console.error("❌ SignalR setup error:", errorMessage);
         }
       }
     }

@@ -47,8 +47,6 @@ export default function CampaignsPage() {
   const handleSubmit = async (data: CreateCampaignInput) => {
     try {
       setSubmitError(null);
-      console.log("🚀 Final payload sent to API client:", JSON.stringify(data, null, 2));
-      console.log("🚀 Current Access Token:", localStorage.getItem("accessToken"));
       if (editingCampaign) {
         await updateCampaign(editingCampaign.id, data);
       } else {
@@ -57,7 +55,6 @@ export default function CampaignsPage() {
       setIsModalOpen(false);
       setEditingCampaign(undefined);
     } catch (err) {
-      console.error("Campaign Submit Error Details:", err);
       setSubmitError(extractApiError(err, 'فشل حفظ الحملة'));
     }
   };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useCameras } from "@/lib/cameras/hooks/useCameras";
 import { useTheme } from "@/lib/context/ThemeContext";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -14,6 +15,7 @@ import type { Camera } from "@/lib/types/camera";
 import { useEffect } from "react";
 
 export default function CamerasPage() {
+  const router = useRouter();
   const {
     cameras,
     loading,
@@ -22,7 +24,7 @@ export default function CamerasPage() {
     deleteCamera,
   } = useCameras();
   const { theme } = useTheme();
-  const { clientId, loading: authLoading } = useAuth();
+  const { clientId, loading: authLoading, isAuthenticated } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [editingCamera, setEditingCamera] = useState<string | null>(null);
   const [deletingCamera, setDeletingCamera] = useState<Camera | null>(null);
@@ -31,7 +33,7 @@ export default function CamerasPage() {
   const isLightTheme = theme === "light";
   const activeCameras = cameras.filter((c) => c.status === "connected").length;
   const statsLoaded = !loading;
-  const maxCameras = subscription?.maxCameras ?? 4;
+  const maxCameras = subscription?.maxCameras ?? 0;
   const isAtMaxCameras = maxCameras > 0 && cameras.length >= maxCameras;
 
 
@@ -65,20 +67,20 @@ export default function CamerasPage() {
   useEffect(() => {
     const fetchSubscription = async () => {
       try {
-        const targetClientId = clientId || 1;
-        const data = await dashboardApi.getSubscriptions(targetClientId);
+        const data = await dashboardApi.getSubscriptions(clientId!);
         if (data && data.length > 0) {
           setSubscription(data[0]);
         }
       } catch (err) {
-        console.error("فشل جلب بيانات الاشتراك:", err);
       }
     };
 
-    if (!authLoading) {
+    if (!authLoading && isAuthenticated && clientId) {
       fetchSubscription();
+    } else if (!authLoading && !isAuthenticated) {
+      router.push('/login');
     }
-  }, [clientId, authLoading]);
+  }, [clientId, authLoading, isAuthenticated]);
 
   const handleAddCamera = async (data: {
     name: string;
@@ -92,7 +94,6 @@ export default function CamerasPage() {
       try {
         await cameraApi.setCameraDeviceName(newCamera.id, data.cameraDeviceName);
       } catch (err) {
-        console.warn("فشل حفظ اسم جهاز الكاميرا:", err);
       }
     }
     setShowForm(false);
@@ -111,7 +112,6 @@ export default function CamerasPage() {
       try {
         await cameraApi.setCameraDeviceName(Number(editingCamera), data.cameraDeviceName);
       } catch (err) {
-        console.warn("فشل تحديث اسم جهاز الكاميرا:", err);
       }
     }
     setEditingCamera(null);

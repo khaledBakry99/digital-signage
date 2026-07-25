@@ -27,7 +27,6 @@ export default function CameraBackgroundService() {
       try {
         backgroundCameraService.initialize();
       } catch (error) {
-        console.error("Failed to initialize background camera service:", error);
       }
     }, 5000); // Wait 5 seconds after page load (increased from 3)
 
@@ -37,7 +36,6 @@ export default function CameraBackgroundService() {
       try {
         backgroundCameraService.cleanup();
       } catch (error) {
-        console.error("Failed to cleanup background camera service:", error);
       }
     };
   }, [isAuthenticated, loading, pathname]);

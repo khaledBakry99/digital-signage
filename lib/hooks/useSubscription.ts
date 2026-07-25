@@ -24,7 +24,6 @@ export function useSubscription(clientId?: number) {
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch subscription';
         setError(errorMessage);
-        console.error('Failed to fetch subscription:', err);
       } finally {
         setLoading(false);
       }

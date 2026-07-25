@@ -3,7 +3,6 @@
 import { useAdvertisements } from "@/lib/hooks/useAdvertisements";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTheme } from "@/lib/context/ThemeContext";
-import { indexedDBService } from "@/lib/storage/indexedDB";
 import { screenApi } from "@/lib/api/screen.api";
 import { useScreenSignalR } from "@/lib/hooks/useScreenSignalR";
 import { registerOpenCameraTab } from "@/lib/cameras/utils/openCameraTabs";
@@ -12,7 +11,7 @@ import type { Screen, ScreenCurrentMedia } from "@/lib/types/screen";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
 
 /**
- * مساعد: تسجيل تبويب شاشة مفتوح
+ * Helper: Register open screen tab
  */
 function registerOpenScreenTab(screenId: number): number[] {
   if (typeof window === "undefined") return [];
@@ -37,14 +36,6 @@ interface ScreenGridProps {
   openScreenTabs?: Set<number>;
 }
 
-async function resolveBlobUrl(fileUrl: string): Promise<string> {
-  if (!fileUrl.startsWith("indexeddb://")) return fileUrl;
-  const fileId = fileUrl.replace("indexeddb://", "");
-  const file = await indexedDBService.getFile(fileId);
-  if (!file) throw new Error("الملف غير موجود");
-  return URL.createObjectURL(file);
-}
-
 function ScreenPreview({
   adFileUrl,
   adType,
@@ -52,46 +43,15 @@ function ScreenPreview({
   adFileUrl: string;
   adType: "image" | "video";
 }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    let url: string | null = null;
-
-    resolveBlobUrl(adFileUrl)
-      .then((resolvedUrl) => {
-        if (cancelled) {
-          URL.revokeObjectURL(resolvedUrl);
-          return;
-        }
-        url = resolvedUrl;
-        setBlobUrl(resolvedUrl);
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
-      });
-
-    return () => {
-      cancelled = true;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [adFileUrl]);
 
   if (error) {
     return (
       <div className="w-full h-full flex items-center justify-center">
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
           فشل تحميل الإعلان
-        </p>
-      </div>
-    );
-  }
 
-  if (!blobUrl) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <div className="inline-block w-6 h-6 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+        </p>
       </div>
     );
   }
@@ -99,7 +59,7 @@ function ScreenPreview({
   if (adType === "image") {
     return (
       <img
-        src={blobUrl}
+        src={adFileUrl}
         alt="معاينة الإعلان"
         className="w-full h-full object-cover"
         onError={() => setError(true)}
@@ -109,7 +69,7 @@ function ScreenPreview({
 
   return (
     <video
-      src={blobUrl}
+      src={adFileUrl}
       className="w-full h-full object-cover"
       autoPlay
       loop
@@ -213,9 +173,17 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
       return;
     }
 
-    const newTab = window.open(`/screens/${screenId}`, "_blank");
-    if (!newTab) {
-      console.error("❌ لم يتم فتح تبويب الشاشة - ربما تم منع النوافذ المنبثقة");
+    const width = window.screen.width * 0.8;
+    const height = window.screen.height * 0.8;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+
+    const newWindow = window.open(
+      `/screens/${screenId}`,
+      "_blank",
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
+    if (!newWindow) {
       return;
     }
 
@@ -231,7 +199,6 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
 
     const newTab = window.open(`/cameras/${cameraId}`, "_blank");
     if (!newTab) {
-      console.error("❌ لم يتم فتح تبويب الكاميرا - ربما تم منع النوافذ المنبثقة");
       return;
     }
 
@@ -305,7 +272,6 @@ function ScreenCard({
       const media = await screenApi.getCurrentMedia(screen.id);
       setCurrentMedia(media);
     } catch (err) {
-      console.warn(`⚠️ فشل جلب الإعلان الحالي للشاشة ${screen.id}`, err);
       if (!isActive) {
         setCurrentMedia(null);
       }
@@ -349,8 +315,8 @@ function ScreenCard({
     >
       {/* Live Status Badge */}
       <div className="absolute top-4 left-4 flex items-center gap-2 backdrop-blur-md px-3.5 py-1.5 rounded-full border shadow-lg select-none z-10" style={{
-        background: isLightTheme 
-          ? isActive 
+        background: isLightTheme
+          ? isActive
             ? "rgba(34, 197, 94, 0.15)" // أخضر فاتح للنشط
             : "rgba(239, 68, 68, 0.15)" // أحمر فاتح للخامل
           : "rgba(10, 15, 29, 0.8)",
@@ -358,16 +324,14 @@ function ScreenCard({
           ? isLightTheme ? "1px solid rgba(34, 197, 94, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)"
           : isLightTheme ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)"
       }}>
-        <span className={`w-2 h-2 rounded-full ${
-          isActive 
-            ? "bg-green-500 animate-pulse" 
-            : isLightTheme ? "bg-red-500" : "bg-slate-500"
-        }`} />
-        <span className={`text-[11px] font-bold tracking-wide ${
-          isActive 
-            ? isLightTheme ? "text-green-700" : "text-white"
-            : isLightTheme ? "text-red-700" : "text-white"
-        }`}>
+        <span className={`w-2 h-2 rounded-full ${isActive
+          ? "bg-green-500 animate-pulse"
+          : isLightTheme ? "bg-red-500" : "bg-slate-500"
+          }`} />
+        <span className={`text-[11px] font-bold tracking-wide ${isActive
+          ? isLightTheme ? "text-green-700" : "text-white"
+          : isLightTheme ? "text-red-700" : "text-white"
+          }`}>
           {isActive ? "نشط" : "خامل"}
         </span>
       </div>
@@ -448,9 +412,8 @@ function ScreenCard({
         <button
           onClick={(e) => onOpenScreen(screen.id, e)}
           disabled={isScreenOpen}
-          className={`flex-1 py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100 cursor-pointer hover:scale-105 active:scale-95 ${
-            isScreenOpen ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
-          }`}
+          className={`flex-1 py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100 cursor-pointer hover:scale-105 active:scale-95 ${isScreenOpen ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
+            }`}
           style={{
             background: isScreenOpen
               ? "rgba(100,116,139,0.15)"

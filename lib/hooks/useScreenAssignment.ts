@@ -71,7 +71,6 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
       const data = await screenApi.getCurrentMedia(screenId);
       setCurrentMedia(data);
     } catch (err) {
-      console.error('Failed to refresh current media:', err);
     }
   }, [screenId]);
 
@@ -99,7 +98,6 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
         return true;
       } catch (err) {
         setError(extractApiError(err));
-        console.error("❌ Toggle AI failed", err);
         return false;
       }
     },
@@ -269,11 +267,9 @@ export function useScreenAssignment(screenId: number): UseScreenAssignmentResult
     async (enabled: boolean): Promise<boolean> => {
       try {
         setError(null);
-        console.log("⚙️ Toggle AI request", { screenId, enabled });
         const updatedScreen = enabled
           ? await screenApi.enableScreenAI(screenId)
           : await screenApi.disableScreenAI(screenId);
-        console.log("✅ Toggle AI response", updatedScreen);
         setScreen(updatedScreen);
 
         // Refresh current media

@@ -76,10 +76,12 @@ export function CameraCard({
     : "border-white/5 bg-gradient-to-br from-[#111528] to-[#090c18] shadow-[0_25px_70px_rgba(2,6,23,0.65)] hover:shadow-[0_35px_90px_rgba(2,6,23,0.75)]"
     }`;
 
-  const previewAreaClass = `relative h-48 flex flex-col items-center justify-center p-4 border-b ${isLightTheme ? "bg-gradient-to-br from-indigo-50 via-white to-slate-100 border-white/70" : "bg-[#070b19]/60 border-white/5"
+  const headerClass = `relative h-32 flex items-center justify-center overflow-hidden ${isLightTheme
+    ? "bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-50"
+    : "bg-gradient-to-br from-indigo-900/30 via-purple-900/20 to-pink-900/10"
     }`;
 
-  const infoPanelClass = `p-5 flex flex-col flex-1 text-right ${isLightTheme ? "bg-white/40" : "bg-black/10"
+  const infoPanelClass = `p-6 flex flex-col flex-1 text-right ${isLightTheme ? "bg-white/40" : "bg-black/10"
     }`;
 
   const secondaryBadgeClass = isLightTheme
@@ -88,62 +90,60 @@ export function CameraCard({
 
   return (
     <div className={containerClass}>
-      {/* Thumbnail/Preview Area (Upper Dark Panel) */}
-      <div className={previewAreaClass}>
-        {camera.thumbnail ? (
-          <img
-            src={camera.thumbnail}
-            alt={camera.name}
-            className="w-full h-full object-cover rounded-t-[24px]"
-          />
-        ) : (
-          <div className={`${isLightTheme ? "text-slate-400" : "text-slate-500/80"} text-center flex flex-col items-center gap-3 transition-transform duration-500 group-hover:scale-105`}>
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${isLightTheme
-              ? "bg-white/80 border-white/70 group-hover:border-indigo-200 group-hover:bg-indigo-50"
-              : "bg-white/5 border-white/10 group-hover:border-indigo-500/30 group-hover:bg-indigo-500/5"
-              }`}>
-              <svg
-                className={`w-7 h-7 ${isLightTheme ? "text-indigo-400" : "text-slate-400"}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.8}
-                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-            </div>
-            <p className={`text-xs font-semibold ${isLightTheme ? "text-slate-400" : "text-slate-400/80"}`}>
-              لا توجد معاينة
-            </p>
-          </div>
-        )}
+      {/* Camera Icon Header */}
+      <div className={headerClass}>
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-30" style={{
+          background: isLightTheme
+            ? "radial-gradient(circle, rgba(99,102,241,0.4), transparent 70%)"
+            : "radial-gradient(circle, rgba(99,102,241,0.2), transparent 70%)"
+        }} />
+        <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full opacity-20" style={{
+          background: isLightTheme
+            ? "radial-gradient(circle, rgba(236,72,153,0.4), transparent 70%)"
+            : "radial-gradient(circle, rgba(236,72,153,0.2), transparent 70%)"
+        }} />
 
-        {/* Live Status Badge */}
-        <div className={`absolute top-4 left-4 flex items-center gap-2 backdrop-blur-md px-3.5 py-1.5 rounded-full border shadow-lg select-none ${isLightTheme ? "bg-white/85 border-white/80" : "bg-[#0a0f1d]/80 border-white/5"
+        {/* Camera Icon */}
+        <div className={`relative z-10 w-16 h-16 rounded-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-110 ${isLightTheme
+          ? "bg-white/80 shadow-lg shadow-indigo-500/20"
+          : "bg-white/10 shadow-xl shadow-indigo-500/10"
+          }`}>
+          <svg
+            className={`w-8 h-8 ${isLightTheme ? "text-indigo-600" : "text-indigo-400"}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+            />
+          </svg>
+        </div>
+
+        {/* Status Badge */}
+        <div className={`absolute top-4 left-4 flex items-center gap-2 backdrop-blur-md px-3 py-1 rounded-full border shadow-lg select-none ${isLightTheme ? "bg-white/90 border-white/80" : "bg-[#0a0f1d]/90 border-white/10"
           }`}>
           <div className={`w-2 h-2 rounded-full ${getStatusColor()}`} />
-          <span className={`text-[11px] font-bold tracking-wide ${isLightTheme ? "text-slate-700" : "text-white"}`}>
+          <span className={`text-[10px] font-bold tracking-wide ${isLightTheme ? "text-slate-700" : "text-white"}`}>
             {getStatusText()}
           </span>
         </div>
       </div>
 
-      {/* Camera Info Panel (Glassmorphic Dark Section) */}
+      {/* Camera Info Panel */}
       <div className={infoPanelClass}>
         {/* Title / Name */}
-        <div className="mb-3">
-          <h3 className={`text-lg font-bold leading-tight transition-colors ${isLightTheme ? "text-slate-900 group-hover:text-indigo-500" : "text-slate-100 group-hover:text-indigo-400"
-            }`}>
-            {camera.name}
-          </h3>
-        </div>
+        <h3 className={`text-xl font-bold leading-tight transition-colors mb-4 ${isLightTheme ? "text-slate-900 group-hover:text-indigo-500" : "text-slate-100 group-hover:text-indigo-400"
+          }`}>
+          {camera.name}
+        </h3>
 
         {/* Badges / Tech Info */}
-        <div className="flex items-center gap-2 justify-start mb-3.5">
+        <div className="flex items-center gap-2 justify-start mb-4">
           {camera.location && (
             <span
               className={`text-[11px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5 ${isLightTheme

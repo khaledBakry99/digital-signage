@@ -59,14 +59,12 @@ export default function CameraViewPage() {
   }, [params.id]);
 
   /**
-   * ❌ حذف: لا نستدعي deactivate في cleanup
-   * ✅ الخادم يقرر من آخر heartbeat:
-   *    - إذا انقطع heartbeat 60+ ثانية = INACTIVE
-   *    - إذا استمر heartbeat = ACTIVE
+   * Server determines status from last heartbeat:
+   * - If heartbeat stops for 60+ seconds = INACTIVE
+   * - If heartbeat continues = ACTIVE
    */
   useEffect(() => {
     return () => {
-      console.log(`التبويب سيُغلق - الخادم سيكتشف انقطاع heartbeat بعد 60 ثانية`);
     };
   }, []);
 

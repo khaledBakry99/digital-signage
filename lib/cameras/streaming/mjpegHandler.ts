@@ -18,7 +18,6 @@ class MJPEGHandler {
 
       // Handle errors and auto-reconnect
       imgElement.onerror = () => {
-        console.error("MJPEG stream error, attempting reconnect...");
 
         // Clear existing timer
         const existingTimer = this.reconnectTimers.get(url);
@@ -47,7 +46,6 @@ class MJPEGHandler {
       // Store active stream
       this.activeStreams.set(url, imgElement);
     } catch (error) {
-      console.error("Failed to start MJPEG stream:", error);
       throw new Error(ERROR_MESSAGES.CONNECTION_FAILED);
     }
   }
@@ -76,7 +74,6 @@ class MJPEGHandler {
         this.activeStreams.delete(url);
       }
     } catch (error) {
-      console.error("Failed to stop MJPEG stream:", error);
     }
   }
 
