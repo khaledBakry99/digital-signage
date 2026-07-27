@@ -28,21 +28,21 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
 function translateErrorMessage(msg: string): string {
   if (!msg) return msg;
   let translated = msg;
-  
+
   Object.entries(ERROR_TRANSLATIONS).forEach(([eng, arb]) => {
     const escapedEng = eng.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(escapedEng, 'gi');
     translated = translated.replace(regex, arb);
   });
-  
+
   return translated;
 }
 
 export function extractApiError(err: any, defaultMsg: string = 'حدث خطأ في الاتصال'): string {
   if (!err) return defaultMsg;
-  
+
   let rawMessage = defaultMsg;
-  
+
   if (err.detail) {
     rawMessage = err.detail;
   } else if (err.errors && typeof err.errors === 'object') {
@@ -60,7 +60,7 @@ export function extractApiError(err: any, defaultMsg: string = 'حدث خطأ ف
   } else {
     rawMessage = err.message || (err instanceof Error ? err.message : defaultMsg);
   }
-  
+
   return translateErrorMessage(rawMessage);
 }
 
@@ -83,11 +83,17 @@ export class ApiClient {
       return;
     }
 
+    // Only dispatch session-expired event if user was actually authenticated
+    // (i.e., had a token). This prevents showing the toast on login errors.
+    const hadToken = localStorage.getItem('accessToken');
+
     localStorage.removeItem('accessToken');
     localStorage.removeItem('expiresAtUtc');
     localStorage.removeItem('user');
 
-    window.dispatchEvent(new CustomEvent('auth:session-expired'));
+    if (hadToken) {
+      window.dispatchEvent(new CustomEvent('auth:session-expired'));
+    }
   }
 
   // Dynamic timeout setter based on camera screenshot interval
@@ -156,7 +162,7 @@ export class ApiClient {
       return {} as T;
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           throw {
@@ -168,7 +174,7 @@ export class ApiClient {
           message: error.message || 'حدث خطأ في الاتصال',
         } as ApiError;
       }
-      
+
       throw error;
     }
   }
@@ -260,7 +266,7 @@ export class ApiClient {
       return {} as T;
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           throw {
@@ -272,7 +278,7 @@ export class ApiClient {
           message: error.message || 'حدث خطأ في الاتصال',
         } as ApiError;
       }
-      
+
       throw error;
     }
   }

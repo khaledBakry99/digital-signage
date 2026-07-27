@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { subscriptionsApi } from "@/lib/api/subscriptions.api";
 import { useTheme } from "@/lib/context/ThemeContext";
@@ -248,7 +249,7 @@ export default function LoginPage() {
                   <div className="mt-2 text-left">
                     <button
                       type="button"
-                      onClick={() => router.push('/forgot-password')}
+                      onClick={() => window.location.href = '/forgot-password'}
                       className="text-sm font-medium transition-colors inline-flex items-center gap-1"
                       style={{ color: isDark ? '#818cf8' : '#6366f1' }}
                       onMouseEnter={(e) => e.currentTarget.style.color = isDark ? '#a78bfa' : '#8b5cf6'}
