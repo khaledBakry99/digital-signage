@@ -11,4 +11,8 @@ export const API_ENDPOINTS = {
     LOGIN: '/api/Auth/login',
     ME: '/api/Auth/me',
   },
+  PASSWORD: {
+    FORGOT_PASSWORD: '/api/password/forgot-password',
+    RESET_PASSWORD: '/api/password/reset-password',
+  },
 } as const;
