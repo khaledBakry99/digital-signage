@@ -68,7 +68,7 @@ export function CameraForm({
     detectSourceType(camera?.source),
   );
   const [cameraDeviceName, setCameraDeviceName] = useState(
-    camera?.source || "",
+    camera ? "" : "", // Always empty initially, even for editing
   );
   const [timeToScreenshot, setTimeToScreenshot] = useState<number>(
     camera?.timeToScreenshot || 10,
@@ -96,32 +96,6 @@ export function CameraForm({
     loadDevices();
   }, [sourceType]);
 
-  // جلب اسم جهاز الكاميرا المحفوظ عند التعديل
-  useEffect(() => {
-    async function fetchCameraDeviceName() {
-      if (!camera?.id) return;
-      try {
-        const response = await cameraApi.getCameraDeviceName(Number(camera.id));
-        if (response.cameraDeviceName) {
-          setCameraDeviceName(response.cameraDeviceName);
-        }
-      } catch (err) {
-      }
-    }
-    fetchCameraDeviceName();
-  }, [camera?.id]);
-
-  useEffect(() => {
-    if (sourceType !== "webcam") return;
-    if (cameraDeviceName) return;
-    if (!devices.length) return;
-
-    const usedByOthers = new Set(
-      usedWebcamDeviceIds.filter((id) => !!id && id !== camera?.source),
-    );
-    const firstUnused = devices.find((d) => !usedByOthers.has(d.deviceId));
-    setCameraDeviceName(firstUnused?.deviceId ?? devices[0].deviceId);
-  }, [camera?.source, cameraDeviceName, devices, sourceType, usedWebcamDeviceIds]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,7 +244,7 @@ export function CameraForm({
                 value={cameraDeviceName}
                 onChange={(e) => setCameraDeviceName(e.target.value)}
                 disabled={loadingDevices}
-                className={selectClass}
+                className={`${selectClass} ${!cameraDeviceName.trim() && devices.length > 0 ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
               >
                 <option value="" disabled className={lightOptionClass}>
                   {loadingDevices ? "جاري تحميل الكاميرات..." : "اختر كاميرا"}
@@ -322,7 +296,7 @@ export function CameraForm({
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || (sourceType === "webcam" && !cameraDeviceName.trim() && devices.length > 0)}
           className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer active:scale-95 bg-linear-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 shadow-md shadow-indigo-500/10 hover:shadow-indigo-500/20"
         >
           {loading
@@ -334,7 +308,7 @@ export function CameraForm({
         <button
           type="button"
           onClick={onCancel}
-          disabled={loading}
+          disabled={loading || (sourceType === "webcam" && !cameraDeviceName.trim() && devices.length > 0)}
           className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer border ${isLightTheme ? "bg-white/85 border-white/60 text-slate-500 hover:text-slate-700 hover:shadow-[0_15px_30px_rgba(15,23,42,0.08)]" : "bg-slate-950/40 border-white/5 text-slate-400 hover:bg-slate-950/60 hover:text-slate-200"}`}
         >
           إلغاء

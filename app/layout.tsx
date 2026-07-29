@@ -4,6 +4,8 @@ import AppShell from "@/components/AppShell";
 import SessionExpiryToast from "@/components/SessionExpiryToast";
 import CameraTabStateSync from "@/components/CameraTabStateSync";
 import { ThemeProvider } from "@/lib/context/ThemeContext";
+import { FloatingCameraProvider } from "@/lib/context/FloatingCameraContext";
+import { FloatingCameraWrapper } from "@/components/FloatingCameraWrapper";
 
 export const metadata: Metadata = {
   title: "نظام إدارة الشاشات الرقمية Firasah Live",
@@ -40,11 +42,14 @@ export default function RootLayout({
         />
       </head>
       <body suppressHydrationWarning>
-        <ThemeProvider>
-          <AppShell>{children}</AppShell>
-        </ThemeProvider>
-        <SessionExpiryToast />
-        <CameraTabStateSync />
+        <FloatingCameraProvider>
+          <ThemeProvider>
+            <AppShell>{children}</AppShell>
+            <FloatingCameraWrapper />
+          </ThemeProvider>
+          <SessionExpiryToast />
+          <CameraTabStateSync />
+        </FloatingCameraProvider>
       </body>
     </html>
   );

@@ -47,8 +47,7 @@ export function CameraGrid({
       return;
     }
 
-    // 🔄 فتح التبويب الجديد فقط
-    // ✅ الـ heartbeat في CameraPlayer سيتحكم في الحالة
+    // Open new tab
     const newTab = window.open(`/cameras/${cameraId}`, "_blank");
     if (!newTab) {
       return;
@@ -57,7 +56,6 @@ export function CameraGrid({
     registerOpenCameraTab(cameraId);
     toggleActivating(cameraId, true);
 
-    // ✅ لا نستدعي activate - الـ heartbeat من CameraPlayer سيجعلها netshe
     setTimeout(() => toggleActivating(cameraId, false), 1000);
   };
 
