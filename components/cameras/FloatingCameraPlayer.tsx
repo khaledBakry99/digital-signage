@@ -75,7 +75,7 @@ export function FloatingCameraPlayer({ camera, onClose, index = 0 }: FloatingCam
       style={{
         left: position.x,
         top: position.y,
-        width: isMinimized ? '280px' : '400px',
+        width: isMinimized ? '280px' : '450px',
         height: isMinimized ? '50px' : '320px',
         background: isLightTheme ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 42, 0.95)',
         backdropFilter: 'blur(20px)',
@@ -95,6 +95,9 @@ export function FloatingCameraPlayer({ camera, onClose, index = 0 }: FloatingCam
           <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
           <span className="text-white text-xs font-medium truncate max-w-[120px]">
             {camera.name}
+          </span>
+          <span className="text-red-400 text-xs font-medium whitespace-nowrap">
+            (يجب ابقاء هذه الصفحة مفتوحة لعمل الذكاء الاصطناعي)
           </span>
         </div>
 
