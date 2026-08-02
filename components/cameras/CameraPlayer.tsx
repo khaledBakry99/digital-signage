@@ -235,15 +235,6 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
           </div>
         </div>
       )}
-
-
-      {/* Camera Info */}
-      <div className="absolute top-4 right-4 z-100">
-        <div className="relative inline-flex items-center gap-3 bg-black/60 backdrop-blur-md border border-white/20 px-4 py-2 rounded-full shadow-lg">
-          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse " />
-          <p className="font-medium text-s tracking-wide" style={{ color: '#ffffff' }}>{camera.name}</p>
-        </div>
-      </div>
     </div>
   );
 }

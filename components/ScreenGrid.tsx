@@ -4,11 +4,13 @@ import { useAdvertisements } from "@/lib/hooks/useAdvertisements";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTheme } from "@/lib/context/ThemeContext";
 import { screenApi } from "@/lib/api/screen.api";
+import { cameraApi } from "@/lib/api/camera.api";
 import { useScreenSignalR } from "@/lib/hooks/useScreenSignalR";
-import { registerOpenCameraTab } from "@/lib/cameras/utils/openCameraTabs";
+import { useFloatingCamera } from "@/lib/context/FloatingCameraContext";
 import { LIVE_SCREEN_MEDIA_STORAGE_KEY, LiveScreenMediaEntry, readLiveScreenMediaCache } from "@/lib/screens/utils/liveScreenMediaCache";
 import type { Screen, ScreenCurrentMedia } from "@/lib/types/screen";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
+import type { Camera } from "@/lib/types/camera";
 
 /**
  * Helper: Register open screen tab
@@ -82,36 +84,9 @@ function ScreenPreview({
 
 export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenTabs = new Set() }: ScreenGridProps) {
   const { advertisements } = useAdvertisements();
-  const [openCameraTabs, setOpenCameraTabs] = useState<Set<number>>(new Set());
+  const { openFloatingCamera, closeFloatingCamera, isCameraFloating } = useFloatingCamera();
   const [openScreenTabs, setOpenScreenTabs] = useState<Set<number>>(initialOpenScreenTabs);
   const [liveMediaByScreen, setLiveMediaByScreen] = useState<Map<number, LiveScreenMediaEntry>>(new Map());
-
-  // Track opened camera tabs via localStorage
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const stored = localStorage.getItem("openCameraTabs");
-      if (stored) {
-        try {
-          const ids = JSON.parse(stored);
-          setOpenCameraTabs(new Set(ids));
-        } catch {
-          setOpenCameraTabs(new Set());
-        }
-      }
-    };
-
-    handleStorageChange();
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("focus", handleStorageChange);
-
-    const interval = setInterval(handleStorageChange, 500);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("focus", handleStorageChange);
-      clearInterval(interval);
-    };
-  }, []);
 
   // Track opened screen tabs via localStorage
   useEffect(() => {
@@ -190,20 +165,52 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
     registerOpenScreenTab(screenId);
   }, [openScreenTabs]);
 
-  const openCamera = useCallback((cameraId: number, e: React.MouseEvent) => {
+  const openCamera = useCallback(async (cameraId: number, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    if (!cameraId || openCameraTabs.has(cameraId)) {
+    if (!cameraId) {
       return;
     }
 
-    const newTab = window.open(`/cameras/${cameraId}`, "_blank");
-    if (!newTab) {
+    const isFloating = isCameraFloating(cameraId);
+    if (isFloating) {
+      closeFloatingCamera(String(cameraId));
       return;
     }
 
-    registerOpenCameraTab(cameraId);
-  }, [openCameraTabs]);
+    try {
+      const backendCamera = await cameraApi.getById(cameraId);
+      const source = backendCamera.cameraDeviceName;
+      let cameraType: "local" | "rtsp" | "http" | "hls" = "local";
+      if (source.startsWith("rtsp://")) {
+        cameraType = "rtsp";
+      } else if (source.includes(".m3u8") || source.includes("/hls")) {
+        cameraType = "hls";
+      } else if (source.startsWith("http://") || source.startsWith("https://")) {
+        cameraType = "http";
+      }
+
+      const camera: Camera = {
+        id: String(backendCamera.id),
+        name: backendCamera.name,
+        location: backendCamera.location,
+        source: source,
+        type: cameraType,
+        status: backendCamera.state === 'Active' ? 'connected' : 'disconnected',
+        timeToScreenshot: backendCamera.timeToScreenshot,
+        settings: {
+          resolution: "1080p",
+          frameRate: 30,
+          quality: "medium",
+        },
+        createdAt: new Date(backendCamera.createdAtUtc),
+        updatedAt: new Date(),
+      };
+      openFloatingCamera(camera);
+    } catch (err) {
+      console.error("Failed to load camera:", err);
+    }
+  }, [isCameraFloating, closeFloatingCamera, openFloatingCamera]);
 
   const sortedScreens = useMemo(() => screens.map((screen, order) => ({ screen, order })), [screens]);
 
@@ -215,7 +222,6 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
           screen={screen}
           order={order}
           advertisements={advertisements}
-          openCameraTabs={openCameraTabs}
           onOpenCamera={openCamera}
           onOpenScreen={openScreen}
           liveMedia={liveMediaByScreen.get(screen.id)}
@@ -230,7 +236,6 @@ interface ScreenCardProps {
   screen: Screen;
   order: number;
   advertisements: MediaAsset[];
-  openCameraTabs: Set<number>;
   onOpenCamera: (cameraId: number, e: React.MouseEvent) => void;
   onOpenScreen: (screenId: number, e: React.MouseEvent) => void;
   liveMedia?: LiveScreenMediaEntry;
@@ -241,18 +246,18 @@ function ScreenCard({
   screen,
   order,
   advertisements,
-  openCameraTabs,
   onOpenCamera,
   onOpenScreen,
   liveMedia,
   openScreenTabs = new Set(),
 }: ScreenCardProps) {
   const { theme } = useTheme();
+  const { isCameraFloating } = useFloatingCamera();
   const isLightTheme = theme === "light";
   const isActive = screen.connectionStatus === "Online";
   const [currentMedia, setCurrentMedia] = useState<ScreenCurrentMedia | null>(null);
   const [loadingMedia, setLoadingMedia] = useState(false);
-  const isCameraOpen = !!screen.cameraId && openCameraTabs.has(screen.cameraId);
+  const isCameraFloatingState = !!screen.cameraId && isCameraFloating(screen.cameraId);
   const isScreenOpen = openScreenTabs.has(screen.id);
   const LIVE_MEDIA_STALE_MS = 30_000;
 
@@ -435,20 +440,20 @@ function ScreenCard({
         {screen.cameraId && (
           <button
             onClick={(e) => onOpenCamera(screen.cameraId!, e)}
-            disabled={isCameraOpen}
-            className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer ${isCameraOpen ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
+            disabled={isCameraFloatingState}
+            className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer ${isCameraFloatingState ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
               }`}
             style={{
-              background: isCameraOpen
+              background: isCameraFloatingState
                 ? "rgba(100,116,139,0.15)"
                 : "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.1))",
-              border: isCameraOpen
+              border: isCameraFloatingState
                 ? "1px solid rgba(100,116,139,0.2)"
                 : "1px solid rgba(16,185,129,0.3)",
-              color: isCameraOpen ? "#94a3b8" : "#34d399",
+              color: isCameraFloatingState ? "#94a3b8" : "#34d399",
             }}
             title={
-              isCameraOpen
+              isCameraFloatingState
                 ? "الكاميرا مفتوحة بالفعل"
                 : "فتح الكاميرا المربوطة"
             }

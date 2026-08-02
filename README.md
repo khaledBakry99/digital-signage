@@ -387,10 +387,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 📞 Support
 
-For support, email support@firasah.com or open an issue in the repository.
+For support, email info@LIVE-interactive or open an issue in the repository.
 
 ---
 
-**Built with ❤️ by Firasah Team**
+**Built with ❤️ by https://www.live-interactive.com/ **
 
 

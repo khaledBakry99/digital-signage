@@ -2,6 +2,7 @@
 
 import type { Camera } from "@/lib/types/camera";
 import { useTheme } from "@/lib/context/ThemeContext";
+import { useFloatingCamera } from "@/lib/context/FloatingCameraContext";
 
 interface CameraCardProps {
   camera: Camera;
@@ -21,10 +22,12 @@ export function CameraCard({
   isCameraOpen,
 }: CameraCardProps) {
   const { theme } = useTheme();
+  const { openFloatingCamera, closeFloatingCamera, isCameraFloating } = useFloatingCamera();
   const isLightTheme = theme === "light";
   const isConnected = camera.status === "connected";
   const numericId = Number(camera.id);
   const isOpening = Number.isFinite(numericId) && activatingCameraIds?.has(numericId);
+  const isFloating = isCameraFloating(numericId);
 
   const getStatusText = () => {
     return isConnected ? "متصلة" : "غير متصلة";
@@ -201,24 +204,30 @@ export function CameraCard({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (!isOpening && !isCameraOpen) {
-                onView(camera);
+              if (isFloating) {
+                closeFloatingCamera(camera.id);
+              } else if (!isOpening && !isCameraOpen) {
+                openFloatingCamera(camera);
               }
             }}
             disabled={isOpening || isCameraOpen}
-            className={`flex-1 text-white py-2.5 px-6 transition-all duration-150 rounded-xl text-xs font-bold text-center cursor-pointer select-none shadow-lg active:scale-95 ${isLightTheme
-              ? "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:shadow-[0_18px_35px_rgba(124,58,237,0.35)]"
-              : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/10 hover:shadow-indigo-500/20"
+            className={`flex-1 text-white py-2.5 px-6 transition-all duration-150 rounded-xl text-xs font-bold text-center cursor-pointer select-none shadow-lg active:scale-95 ${isFloating
+              ? "bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-[0_18px_35px_rgba(239,68,68,0.35)]"
+              : isLightTheme
+                ? "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:shadow-[0_18px_35px_rgba(124,58,237,0.35)]"
+                : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/10 hover:shadow-indigo-500/20"
               } ${(isOpening || isCameraOpen) ? "opacity-40 cursor-not-allowed" : ""}`}
             title={
-              isCameraOpen
-                ? "الكاميرا مفتوحة بالفعل"
-                : isOpening
-                  ? "جاري التفعيل"
-                  : "عرض البث"
+              isFloating
+                ? "إيقاف الكاميرا"
+                : isCameraOpen
+                  ? "الكاميرا مفتوحة بالفعل"
+                  : isOpening
+                    ? "جاري التفعيل"
+                    : "عرض البث"
             }
           >
-            {isOpening ? "جاري التفعيل..." : isCameraOpen ? "الكاميرا مفتوحة ✓" : "عرض البث"}
+            {isFloating ? "إيقاف الكاميرا" : isOpening ? "جاري التفعيل..." : isCameraOpen ? "الكاميرا مفتوحة ✓" : "عرض البث"}
           </button>
 
 
