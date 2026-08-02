@@ -8,11 +8,29 @@ export interface LiveScreenMediaEntry {
   state?: "DETECTING" | "PLAYING";
   cameraId?: number | null;
   ownerId: string;
+  currentTime?: number; // Current playback time in seconds for video sync
 }
 
 export const LIVE_SCREEN_MEDIA_STORAGE_KEY = "liveScreenMediaCache";
+export const LIVE_SCREEN_BROADCAST_CHANNEL = "live-screen-media-sync";
 
 type LiveScreenMediaMap = Record<string, LiveScreenMediaEntry>;
+
+// Create BroadcastChannel for instant cross-tab communication
+let broadcastChannel: BroadcastChannel | null = null;
+
+function getBroadcastChannel(): BroadcastChannel | null {
+  if (typeof window === "undefined") return null;
+  if (!broadcastChannel) {
+    try {
+      broadcastChannel = new BroadcastChannel(LIVE_SCREEN_BROADCAST_CHANNEL);
+    } catch (e) {
+      console.warn("BroadcastChannel not supported");
+      return null;
+    }
+  }
+  return broadcastChannel;
+}
 
 function safeParseCache(value: string | null): LiveScreenMediaMap {
   if (!value) return {};
@@ -54,6 +72,20 @@ export function upsertLiveScreenMedia(entry: Omit<LiveScreenMediaEntry, "updated
   };
   cache[String(entry.screenId)] = record;
   serializeCache(cache);
+  
+  // Broadcast instantly to all tabs for ZERO DELAY
+  const channel = getBroadcastChannel();
+  if (channel) {
+    try {
+      channel.postMessage({
+        type: 'media-update',
+        screenId: entry.screenId,
+        data: record
+      });
+    } catch (e) {
+      // Fallback to storage event
+    }
+  }
 }
 
 export function removeLiveScreenMedia(screenId: number, ownerId?: string) {
@@ -66,4 +98,35 @@ export function removeLiveScreenMedia(screenId: number, ownerId?: string) {
   }
   delete cache[String(screenId)];
   serializeCache(cache);
+  
+  // Broadcast removal instantly
+  const channel = getBroadcastChannel();
+  if (channel) {
+    try {
+      channel.postMessage({
+        type: 'media-remove',
+        screenId: screenId
+      });
+    } catch (e) {
+      // Fallback to storage event
+    }
+  }
+}
+
+// Subscribe to broadcast messages for instant updates
+export function subscribeToBroadcast(callback: (data: any) => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  
+  const channel = getBroadcastChannel();
+  if (!channel) return () => {};
+  
+  const handler = (event: MessageEvent) => {
+    callback(event.data);
+  };
+  
+  channel.addEventListener('message', handler);
+  
+  return () => {
+    channel.removeEventListener('message', handler);
+  };
 }

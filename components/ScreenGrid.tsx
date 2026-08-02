@@ -1,15 +1,11 @@
 "use client";
 
-import { useAdvertisements } from "@/lib/hooks/useAdvertisements";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTheme } from "@/lib/context/ThemeContext";
-import { screenApi } from "@/lib/api/screen.api";
 import { cameraApi } from "@/lib/api/camera.api";
-import { useScreenSignalR } from "@/lib/hooks/useScreenSignalR";
 import { useFloatingCamera } from "@/lib/context/FloatingCameraContext";
-import { LIVE_SCREEN_MEDIA_STORAGE_KEY, LiveScreenMediaEntry, readLiveScreenMediaCache } from "@/lib/screens/utils/liveScreenMediaCache";
-import type { Screen, ScreenCurrentMedia } from "@/lib/types/screen";
-import type { MediaAsset } from "@/lib/types/mediaAsset";
+import MirrorPlayer from "@/components/MirrorPlayer";
+import type { Screen } from "@/lib/types/screen";
 import type { Camera } from "@/lib/types/camera";
 
 /**
@@ -38,55 +34,11 @@ interface ScreenGridProps {
   openScreenTabs?: Set<number>;
 }
 
-function ScreenPreview({
-  adFileUrl,
-  adType,
-}: {
-  adFileUrl: string;
-  adType: "image" | "video";
-}) {
-  const [error, setError] = useState(false);
 
-  if (error) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          فشل تحميل الإعلان
-
-        </p>
-      </div>
-    );
-  }
-
-  if (adType === "image") {
-    return (
-      <img
-        src={adFileUrl}
-        alt="معاينة الإعلان"
-        className="w-full h-full object-cover"
-        onError={() => setError(true)}
-      />
-    );
-  }
-
-  return (
-    <video
-      src={adFileUrl}
-      className="w-full h-full object-cover"
-      autoPlay
-      loop
-      muted
-      playsInline
-      onError={() => setError(true)}
-    />
-  );
-}
 
 export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenTabs = new Set() }: ScreenGridProps) {
-  const { advertisements } = useAdvertisements();
   const { openFloatingCamera, closeFloatingCamera, isCameraFloating } = useFloatingCamera();
   const [openScreenTabs, setOpenScreenTabs] = useState<Set<number>>(initialOpenScreenTabs);
-  const [liveMediaByScreen, setLiveMediaByScreen] = useState<Map<number, LiveScreenMediaEntry>>(new Map());
 
   // Track opened screen tabs via localStorage
   useEffect(() => {
@@ -111,32 +63,6 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
     return () => {
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("focus", handleStorageChange);
-      clearInterval(interval);
-    };
-  }, []);
-
-  useEffect(() => {
-    const syncLiveMedia = () => {
-      const cache = readLiveScreenMediaCache();
-      const entries = Object.values(cache);
-      setLiveMediaByScreen(new Map(entries.map((entry) => [entry.screenId, entry])));
-    };
-
-    syncLiveMedia();
-
-    const handleStorage = (event: StorageEvent) => {
-      if (!event.key || event.key === LIVE_SCREEN_MEDIA_STORAGE_KEY) {
-        syncLiveMedia();
-      }
-    };
-
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener("focus", syncLiveMedia);
-    const interval = setInterval(syncLiveMedia, 1500);
-
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("focus", syncLiveMedia);
       clearInterval(interval);
     };
   }, []);
@@ -221,10 +147,8 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
           key={screen.id}
           screen={screen}
           order={order}
-          advertisements={advertisements}
           onOpenCamera={openCamera}
           onOpenScreen={openScreen}
-          liveMedia={liveMediaByScreen.get(screen.id)}
           openScreenTabs={openScreenTabs}
         />
       ))}
@@ -235,83 +159,24 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
 interface ScreenCardProps {
   screen: Screen;
   order: number;
-  advertisements: MediaAsset[];
   onOpenCamera: (cameraId: number, e: React.MouseEvent) => void;
   onOpenScreen: (screenId: number, e: React.MouseEvent) => void;
-  liveMedia?: LiveScreenMediaEntry;
   openScreenTabs?: Set<number>;
 }
 
 function ScreenCard({
   screen,
   order,
-  advertisements,
   onOpenCamera,
   onOpenScreen,
-  liveMedia,
   openScreenTabs = new Set(),
 }: ScreenCardProps) {
   const { theme } = useTheme();
   const { isCameraFloating } = useFloatingCamera();
   const isLightTheme = theme === "light";
   const isActive = screen.connectionStatus === "Online";
-  const [currentMedia, setCurrentMedia] = useState<ScreenCurrentMedia | null>(null);
-  const [loadingMedia, setLoadingMedia] = useState(false);
   const isCameraFloatingState = !!screen.cameraId && isCameraFloating(screen.cameraId);
   const isScreenOpen = openScreenTabs.has(screen.id);
-  const LIVE_MEDIA_STALE_MS = 30_000;
-
-  const freshLiveMedia = useMemo(() => {
-    if (!liveMedia) return null;
-    const updatedAt = Date.parse(liveMedia.updatedAt);
-    if (!Number.isFinite(updatedAt)) return null;
-    if (Date.now() - updatedAt > LIVE_MEDIA_STALE_MS) {
-      return null;
-    }
-    return liveMedia;
-  }, [liveMedia]);
-
-  const loadCurrentMedia = useCallback(async () => {
-    try {
-      setLoadingMedia(true);
-      const media = await screenApi.getCurrentMedia(screen.id);
-      setCurrentMedia(media);
-    } catch (err) {
-      if (!isActive) {
-        setCurrentMedia(null);
-      }
-    } finally {
-      setLoadingMedia(false);
-    }
-  }, [isActive, screen.id]);
-
-  useEffect(() => {
-    loadCurrentMedia();
-  }, [loadCurrentMedia]);
-
-  useScreenSignalR(screen.id, () => {
-    loadCurrentMedia();
-  });
-
-  const effectiveMediaId = currentMedia?.currentMediaAssetId ?? screen.currentMediaAssetId;
-  const ad = effectiveMediaId ? advertisements.find((a) => a.id === effectiveMediaId) : undefined;
-  const previewUrl = currentMedia?.url ?? ad?.url;
-  const mediaType = useMemo(() => {
-    if (ad?.type) {
-      return ad.type.toLowerCase() as "image" | "video";
-    }
-    if (previewUrl && /\.(mp4|webm|ogg)$/i.test(previewUrl)) {
-      return "video";
-    }
-    return "image";
-  }, [ad, previewUrl]);
-
-  const livePreviewUrl = freshLiveMedia?.url || undefined;
-  const livePreviewType = freshLiveMedia?.type || undefined;
-  const previewSource = livePreviewUrl ?? previewUrl;
-  const previewMediaType = livePreviewType ?? mediaType;
-  const adTitle = freshLiveMedia?.name || ad?.name || (effectiveMediaId ? `المادة ${effectiveMediaId}` : undefined);
-  const previewAvailable = !!previewSource;
 
   return (
     <div
@@ -365,51 +230,8 @@ function ScreenCard({
           border: "1px solid var(--border)",
         }}
       >
-        {(previewAvailable && (isActive || freshLiveMedia)) ? (
-          <>
-            <ScreenPreview adFileUrl={previewSource!} adType={previewMediaType} />
-            <div
-              className="absolute bottom-0 left-0 right-0 p-2"
-              style={{
-                background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
-              }}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold truncate" style={{ color: "white" }}>
-                  {adTitle || "إعلان مباشر"}
-                </p>
-                <div className="flex items-center gap-2">
-                  {freshLiveMedia && (
-                    <span className="text-[10px] text-emerald-300 font-semibold">مباشر</span>
-                  )}
-                  {loadingMedia && <span className="text-[10px] text-white/70">يتم التحديث...</span>}
-                </div>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center">
-              <svg
-                className="w-10 h-10 mx-auto mb-2"
-                style={{ color: "var(--text-muted)" }}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.2}
-                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              </svg>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {isActive ? "لا يوجد إعلان" : "الشاشة غير متصلة"}
-              </p>
-            </div>
-          </div>
-        )}
+        {/* MIRROR PLAYER - يعرض بالضبط ما تعرضه الشاشة الأصلية */}
+        <MirrorPlayer screenId={screen.id} isScreenOpen={isScreenOpen} />
       </div>
 
       {/* Action Buttons */}

@@ -173,7 +173,7 @@ class LocalCameraHandler {
             "Camera is in use by another application. Please close other applications using the camera",
           );
         } else if (error.name === "OverconstrainedError") {
-          throw new Error("Camera settings not supported. Try another camera");
+          throw new Error(" تعذر تشغيل الكاميرا (تأكد من توصيل الكاميرا بشكل صحيح، أو قم بالدخول إلى تعديل الكاميرا والتأكد من  \"اختيار كاميرا الويب\" من القائمة المنسدلة)");
         } else if (error.name === "AbortError") {
           // This is OK - just means play was interrupted
           const cameraKey = deviceId || "default";

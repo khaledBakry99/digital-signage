@@ -8,9 +8,9 @@ import { mediaAssetApi } from "@/lib/api/mediaAsset.api";
 import { cameraApi } from "@/lib/api/camera.api";
 import { campaignApi } from "@/lib/api/campaign.api";
 import { useScreenSignalR } from "@/lib/hooks/useScreenSignalR";
+import { screenSyncService } from "@/lib/services/screenSyncService";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
 import type { Campaign } from "@/lib/types/campaign";
-import { removeLiveScreenMedia, upsertLiveScreenMedia } from "@/lib/screens/utils/liveScreenMediaCache";
 
 type ScreenState = "DETECTING" | "PLAYING";
 
@@ -303,25 +303,36 @@ export default function ScreenPage() {
       })
       .catch((err) => { });
 
-    return () => {
-      screenApi.deactivate(screenId)
-        .then(() => {
-          // Unregister screen tab
-          if (typeof window !== "undefined") {
-            const stored = localStorage.getItem("openScreenTabs");
-            let ids: number[] = [];
-            if (stored) {
-              try {
-                ids = JSON.parse(stored);
-              } catch {
-                ids = [];
-              }
-            }
-            ids = ids.filter(id => id !== screenId);
-            localStorage.setItem("openScreenTabs", JSON.stringify(ids));
+    // Unregister screen tab helper function
+    const unregisterScreenTab = () => {
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("openScreenTabs");
+        let ids: number[] = [];
+        if (stored) {
+          try {
+            ids = JSON.parse(stored);
+          } catch {
+            ids = [];
           }
-        })
-        .catch((err) => { });
+        }
+        ids = ids.filter(id => id !== screenId);
+        localStorage.setItem("openScreenTabs", JSON.stringify(ids));
+      }
+    };
+
+    // Handle tab/window close via beforeunload
+    const handleBeforeUnload = () => {
+      unregisterScreenTab();
+      // Note: We also attempt deactivate, but it may not complete before tab closes
+      screenApi.deactivate(screenId).catch(() => { });
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      unregisterScreenTab();
+      screenApi.deactivate(screenId).catch(() => { });
     };
   }, [screenId]);
 
@@ -392,35 +403,38 @@ export default function ScreenPage() {
       });
   }, [advertisement, fallbackAd, playLatestDetectionIfPossible, updateScreenState]);
 
+  // **DISPLAY ENGINE**: Broadcast playback state to Mirror Players
+  // This is the MASTER - it broadcasts what's playing
   useEffect(() => {
-    if (!advertisement) {
-      removeLiveScreenMedia(screenId, tabInstanceIdRef.current);
-      return;
-    }
+    if (!advertisement) return;
 
     const resolvedType = isVideoMediaAsset(advertisement) ? "video" : "image";
-
-    upsertLiveScreenMedia({
-      screenId,
-      mediaAssetId: advertisement.id ?? null,
-      name: advertisement.name ?? null,
-      url: advertisement.url ?? null,
-      type: resolvedType,
-      state: screenState,
-      cameraId: linkedCameraId ?? null,
-      ownerId: tabInstanceIdRef.current,
-    });
+    
+    // Broadcast state every 300ms for real-time sync
+    const broadcastInterval = setInterval(() => {
+      // Get real-time video position for perfect sync
+      const videoEl = document.querySelector('video') as HTMLVideoElement | null;
+      const currentTime = videoEl?.currentTime ?? 0;
+      
+      screenSyncService.broadcastState({
+        screenId,
+        mediaAssetId: advertisement.id ?? null,
+        mediaUrl: advertisement.url ?? null,
+        mediaName: advertisement.name ?? null,
+        mediaType: resolvedType,
+        currentTime: currentTime,
+        duration: advertisement.durationSeconds ?? null,
+        isPlaying: true,
+        timestamp: Date.now()
+      });
+    }, 300); 
 
     return () => {
-      removeLiveScreenMedia(screenId, tabInstanceIdRef.current);
+      clearInterval(broadcastInterval);
     };
-  }, [advertisement, screenId, screenState, linkedCameraId]);
+  }, [advertisement, screenId]);
 
-  useEffect(() => {
-    return () => {
-      removeLiveScreenMedia(screenId, tabInstanceIdRef.current);
-    };
-  }, [screenId]);
+  // Cleanup handled by beforeunload event and deactivate call
 
   const handleClick = async () => {
     try {
