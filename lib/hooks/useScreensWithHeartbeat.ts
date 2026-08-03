@@ -103,27 +103,9 @@ export function useScreensWithHeartbeat(clientId?: number): UseScreensWithHeartb
     };
   }, []);
 
-  // Auto-clean openScreenTabs if screen becomes offline
-  useEffect(() => {
-    const stored = localStorage.getItem("openScreenTabs");
-    if (stored) {
-      try {
-        const ids: number[] = JSON.parse(stored);
-        // Keep only connected screens
-        const updated = ids.filter(id => {
-          const screen = screens.find(s => s.id === id);
-          return screen && screen.connectionStatus === "Online";
-        });
-
-        if (updated.length !== ids.length) {
-          localStorage.setItem("openScreenTabs", JSON.stringify(updated));
-          setOpenScreenTabs(new Set(updated));
-        }
-      } catch {
-        // ignore parse errors
-      }
-    }
-  }, [screens]);
+  // Note: We do NOT auto-clean openScreenTabs based on online/offline status
+  // The tab remains "open" until the user explicitly closes the window/tab
+  // This ensures the "Open Screen" button stays disabled as long as the tab is open
 
   /**
    * Load screens from server
