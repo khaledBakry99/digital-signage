@@ -396,6 +396,7 @@ export default function ScreenManagePage({ params }: PageProps) {
           screenId={screenId}
           clientId={clientId || 0}
           currentSlots={mediaSlots}
+          onRefresh={refresh}
         />
       </div>
     </div>

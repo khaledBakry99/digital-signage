@@ -308,8 +308,7 @@ export function CameraForm({
         <button
           type="button"
           onClick={onCancel}
-          disabled={loading || (sourceType === "webcam" && !cameraDeviceName.trim() && devices.length > 0)}
-          className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer border ${isLightTheme ? "bg-white/85 border-white/60 text-slate-500 hover:text-slate-700 hover:shadow-[0_15px_30px_rgba(15,23,42,0.08)]" : "bg-slate-950/40 border-white/5 text-slate-400 hover:bg-slate-950/60 hover:text-slate-200"}`}
+          className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer border ${isLightTheme ? "bg-white/85 border-white/60 text-slate-500 hover:text-slate-700 hover:shadow-[0_15px_30px_rgba(15,23,42,0.08)]" : "bg-slate-950/40 border-white/5 text-slate-400 hover:bg-slate-950/60 hover:text-slate-200"}`}
         >
           إلغاء
         </button>

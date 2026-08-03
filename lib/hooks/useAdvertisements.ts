@@ -12,6 +12,7 @@ export interface UseAdvertisementsReturn {
     file: File;
     description?: string;
     type: 'Image' | 'Video';
+    durationSeconds?: number;
   }) => Promise<MediaAsset | null>;
   updateAdvertisement: (
     id: number,
@@ -59,6 +60,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
       file: File;
       description?: string;
       type: 'Image' | 'Video';
+      durationSeconds?: number;
     }): Promise<MediaAsset | null> => {
       try {
         setError(null);
@@ -72,6 +74,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
           description: data.description,
           type: data.type,
           file: data.file,
+          durationSeconds: data.durationSeconds,
         };
         const ad = await mediaAssetApi.create(mediaAssetData);
         await loadAdvertisements();

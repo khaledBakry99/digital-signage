@@ -50,6 +50,7 @@ export default function AdCreateModal({ isOpen, onClose, onSuccess, clientId }: 
     file: File;
     description?: string;
     type: 'Image' | 'Video';
+    durationSeconds?: number;
   }) => {
     const ad = await createAdvertisement(data);
     if (ad) {

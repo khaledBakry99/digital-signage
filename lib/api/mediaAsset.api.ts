@@ -28,6 +28,7 @@ export const mediaAssetApi = {
     if (data.description) formData.append('Description', data.description);
     if (data.type) formData.append('Type', data.type);
     if (data.isFallback !== undefined) formData.append('IsFallback', data.isFallback.toString());
+    if (data.durationSeconds !== undefined) formData.append('DurationSeconds', data.durationSeconds.toString());
     formData.append('File', data.file);
 
     return apiClient.postFormData<MediaAsset>('/api/MediaAssets', formData);
@@ -52,6 +53,7 @@ export const mediaAssetApi = {
     if (data.description) formData.append('Description', data.description);
     if (data.type) formData.append('Type', data.type);
     if (data.isFallback !== undefined) formData.append('IsFallback', data.isFallback.toString());
+    if (data.durationSeconds !== undefined) formData.append('DurationSeconds', data.durationSeconds.toString());
     formData.append('File', data.file);
 
     return apiClient.postFormData<MediaAsset>('/api/MediaAssets/upload/local', formData);
@@ -65,6 +67,7 @@ export const mediaAssetApi = {
     if (data.description) formData.append('Description', data.description);
     if (data.type) formData.append('Type', data.type);
     if (data.isFallback !== undefined) formData.append('IsFallback', data.isFallback.toString());
+    if (data.durationSeconds !== undefined) formData.append('DurationSeconds', data.durationSeconds.toString());
     formData.append('File', data.file);
 
     return apiClient.postFormData<MediaAsset>('/api/MediaAssets/upload/gcloud', formData);

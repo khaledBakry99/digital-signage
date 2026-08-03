@@ -11,6 +11,7 @@ interface MediaSlotAssignmentProps {
   screenId: number;
   clientId: number;
   currentSlots: ScreenMediaSlots | null;
+  onRefresh?: () => void | Promise<void>;
 }
 
 const SLOT_LABELS: Record<MediaSlot, { ar: string }> = {
@@ -89,7 +90,7 @@ const SLOT_THEMES: Record<MediaSlot, {
   },
 };
 
-export default function MediaSlotAssignment({ screenId, clientId, currentSlots }: MediaSlotAssignmentProps) {
+export default function MediaSlotAssignment({ screenId, clientId, currentSlots, onRefresh }: MediaSlotAssignmentProps) {
   const isLoading = !currentSlots;
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
@@ -129,8 +130,10 @@ export default function MediaSlotAssignment({ screenId, clientId, currentSlots }
     try {
       setAssigning(true);
       await screenApi.assignMediaSlot(screenId, editingSlot, mediaAssetId);
-      // Refresh the data by calling the parent's refresh function
-      window.location.reload();
+      // Refresh the media slots data only
+      if (onRefresh) {
+        await onRefresh();
+      }
     } catch (err) {
     } finally {
       setAssigning(false);

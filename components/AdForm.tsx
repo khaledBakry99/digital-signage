@@ -14,6 +14,7 @@ interface AdFormProps {
     file: File;
     description?: string;
     type: 'Image' | 'Video';
+    durationSeconds?: number;
   }) => Promise<void>;
   initialData?: MediaAsset;
   submitLabel?: string;
@@ -31,6 +32,7 @@ export default function AdForm({
   const [fileType, setFileType] = useState<'Image' | 'Video' | null>(
     initialData?.type || null,
   );
+  const [durationSeconds, setDurationSeconds] = useState<number>(10);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,6 +83,7 @@ export default function AdForm({
         file: file!,
         description: description.trim() || undefined,
         type: fileType,
+        durationSeconds: fileType === 'Image' ? durationSeconds : undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "حدث خطأ أثناء الحفظ");
@@ -122,6 +125,68 @@ export default function AdForm({
           placeholder="وصف الإعلان..."
         />
       </div>
+
+      {/* Duration for Images Only */}
+      {fileType === 'Image' && file && (
+        <div>
+          <label style={labelStyle}>مدة عرض الصورة (بالثواني)</label>
+          <div className="grid grid-cols-5 gap-3">
+            {/* Input field first */}
+            <input
+              type="number"
+              className="input-dark"
+              value={durationSeconds}
+              onChange={(e) => setDurationSeconds(Math.max(1, parseInt(e.target.value) || 10))}
+              min="1"
+              placeholder="مخصص"
+              dir="ltr"
+              lang="en"
+              inputMode="numeric"
+              style={{
+                MozAppearance: "textfield",
+                WebkitAppearance: "none",
+                appearance: "none",
+                fontVariantNumeric: "lining-nums",
+                unicodeBidi: "embed",
+              }}
+              onWheel={(e) => e.currentTarget.blur()}
+            />
+            {/* Preset buttons */}
+            {[10, 20, 30, 60].map((seconds) => (
+              <button
+                key={seconds}
+                type="button"
+                onClick={() => setDurationSeconds(seconds)}
+                className={`py-3 px-4 rounded-xl text-sm font-semibold transition-all border-2 ${
+                  durationSeconds === seconds
+                    ? "border-indigo-500 bg-indigo-500/20 text-indigo-400"
+                    : "border-transparent hover:border-indigo-500/30"
+                }`}
+                style={{
+                  background: durationSeconds === seconds ? undefined : "var(--bg-secondary)",
+                  color: durationSeconds === seconds ? undefined : "var(--text-secondary)",
+                  direction: "ltr",
+                }}
+              >
+                <span style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>{seconds}</span>
+              </button>
+            ))}
+          </div>
+          <style jsx>{`
+            input[type="number"]::-webkit-inner-spin-button,
+            input[type="number"]::-webkit-outer-spin-button {
+              -webkit-appearance: none;
+              margin: 0;
+            }
+            input[type="number"] {
+              font-variant-numeric: lining-nums;
+              -moz-font-feature-settings: "lnum" 1;
+              -webkit-font-feature-settings: "lnum" 1;
+              font-feature-settings: "lnum" 1;
+            }
+          `}</style>
+        </div>
+      )}
 
       {/* Drop zone */}
       <div>
