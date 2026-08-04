@@ -220,6 +220,14 @@ export class ApiClient {
   }
 
   async postFormData<T>(endpoint: string, formData: FormData): Promise<T> {
+    return this.formDataRequest<T>(endpoint, 'POST', formData);
+  }
+
+  async putFormData<T>(endpoint: string, formData: FormData): Promise<T> {
+    return this.formDataRequest<T>(endpoint, 'PUT', formData);
+  }
+
+  private async formDataRequest<T>(endpoint: string, method: 'POST' | 'PUT', formData: FormData): Promise<T> {
     const token = this.getAuthToken();
     const headers: Record<string, string> = {
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
@@ -230,7 +238,7 @@ export class ApiClient {
 
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
-        method: 'POST',
+        method,
         headers,
         body: formData,
         signal: controller.signal,

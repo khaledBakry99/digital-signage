@@ -21,6 +21,7 @@ export interface CreateMediaAssetInput {
   type: MediaType;
   isFallback?: boolean;
   file: File;
+  durationSeconds?: number;
 }
 
 export interface UpdateMediaAssetInput {

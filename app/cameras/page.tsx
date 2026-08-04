@@ -63,7 +63,7 @@ export default function CamerasPage() {
     };
   }, []);
 
-  // جلب بيانات الاشتراك للحصول على الحد الأقصى للكاميرات
+  // Fetch subscription data to get maximum cameras limit
   useEffect(() => {
     const fetchSubscription = async () => {
       try {
@@ -89,7 +89,7 @@ export default function CamerasPage() {
     timeToScreenshot: number;
   }) => {
     const newCamera = await addCamera(data);
-    // حفظ اسم جهاز الكاميرا للربط الدائم
+    // Save camera device name for permanent binding
     if (newCamera.id && data.cameraDeviceName) {
       try {
         await cameraApi.setCameraDeviceName(newCamera.id, data.cameraDeviceName);
@@ -107,7 +107,7 @@ export default function CamerasPage() {
   }) => {
     if (!editingCamera) return;
     await updateCamera(editingCamera, data);
-    // تحديث اسم جهاز الكاميرا للربط الدائم
+    // Update camera device name for permanent binding
     if (data.cameraDeviceName) {
       try {
         await cameraApi.setCameraDeviceName(Number(editingCamera), data.cameraDeviceName);

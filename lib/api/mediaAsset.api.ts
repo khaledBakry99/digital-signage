@@ -28,6 +28,7 @@ export const mediaAssetApi = {
     if (data.description) formData.append('Description', data.description);
     if (data.type) formData.append('Type', data.type);
     if (data.isFallback !== undefined) formData.append('IsFallback', data.isFallback.toString());
+    if (data.durationSeconds !== undefined) formData.append('DurationSeconds', data.durationSeconds.toString());
     formData.append('File', data.file);
 
     return apiClient.postFormData<MediaAsset>('/api/MediaAssets', formData);
@@ -36,6 +37,18 @@ export const mediaAssetApi = {
   // Update media asset
   update: async (id: number, data: UpdateMediaAssetInput) => {
     return apiClient.put<MediaAsset>(`/api/MediaAssets/${id}`, data);
+  },
+
+  // Update media asset with file
+  updateWithFile: async (id: number, data: { name: string; description?: string; file: File; type?: 'Image' | 'Video'; durationSeconds?: number }) => {
+    const formData = new FormData();
+    formData.append('Name', data.name);
+    if (data.description) formData.append('Description', data.description);
+    if (data.type) formData.append('Type', data.type);
+    if (data.durationSeconds !== undefined) formData.append('DurationSeconds', data.durationSeconds.toString());
+    formData.append('File', data.file);
+
+    return apiClient.putFormData<MediaAsset>(`/api/MediaAssets/${id}`, formData);
   },
 
   // Delete media asset
@@ -52,6 +65,7 @@ export const mediaAssetApi = {
     if (data.description) formData.append('Description', data.description);
     if (data.type) formData.append('Type', data.type);
     if (data.isFallback !== undefined) formData.append('IsFallback', data.isFallback.toString());
+    if (data.durationSeconds !== undefined) formData.append('DurationSeconds', data.durationSeconds.toString());
     formData.append('File', data.file);
 
     return apiClient.postFormData<MediaAsset>('/api/MediaAssets/upload/local', formData);
@@ -65,6 +79,7 @@ export const mediaAssetApi = {
     if (data.description) formData.append('Description', data.description);
     if (data.type) formData.append('Type', data.type);
     if (data.isFallback !== undefined) formData.append('IsFallback', data.isFallback.toString());
+    if (data.durationSeconds !== undefined) formData.append('DurationSeconds', data.durationSeconds.toString());
     formData.append('File', data.file);
 
     return apiClient.postFormData<MediaAsset>('/api/MediaAssets/upload/gcloud', formData);

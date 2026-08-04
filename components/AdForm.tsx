@@ -14,6 +14,7 @@ interface AdFormProps {
     file: File;
     description?: string;
     type: 'Image' | 'Video';
+    durationSeconds?: number;
   }) => Promise<void>;
   initialData?: MediaAsset;
   submitLabel?: string;
@@ -31,6 +32,7 @@ export default function AdForm({
   const [fileType, setFileType] = useState<'Image' | 'Video' | null>(
     initialData?.type || null,
   );
+  const [durationSeconds, setDurationSeconds] = useState<number>(10);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,6 +83,7 @@ export default function AdForm({
         file: file!,
         description: description.trim() || undefined,
         type: fileType,
+        durationSeconds: fileType === 'Image' ? durationSeconds : undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "حدث خطأ أثناء الحفظ");
@@ -122,6 +125,60 @@ export default function AdForm({
           placeholder="وصف الإعلان..."
         />
       </div>
+
+      {/* Duration for Images Only */}
+      {fileType === 'Image' && file && (
+        <div>
+          <label style={labelStyle}>مدة عرض الصورة (بالثواني)</label>
+          <div className="grid grid-cols-5 gap-3">
+            {/* Input field first */}
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className="input-dark text-center"
+              value={durationSeconds}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '');
+                const numValue = parseInt(value) || 1;
+                setDurationSeconds(Math.max(1, numValue));
+              }}
+              onBlur={(e) => {
+                if (!e.target.value || parseInt(e.target.value) < 1) {
+                  setDurationSeconds(10);
+                }
+              }}
+              placeholder="01"
+              dir="ltr"
+              lang="en"
+              style={{
+                fontFamily: "system-ui, -apple-system, sans-serif",
+                fontVariantNumeric: "lining-nums tabular-nums",
+              }}
+            />
+            {/* Preset buttons */}
+            {[10, 20, 30, 60].map((seconds) => (
+              <button
+                key={seconds}
+                type="button"
+                onClick={() => setDurationSeconds(seconds)}
+                className={`py-3 px-4 rounded-xl text-sm font-semibold transition-all border-2 ${
+                  durationSeconds === seconds
+                    ? "border-indigo-500 bg-indigo-500/20 text-indigo-400"
+                    : "border-transparent hover:border-indigo-500/30"
+                }`}
+                style={{
+                  background: durationSeconds === seconds ? undefined : "var(--bg-secondary)",
+                  color: durationSeconds === seconds ? undefined : "var(--text-secondary)",
+                  direction: "ltr",
+                }}
+              >
+                <span style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>{seconds}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Drop zone */}
       <div>
