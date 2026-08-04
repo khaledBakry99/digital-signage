@@ -183,6 +183,57 @@ html.light {
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08) !important;
 }
 
+/* Sidebar button hover effects in light mode */
+.light aside button.group:hover {
+  background-color: rgba(112, 87, 255, 0.08) !important;
+  border-color: rgba(112, 87, 255, 0.15) !important;
+}
+
+.light aside button.group:hover .text-slate-400,
+.light aside button.group:hover .text-slate-500 {
+  color: #4f3ed4 !important;
+}
+
+.light aside button.group:hover .text-slate-500\/80,
+.light aside button.group:hover .text-slate-500\/70,
+.light aside button.group:hover .text-slate-500\/60,
+.light aside button.group:hover .text-slate-400\/80 {
+  color: #4f3ed4 !important;
+}
+
+/* Specific hover for nav buttons with group-hover:opacity-100 */
+.light aside .group-hover\:opacity-100 {
+  opacity: 0 !important;
+}
+
+.light aside button.group:hover .group-hover\:opacity-100 {
+  opacity: 1 !important;
+}
+
+/* Light mode hover background gradients */
+.light aside button.group:hover .bg-gradient-to-r {
+  background: linear-gradient(to right, rgba(112, 87, 255, 0.1), transparent) !important;
+}
+
+/* Light mode sidebar nav buttons specific hover */
+.light aside nav button.group:hover:not([class*="bg-gradient"]) {
+  background-color: rgba(112, 87, 255, 0.06) !important;
+}
+
+.light aside nav button.group:hover {
+  border-color: rgba(112, 87, 255, 0.2) !important;
+}
+
+/* Light mode hover text colors for icons */
+.light aside nav button.group:hover span.relative {
+  color: #4f3ed4 !important;
+}
+
+/* Light mode hover for inactive nav items */
+.light aside nav button.group:not(.bg-gradient-to-r):hover {
+  background-color: rgba(112, 87, 255, 0.08) !important;
+}
+
 .light .glass,
 .light .glass-card,
 .light .card-elevated {
