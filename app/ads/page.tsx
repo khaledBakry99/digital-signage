@@ -97,7 +97,7 @@ export default function AdsPage() {
     setEditModalOpen(true);
   };
 
-  const handleSaveEdit = async (id: number, data: { name: string; description: string; isFallback: boolean }) => {
+  const handleSaveEdit = async (id: number, data: { name: string; description: string; isFallback: boolean; file?: File; durationSeconds?: number }) => {
     await updateMediaAsset(id, data);
   };
 

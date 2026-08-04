@@ -78,7 +78,7 @@ export default function CampaignModal({ isOpen, onClose, onSubmit, campaign, cli
                 </span>
               </h2>
               <p className="text-sm" style={{ color: isLightTheme ? "#64748b" : "var(--text-muted)" }}>
-                قم بإنشاء حملة إعلانية مجدولة
+                {campaign ? "قم بتعديل بيانات الحملة الإعلانية المجدولة" : "قم بإنشاء حملة إعلانية مجدولة"}
               </p>
             </div>
             <button

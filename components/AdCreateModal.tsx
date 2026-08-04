@@ -12,26 +12,12 @@ interface AdCreateModalProps {
   clientId?: number;
 }
 
-/**
- * ==========================================
- * 💎 قوالب الشاشات المنبثقة الاحترافية (Reusable Modal Template)
- * ==========================================
- * هذا الملف يعمل كقالب موحد ومرجع تصميمي متكامل لجميع الشاشات المنبثقة في النظام.
- * يمكنك نسخه وتعديله بسهولة لإنشاء شاشات جديدة.
- * 
- * المكونات الأساسية المتوفرة:
- * 1. الخلفية المعتمة (Backdrop with backdrop-blur-md)
- * 2. الحاوية الزجاجية (Glass container with purple border glow)
- * 3. رأس الصفحة المميز (Header with Modern Gradient)
- * 4. زر الإغلاق الذكي (No-rotation, cursor-pointer, and press reaction)
- */
-
 export default function AdCreateModal({ isOpen, onClose, onSuccess, clientId }: AdCreateModalProps) {
   const { createAdvertisement, error } = useAdvertisements(clientId);
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
 
-  // منع التمرير في الخلفية عند فتح الشاشة المنبثقة
+  // Prevent background scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";

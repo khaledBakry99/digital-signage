@@ -21,10 +21,18 @@ export function useMediaAssets(params?: { clientId?: number }) {
     }
   }, [params]);
 
-  const updateMediaAsset = useCallback(async (id: number, data: UpdateMediaAssetInput) => {
+  const updateMediaAsset = useCallback(async (
+    id: number, 
+    data: UpdateMediaAssetInput | { name: string; description?: string; file: File; type?: 'Image' | 'Video'; durationSeconds?: number }
+  ) => {
     try {
       setError(null);
-      await mediaAssetApi.update(id, data);
+      // Check if file is provided for upload
+      if ('file' in data && data.file) {
+        await mediaAssetApi.updateWithFile(id, data);
+      } else {
+        await mediaAssetApi.update(id, data as UpdateMediaAssetInput);
+      }
       await fetchMediaAssets();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'فشل تحديث الإعلان');

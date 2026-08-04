@@ -133,23 +133,28 @@ export default function AdForm({
           <div className="grid grid-cols-5 gap-3">
             {/* Input field first */}
             <input
-              type="number"
-              className="input-dark"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className="input-dark text-center"
               value={durationSeconds}
-              onChange={(e) => setDurationSeconds(Math.max(1, parseInt(e.target.value) || 10))}
-              min="1"
-              placeholder="مخصص"
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '');
+                const numValue = parseInt(value) || 1;
+                setDurationSeconds(Math.max(1, numValue));
+              }}
+              onBlur={(e) => {
+                if (!e.target.value || parseInt(e.target.value) < 1) {
+                  setDurationSeconds(10);
+                }
+              }}
+              placeholder="01"
               dir="ltr"
               lang="en"
-              inputMode="numeric"
               style={{
-                MozAppearance: "textfield",
-                WebkitAppearance: "none",
-                appearance: "none",
-                fontVariantNumeric: "lining-nums",
-                unicodeBidi: "embed",
+                fontFamily: "system-ui, -apple-system, sans-serif",
+                fontVariantNumeric: "lining-nums tabular-nums",
               }}
-              onWheel={(e) => e.currentTarget.blur()}
             />
             {/* Preset buttons */}
             {[10, 20, 30, 60].map((seconds) => (
@@ -172,19 +177,6 @@ export default function AdForm({
               </button>
             ))}
           </div>
-          <style jsx>{`
-            input[type="number"]::-webkit-inner-spin-button,
-            input[type="number"]::-webkit-outer-spin-button {
-              -webkit-appearance: none;
-              margin: 0;
-            }
-            input[type="number"] {
-              font-variant-numeric: lining-nums;
-              -moz-font-feature-settings: "lnum" 1;
-              -webkit-font-feature-settings: "lnum" 1;
-              font-feature-settings: "lnum" 1;
-            }
-          `}</style>
         </div>
       )}
 

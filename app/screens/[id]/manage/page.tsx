@@ -251,9 +251,7 @@ export default function ScreenManagePage({ params }: PageProps) {
           <CampaignAssignmentSection
             screenId={screenId}
             clientId={clientId || 0}
-            currentCampaignId={screen.currentCampaignId}
-            onAssignCampaign={assignCampaign}
-            onRemoveCampaign={removeCampaign}
+            onUpdate={refresh}
           />
 
           {/* Camera Assignment */}

@@ -39,6 +39,18 @@ export const mediaAssetApi = {
     return apiClient.put<MediaAsset>(`/api/MediaAssets/${id}`, data);
   },
 
+  // Update media asset with file
+  updateWithFile: async (id: number, data: { name: string; description?: string; file: File; type?: 'Image' | 'Video'; durationSeconds?: number }) => {
+    const formData = new FormData();
+    formData.append('Name', data.name);
+    if (data.description) formData.append('Description', data.description);
+    if (data.type) formData.append('Type', data.type);
+    if (data.durationSeconds !== undefined) formData.append('DurationSeconds', data.durationSeconds.toString());
+    formData.append('File', data.file);
+
+    return apiClient.putFormData<MediaAsset>(`/api/MediaAssets/${id}`, formData);
+  },
+
   // Delete media asset
   delete: async (id: number, force: boolean = false) => {
     const url = force ? `/api/MediaAssets/${id}?force=true` : `/api/MediaAssets/${id}`;

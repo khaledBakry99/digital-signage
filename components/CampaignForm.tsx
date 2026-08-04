@@ -37,6 +37,7 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
     ? (campaign.status as AllowedFormStatus)
     : 'Active');
   const [status, setStatus] = useState<AllowedFormStatus>(initialStatus);
+  const [priority, setPriority] = useState(campaign?.priority || 1);
   const [startsAtUtc, setStartsAtUtc] = useState(
     campaign?.startsAtUtc ? new Date(campaign.startsAtUtc).toISOString().slice(0, 10) : ""
   );
@@ -101,7 +102,7 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
       status,
       startsAtUtc: getUtcDateWithCurrentTime(startsAtUtc),
       endsAtUtc: getUtcDateWithCurrentTime(endsAtUtc),
-      priority: 1,
+      priority,
       daysOfWeek,
       dayStartsAt: getIsoDateTimeFromTime(dayStartsAt),
       dayEndsAt: getIsoDateTimeFromTime(dayEndsAt),
@@ -150,21 +151,38 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
-            حالة الحملة *
-          </label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as AllowedFormStatus)}
-            className="input-dark cursor-pointer"
-            required
-          >
-            <option value="Active">نشطة</option>
-            <option value="Paused">متوقفة مؤقتًا</option>
-            <option value="Completed">مكتملة</option>
-          </select>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
+              حالة الحملة *
+            </label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as AllowedFormStatus)}
+              className="input-dark cursor-pointer"
+              required
+            >
+              <option value="Active">نشطة</option>
+              <option value="Paused">متوقفة مؤقتًا</option>
+              <option value="Completed">مكتملة</option>
+            </select>
+          </div>
 
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
+              أولوية الحملة * <span className="text-xs font-normal opacity-70">(الرقم الأكبر يُعرض أولاً)</span>
+            </label>
+            <select
+              value={priority}
+              onChange={(e) => setPriority(Number(e.target.value))}
+              className="input-dark cursor-pointer"
+              required
+            >
+              {Array.from({ length: 40 }, (_, i) => i + 1).map(num => (
+                <option key={num} value={num}>{num}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
       </div>

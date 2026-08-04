@@ -173,7 +173,7 @@ class LocalCameraHandler {
             "Camera is in use by another application. Please close other applications using the camera",
           );
         } else if (error.name === "OverconstrainedError") {
-          throw new Error(" تعذر تشغيل الكاميرا (تأكد من توصيل الكاميرا بشكل صحيح، أو قم بالدخول إلى تعديل الكاميرا والتأكد من  \"اختيار كاميرا الويب\" من القائمة المنسدلة)");
+          throw new Error("Unable to start camera (Make sure camera is properly connected, or go to Edit Camera and select \"Webcam\" from the dropdown)");
         } else if (error.name === "AbortError") {
           // This is OK - just means play was interrupted
           const cameraKey = deviceId || "default";

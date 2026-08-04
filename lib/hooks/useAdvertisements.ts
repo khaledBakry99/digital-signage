@@ -28,7 +28,7 @@ export interface UseAdvertisementsReturn {
 }
 
 /**
- * Custom Hook لإدارة الإعلانات
+ * Custom Hook for managing advertisements
  */
 export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   const [advertisements, setAdvertisements] = useState<MediaAsset[]>([]);
@@ -36,7 +36,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * تحميل جميع الإعلانات
+   * Load all advertisements
    */
   const loadAdvertisements = useCallback(async () => {
     try {
@@ -52,7 +52,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   }, [clientId]);
 
   /**
-   * إنشاء إعلان جديد
+   * Create new advertisement
    */
   const createAdvertisement = useCallback(
     async (data: {
@@ -88,7 +88,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   );
 
   /**
-   * تحديث إعلان موجود
+   * Update existing advertisement
    */
   const updateAdvertisement = useCallback(
     async (
@@ -113,7 +113,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   );
 
   /**
-   * حذف إعلان
+   * Delete advertisement
    */
   const deleteAdvertisement = useCallback(
     async (id: number): Promise<boolean> => {
@@ -131,7 +131,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   );
 
   /**
-   * الحصول على إعلانات شاشة معينة
+   * Get advertisements for specific screen
    */
   const getAdvertisementsByScreen = useCallback(
     (screenId: number): MediaAsset[] => {
@@ -141,13 +141,13 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   );
 
   /**
-   * إعادة تحميل الإعلانات
+   * Reload advertisements
    */
   const refresh = useCallback(async () => {
     await loadAdvertisements();
   }, [loadAdvertisements]);
 
-  // تحميل الإعلانات عند التحميل الأول
+  // Load advertisements on first mount
   useEffect(() => {
     loadAdvertisements();
   }, [loadAdvertisements]);

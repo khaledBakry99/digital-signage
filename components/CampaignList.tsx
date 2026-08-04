@@ -406,9 +406,21 @@ export default function CampaignList({ campaigns, onEdit, onDelete, onStatusChan
               <tr key={campaign.id} className={rowClass}>
                 <td className="px-6 py-4 align-middle">
                   <div className="flex flex-col gap-2 min-w-[220px]">
-                    <p className={`text-lg font-black leading-tight ${campaignNameClass}`}>
-                      {campaign.name}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className={`text-lg font-black leading-tight ${campaignNameClass}`}>
+                        {campaign.name}
+                      </p>
+                      <span 
+                        className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold  shrink-0 ${
+                          isLightTheme 
+                            ? "bg-indigo-100 text-indigo-700 border border-indigo-200" 
+                            : "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                        }`}
+                        title="الأولوية: الرقم الأكبر يُعرض أولاً"
+                      >
+                        الأولوية: {campaign.priority}
+                      </span>
+                    </div>
                     {campaign.description && (
                       <div className={descriptionCardClass}>
                         <p className={`${descriptionTextClass} leading-relaxed`}>{campaign.description}</p>
