@@ -78,12 +78,16 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
     try {
       setLoading(true);
       setError(null);
+      
+      // Determine if we're dealing with an image (either existing or new file)
+      const isImageContent = file ? file.type.startsWith('image/') : ad.type === 'Image';
+      
       await onSave(ad.id, { 
         name, 
         description, 
         isFallback: ad.isFallback,
         file: file || undefined,
-        durationSeconds: ad.type === 'Image' || (file && file.type.startsWith('image/')) ? durationSeconds : undefined
+        durationSeconds: isImageContent ? durationSeconds : undefined
       });
       onClose();
     } catch (err) {
