@@ -29,4 +29,5 @@ export interface UpdateMediaAssetInput {
   description?: string;
   type?: MediaType;
   isFallback?: boolean;
+  durationSeconds?: number;
 }

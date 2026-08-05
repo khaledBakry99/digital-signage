@@ -41,14 +41,16 @@ export const mediaAssetApi = {
 
   // Update media asset with file
   updateWithFile: async (id: number, data: { name: string; description?: string; file: File; type?: 'Image' | 'Video'; durationSeconds?: number }) => {
+    const queryParams = new URLSearchParams();
+    queryParams.append('Name', data.name);
+    if (data.description) queryParams.append('Description', data.description);
+    if (data.durationSeconds !== undefined) queryParams.append('DurationInSeconds', data.durationSeconds.toString());
+    if (data.type) queryParams.append('Type', data.type);
+    
     const formData = new FormData();
-    formData.append('Name', data.name);
-    if (data.description) formData.append('Description', data.description);
-    if (data.type) formData.append('Type', data.type);
-    if (data.durationSeconds !== undefined) formData.append('DurationSeconds', data.durationSeconds.toString());
     formData.append('File', data.file);
 
-    return apiClient.putFormData<MediaAsset>(`/api/MediaAssets/${id}`, formData);
+    return apiClient.putFormData<MediaAsset>(`/api/MediaAssets/${id}?${queryParams.toString()}`, formData);
   },
 
   // Delete media asset

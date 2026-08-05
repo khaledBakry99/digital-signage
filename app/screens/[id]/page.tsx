@@ -45,6 +45,7 @@ export default function ScreenPage() {
   const [linkedCameraId, setLinkedCameraId] = useState<number | null>(null);
   const [currentCampaignId, setCurrentCampaignId] = useState<number | null>(null);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [isPlayingTargetedAd, setIsPlayingTargetedAd] = useState(false);
 
   // State machine
   const [screenState, setScreenState] = useState<ScreenState>("DETECTING");
@@ -214,6 +215,9 @@ export default function ScreenPage() {
     setAdvertisement(targetAd);
     updateScreenState("PLAYING");
 
+    // Mark as targeted ad if it came from SignalR detection (prevents premature fallback)
+    setIsPlayingTargetedAd(source === "signalr");
+
     if (fallbackTimeoutRef.current) {
       clearTimeout(fallbackTimeoutRef.current);
       fallbackTimeoutRef.current = null;
@@ -251,7 +255,12 @@ export default function ScreenPage() {
     loadFallbackAd();
   }, [loadFallbackAd]);
 
-  const handleSignalRMediaUpdated = useCallback(async (event: { currentMediaAssetId: number; selectedSlot: string }) => {
+  const handleSignalRMediaUpdated = useCallback(async (event: { currentMediaAssetId: number; selectedSlot: string; usedFallback?: boolean }) => {
+    // If this is a fallback request and we're currently playing a targeted ad, ignore it
+    // This ensures targeted ads play to completion without interruption
+    if ((!event.currentMediaAssetId || event.usedFallback) && isPlayingTargetedAd) {
+      return; 
+    }
 
     // Load the specific media asset from the event
     if (event.currentMediaAssetId) {
@@ -263,7 +272,7 @@ export default function ScreenPage() {
     } else {
       loadFallbackAd();
     }
-  }, [loadFallbackAd, scheduleMediaUpdate]);
+  }, [isPlayingTargetedAd, loadFallbackAd, scheduleMediaUpdate]);
 
   const handleSignalRRefreshRequested = useCallback(() => {
     loadFallbackAd();
@@ -378,8 +387,21 @@ export default function ScreenPage() {
     };
   }, []);
 
-  // Handle ad ended
-  const handleAdEnded = useCallback(() => {
+  // Handle ad ended - Check for campaign changes before returning to fallback
+  const handleAdEnded = useCallback(async () => {
+    // Check if campaign has changed on the server to ensure we use the correct fallback
+    try {
+      const screenData = await screenApi.getById(screenId);
+      if (screenData?.currentCampaignId !== currentCampaignId) {
+        // Campaign has changed, reload fallback ad with new campaign data
+        await loadFallbackAd();
+      }
+    } catch (err) {
+      // If check fails, continue with current fallback (graceful degradation)
+    }
+
+    // Reset targeted ad flag to allow fallback requests for future ads
+    setIsPlayingTargetedAd(false);
 
     playLatestDetectionIfPossible()
       .then((applied) => {
@@ -401,7 +423,7 @@ export default function ScreenPage() {
         }
         updateScreenState("DETECTING");
       });
-  }, [advertisement, fallbackAd, playLatestDetectionIfPossible, updateScreenState]);
+  }, [screenId, currentCampaignId, loadFallbackAd, advertisement, fallbackAd, playLatestDetectionIfPossible, updateScreenState]);
 
   // **DISPLAY ENGINE**: Broadcast playback state to Mirror Players
   // This is the MASTER - it broadcasts what's playing
@@ -409,13 +431,13 @@ export default function ScreenPage() {
     if (!advertisement) return;
 
     const resolvedType = isVideoMediaAsset(advertisement) ? "video" : "image";
-    
+
     // Broadcast state every 300ms for real-time sync
     const broadcastInterval = setInterval(() => {
       // Get real-time video position for perfect sync
       const videoEl = document.querySelector('video') as HTMLVideoElement | null;
       const currentTime = videoEl?.currentTime ?? 0;
-      
+
       screenSyncService.broadcastState({
         screenId,
         mediaAssetId: advertisement.id ?? null,
@@ -427,7 +449,7 @@ export default function ScreenPage() {
         isPlaying: true,
         timestamp: Date.now()
       });
-    }, 300); 
+    }, 300);
 
     return () => {
       clearInterval(broadcastInterval);
