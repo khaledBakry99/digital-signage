@@ -6,7 +6,8 @@ import AdEditModal from "@/components/AdEditModal";
 import AdCreateModal from "@/components/AdCreateModal";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 import TableSkeleton from "@/components/TableSkeleton";
-import { useMediaAssets } from "@/lib/hooks/useMediaAssets";
+import Pagination from "@/components/Pagination";
+import { useMediaAssetsPaginated } from "@/lib/hooks/useMediaAssets";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useTheme } from "@/lib/context/ThemeContext";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
@@ -17,11 +18,22 @@ export default function AdsPage() {
     mediaAssets,
     loading,
     error,
+    currentPage,
+    totalItems,
+    totalPages,
+    itemsPerPage,
+    isSearching,
+    searchQuery,
+    setSearchQuery,
+    search,
     refetch,
     deleteMediaAsset,
     updateMediaAsset,
-  } = useMediaAssets({ clientId });
-  const [searchQuery, setSearchQuery] = useState("");
+    goToPage,
+    nextPage,
+    previousPage,
+    changeItemsPerPage,
+  } = useMediaAssetsPaginated({ clientId, itemsPerPage: 8 });
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedAd, setSelectedAd] = useState<MediaAsset | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -74,12 +86,15 @@ export default function AdsPage() {
     ? "relative overflow-hidden rounded-[32px] border border-white/50 bg-white/85 backdrop-blur-2xl shadow-[0_35px_90px_rgba(15,23,42,0.1)]"
     : "relative overflow-hidden rounded-[32px] border border-white/5 bg-[#0f172a]/20 backdrop-blur-md shadow-2xl";
 
-  const filteredAds = mediaAssets.filter((ad) => {
-    const matchesSearch =
-      ad.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ad.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
+  // Handle search with debounce
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    const timeoutId = setTimeout(() => {
+      search(query);
+    }, 500); // Wait 500ms after user stops typing
+    
+    return () => clearTimeout(timeoutId);
+  };
 
   const handleDeleteTrigger = (ad: MediaAsset) => {
     setSelectedDeleteAd(ad);
@@ -257,9 +272,9 @@ export default function AdsPage() {
           <div className="relative group">
             <input
               className={searchInputClass}
-              placeholder="ابحث عن اسم الإعلان أو الوصف..."
+              placeholder="ابحث باستخدام اسم الإعلان"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
             />
             <div
               className={`absolute right-4 top-1/2 -translate-y-1/2 ${isLightTheme ? "text-slate-400" : "text-white/20"
@@ -273,7 +288,7 @@ export default function AdsPage() {
         </div>
         {searchQuery && (
           <div className={filterBadgeClass}>
-            {filteredAds.length} نتيجة مطابقة
+            {mediaAssets.length} نتيجة مطابقة
           </div>
         )}
       </div>
@@ -294,7 +309,7 @@ export default function AdsPage() {
       )}
 
       {/* Table */}
-      <div className="relative">
+      <div className="relative mb-8">
         {loading ? (
           <div
             className="glass p-10 rounded-[32px] overflow-hidden"
@@ -308,7 +323,7 @@ export default function AdsPage() {
                 : undefined
             }
           >
-            <TableSkeleton cols={6} rows={6} />
+            <TableSkeleton cols={6} rows={8} />
           </div>
         ) : (
           <div className={`${tableWrapperClass} animate-fade-in`}>
@@ -321,13 +336,27 @@ export default function AdsPage() {
               }}
             />
             <AdList
-              advertisements={filteredAds}
+              advertisements={mediaAssets}
               onEdit={handleEdit}
               onDelete={handleDeleteTrigger}
             />
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {!loading && !isSearching && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={goToPage}
+          onNextPage={nextPage}
+          onPreviousPage={previousPage}
+          onItemsPerPageChange={changeItemsPerPage}
+        />
+      )}
 
       {/* Edit Modal */}
       <AdEditModal
