@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useSubscription } from "@/lib/hooks/useSubscription";
 import { useTheme } from "@/lib/context/ThemeContext";
 import { extractApiError } from "@/lib/api/client";
-import type { Screen, ConnectionStatus, OperationalStatus } from "@/lib/types/screen";
+import type { Screen } from "@/lib/types/screen";
 import DeleteScreenModal from "@/components/DeleteScreenModal";
 
 export default function ManageScreensPage() {
@@ -32,8 +32,6 @@ export default function ManageScreensPage() {
   const [formCameraEnabled, setFormCameraEnabled] = useState(false);
   const [formAiEnabled, setFormAiEnabled] = useState(false);
   const [formCameraId, setFormCameraId] = useState<string>("");
-  const [formConnectionStatus, setFormConnectionStatus] = useState<ConnectionStatus>("Offline");
-  const [formOperationalStatus, setFormOperationalStatus] = useState<OperationalStatus>("Draft");
 
   // Delete modal state
   const [screenToDelete, setScreenToDelete] = useState<Screen | null>(null);
@@ -103,8 +101,6 @@ export default function ManageScreensPage() {
     setFormCameraEnabled(screen.cameraEnabled);
     setFormAiEnabled(screen.aiEnabled);
     setFormCameraId(screen.cameraId?.toString() || "");
-    setFormConnectionStatus(screen.connectionStatus);
-    setFormOperationalStatus(screen.operationalStatus);
     setError(null);
     setShowForm(true);
   };
@@ -130,8 +126,6 @@ export default function ManageScreensPage() {
           cameraEnabled: formCameraEnabled,
           aiEnabled: formAiEnabled,
           cameraId: formCameraEnabled && formCameraId ? Number(formCameraId) : undefined,
-          connectionStatus: formConnectionStatus,
-          operationalStatus: formOperationalStatus,
         });
         if (!success) {
           throw new Error("فشل تحديث الشاشة على الخادم");
@@ -388,46 +382,6 @@ export default function ManageScreensPage() {
                   />
                 </div>
               </div>
-
-              {editingScreen && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
-                  <div>
-                    <label
-                      className="block text-xs font-semibold mb-1.5 text-indigo-300"
-                    >
-                      حالة الاتصال
-                    </label>
-                    <select
-                      value={formConnectionStatus}
-                      onChange={(e) => setFormConnectionStatus(e.target.value as ConnectionStatus)}
-                      className={`${inputClass} cursor-pointer`}
-                      style={inputStyle}
-                    >
-                      <option className="cursor-pointer" value="Online">متصلة (Online)</option>
-                      <option className="cursor-pointer" value="Offline">غير متصلة (Offline)</option>
-                      <option className="cursor-pointer" value="Unknown">غير معروفة (Unknown)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
-                      className="block text-xs font-semibold mb-1.5 text-indigo-300"
-                    >
-                      الحالة التشغيلية
-                    </label>
-                    <select
-                      value={formOperationalStatus}
-                      onChange={(e) => setFormOperationalStatus(e.target.value as OperationalStatus)}
-                      className={`${inputClass} cursor-pointer`}
-                      style={inputStyle}
-                    >
-                      <option className="cursor-pointer" value="Draft">مسودة (Draft)</option>
-                      <option className="cursor-pointer" value="Active">نشطة تشغيلياً (Active)</option>
-                      <option className="cursor-pointer" value="Inactive">غير نشطة (Inactive)</option>
-                    </select>
-                  </div>
-                </div>
-              )}
 
               {/* Toggles */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">

@@ -359,7 +359,8 @@ export default function MediaSlotAssignment({ screenId, clientId, currentSlots, 
                       className={`text-xs font-bold mr-12 uppercase tracking-wider italic ${isLightTheme ? "text-amber-600" : "text-amber-500/80"
                         }`}
                     >
-                      Pending Assignment
+                      في انتظار التعيين
+
                     </p>
                   )}
                 </div>

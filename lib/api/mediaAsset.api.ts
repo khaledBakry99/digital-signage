@@ -15,6 +15,36 @@ export const mediaAssetApi = {
     return apiClient.get<MediaAsset[]>(url);
   },
 
+  // Search media assets
+  search: async (params: { clientId?: number; name?: string }) => {
+    const queryParams = new URLSearchParams();
+    if (params.clientId) queryParams.append('clientId', params.clientId.toString());
+    if (params.name) queryParams.append('name', params.name);
+    
+    const queryString = queryParams.toString();
+    const url = `/api/MediaAssets/search${queryString ? `?${queryString}` : ''}`;
+    
+    return apiClient.get<MediaAsset[]>(url);
+  },
+
+  // Get media assets by page (pagination)
+  getByPage: async (page: number, params?: { clientId?: number; itemsPerPage?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.clientId) queryParams.append('clientId', params.clientId.toString());
+    if (params?.itemsPerPage) queryParams.append('itemsPerPage', params.itemsPerPage.toString());
+    
+    const queryString = queryParams.toString();
+    const url = `/api/MediaAssets/${page}/getbypage${queryString ? `?${queryString}` : ''}`;
+    
+    return apiClient.get<{
+      page: number;
+      itemsPerPage: number;
+      totalItems: number;
+      totalPages: number;
+      items: MediaAsset[];
+    }>(url);
+  },
+
   // Get media asset by ID
   getById: async (id: number) => {
     return apiClient.get<MediaAsset>(`/api/MediaAssets/${id}`);
