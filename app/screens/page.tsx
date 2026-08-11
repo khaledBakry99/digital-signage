@@ -82,20 +82,53 @@ export default function ScreensPage() {
         </div>
 
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 p-6 pt-0">
-          {stats.map((stat) => (
-            <div
-              key={stat.label}
-              className={statsCardClass}
-              style={isLightTheme ? { background: stat.tint } : undefined}
-            >
-              <p className={`${isLightTheme ? "text-slate-500" : "text-white/60"} text-xs font-semibold mb-2`}>
-                {stat.label}
-              </p>
-              <p className="text-3xl font-black" style={{ color: stat.accent }}>
-                {stat.value}
-              </p>
-            </div>
-          ))}
+          {loading ? (
+            // Skeleton for stats cards
+            <>
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className={statsCardClass}
+                  style={
+                    isLightTheme
+                      ? { background: "linear-gradient(135deg, rgba(226,232,240,0.92), rgba(241,245,249,0.9))" }
+                      : undefined
+                  }
+                >
+                  <div className="animate-pulse">
+                    <div
+                      className={`h-3 w-20 rounded mb-3 ${
+                        isLightTheme ? "bg-slate-300/60" : "bg-white/10"
+                      }`}
+                    />
+                    <div
+                      className={`h-8 w-12 rounded ${
+                        isLightTheme ? "bg-slate-300/60" : "bg-white/10"
+                      }`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            // Actual stats cards
+            <>
+              {stats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className={statsCardClass}
+                  style={isLightTheme ? { background: stat.tint } : undefined}
+                >
+                  <p className={`${isLightTheme ? "text-slate-500" : "text-white/60"} text-xs font-semibold mb-2`}>
+                    {stat.label}
+                  </p>
+                  <p className="text-3xl font-black" style={{ color: stat.accent }}>
+                    {stat.value}
+                  </p>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       </div>
 
