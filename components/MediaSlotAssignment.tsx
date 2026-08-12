@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useTheme } from "@/lib/context/ThemeContext";
 import { mediaAssetApi } from "@/lib/api/mediaAsset.api";
 import { screenApi } from "@/lib/api/screen.api";
+import MediaSearchInput from "@/components/MediaSearchInput";
 import type { MediaSlot, MediaSlotInfo, ScreenMediaSlots } from "@/lib/types/screen";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
 
@@ -98,6 +99,7 @@ export default function MediaSlotAssignment({ screenId, clientId, currentSlots, 
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
   const [mediaAssetsLoading, setMediaAssetsLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch media assets when modal opens
   useEffect(() => {
@@ -116,6 +118,39 @@ export default function MediaSlotAssignment({ screenId, clientId, currentSlots, 
     }
   }, [editingSlot, clientId]);
 
+  // Search media assets
+  const searchMediaAssets = async (query: string) => {
+    if (!query.trim()) {
+      // Reset to all assets
+      const assets = await mediaAssetApi.getAll({ clientId });
+      setMediaAssets(assets);
+      return;
+    }
+
+    try {
+      setMediaAssetsLoading(true);
+      const results = await mediaAssetApi.search({
+        clientId,
+        name: query,
+      });
+      setMediaAssets(results);
+    } catch (err) {
+    } finally {
+      setMediaAssetsLoading(false);
+    }
+  };
+
+  // Handle search with debounce
+  useEffect(() => {
+    if (!editingSlot) return;
+    
+    const timeoutId = setTimeout(() => {
+      searchMediaAssets(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, editingSlot]);
+
   const handleEditSlot = (slot: MediaSlot) => {
     setEditingSlot(slot);
   };
@@ -123,6 +158,7 @@ export default function MediaSlotAssignment({ screenId, clientId, currentSlots, 
   const handleCloseModal = () => {
     setEditingSlot(null);
     setMediaAssets([]);
+    setSearchQuery("");
   };
 
   const handleAssignMedia = async (mediaAssetId: number) => {
@@ -461,6 +497,15 @@ export default function MediaSlotAssignment({ screenId, clientId, currentSlots, 
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="mb-4">
+              <MediaSearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="ابحث باستخدام اسم الإعلان..."
+              />
             </div>
 
             <div className="flex-1 overflow-y-auto mb-6">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AdList from "@/components/AdList";
 import AdEditModal from "@/components/AdEditModal";
 import AdCreateModal from "@/components/AdCreateModal";
@@ -11,6 +11,7 @@ import { useMediaAssetsPaginated } from "@/lib/hooks/useMediaAssets";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useTheme } from "@/lib/context/ThemeContext";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
+import { dashboardApi, MediaStats } from "@/lib/api/dashboard.api";
 
 export default function AdsPage() {
   const { clientId } = useAuth();
@@ -39,9 +40,32 @@ export default function AdsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedDeleteAd, setSelectedDeleteAd] = useState<MediaAsset | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [mediaStats, setMediaStats] = useState<MediaStats | null>(null);
+  const [mediaStatsLoading, setMediaStatsLoading] = useState(true);
+  const [mediaStatsError, setMediaStatsError] = useState<string | null>(null);
 
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
+
+  useEffect(() => {
+    if (!clientId) return;
+
+    const fetchMediaStats = async () => {
+      try {
+        setMediaStatsLoading(true);
+        setMediaStatsError(null);
+        const data = await dashboardApi.getMediaStats(clientId);
+        setMediaStats(data);
+      } catch (err) {
+        setMediaStatsError("Failed to load media statistics");
+        console.error("Error fetching media stats:", err);
+      } finally {
+        setMediaStatsLoading(false);
+      }
+    };
+
+    fetchMediaStats();
+  }, [clientId]);
 
   const textPrimary = isLightTheme ? "text-slate-900" : "text-white";
   const textSecondary = isLightTheme ? "text-slate-600" : "text-white/60";
@@ -68,7 +92,7 @@ export default function AdsPage() {
     ? "relative overflow-hidden rounded-[24px] border border-white/50 p-6 bg-white/80 backdrop-blur-2xl shadow-[0_30px_80px_rgba(15,23,42,0.08)] transition-transform hover:scale-[1.02] duration-300"
     : "relative overflow-hidden rounded-[24px] border border-white/5 p-6 bg-[#0f172a]/40 backdrop-blur-md shadow-xl transition-transform hover:scale-[1.02] duration-300";
 
-  const statsLoaded = !loading;
+  const statsLoaded = !mediaStatsLoading;
 
   const filterCardClass = isLightTheme
     ? "relative overflow-hidden rounded-[24px] border border-white/50 p-5 mb-8 bg-white/85 backdrop-blur-2xl animate-fade-in flex flex-col md:flex-row gap-6 items-center shadow-[0_25px_70px_rgba(15,23,42,0.08)]"
@@ -92,7 +116,7 @@ export default function AdsPage() {
     const timeoutId = setTimeout(() => {
       search(query);
     }, 500); // Wait 500ms after user stops typing
-    
+
     return () => clearTimeout(timeoutId);
   };
 
@@ -183,7 +207,7 @@ export default function AdsPage() {
         {[
           {
             label: "الإجمالي",
-            value: mediaAssets.length,
+            value: mediaStats?.totalMedia ?? 0,
             color: "from-blue-500 to-indigo-500",
             accent: "37,99,235",
             icon: (
@@ -194,7 +218,7 @@ export default function AdsPage() {
           },
           {
             label: "صور",
-            value: mediaAssets.filter((a) => a.type === "Image").length,
+            value: mediaStats?.totalImages ?? 0,
             color: "from-purple-500 to-fuchsia-500",
             accent: "168,85,247",
             icon: (
@@ -205,7 +229,7 @@ export default function AdsPage() {
           },
           {
             label: "فيديوهات",
-            value: mediaAssets.filter((a) => a.type === "Video").length,
+            value: mediaStats?.totalVideos ?? 0,
             color: "from-emerald-500 to-teal-500",
             accent: "16,185,129",
             icon: (
@@ -256,7 +280,7 @@ export default function AdsPage() {
                     : undefined
                 }
               >
-               {s.icon}
+                {s.icon}
               </div>
             </div>
           </div>

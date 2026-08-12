@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCampaigns } from "@/lib/hooks/useCampaigns";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { extractApiError } from "@/lib/api/client";
@@ -10,6 +10,7 @@ import DeleteCampaignModal from "@/components/DeleteCampaignModal";
 import TableSkeleton from "@/components/TableSkeleton";
 import { useTheme } from "@/lib/context/ThemeContext";
 import type { Campaign, CreateCampaignInput } from "@/lib/types/campaign";
+import { dashboardApi, CampaignStats } from "@/lib/api/dashboard.api";
 
 export default function CampaignsPage() {
   const { clientId } = useAuth();
@@ -33,6 +34,29 @@ export default function CampaignsPage() {
   const [campaignToDelete, setCampaignToDelete] = useState<Campaign | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [campaignStats, setCampaignStats] = useState<CampaignStats | null>(null);
+  const [campaignStatsLoading, setCampaignStatsLoading] = useState(true);
+  const [campaignStatsError, setCampaignStatsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!clientId) return;
+
+    const fetchCampaignStats = async () => {
+      try {
+        setCampaignStatsLoading(true);
+        setCampaignStatsError(null);
+        const data = await dashboardApi.getCampaignStats(clientId);
+        setCampaignStats(data);
+      } catch (err) {
+        setCampaignStatsError("Failed to load campaign statistics");
+        console.error("Error fetching campaign stats:", err);
+      } finally {
+        setCampaignStatsLoading(false);
+      }
+    };
+
+    fetchCampaignStats();
+  }, [clientId]);
 
   const handleEdit = (campaign: Campaign) => {
     setEditingCampaign(campaign);
@@ -134,21 +158,21 @@ export default function CampaignsPage() {
   const stats = [
     {
       label: "إجمالي الحملات",
-      value: totalCampaigns,
+      value: campaignStats?.totalCampaigns ?? 0,
       accent: "#818cf8",
       tint: "linear-gradient(135deg, rgba(216,226,255,0.9), rgba(237,247,255,0.85))",
     },
     {
-      label: "حملات نشطة",
-      value: activeCampaigns,
+      label: "الحملات النشطة",
+      value: campaignStats?.totalActiveCampaigns ?? 0,
       accent: "#34d399",
       tint: "linear-gradient(135deg, rgba(209,250,229,0.9), rgba(224,242,254,0.85))",
     },
     {
-      label: "حملات متوقفة",
-      value: pausedCampaigns,
-      accent: "#fbbf24",
-      tint: "linear-gradient(135deg, rgba(254,242,199,0.9), rgba(255,247,237,0.9))",
+      label: "الحملات المتوقفة",
+      value: campaignStats?.totalinactiveCampaigns ?? 0,
+      accent: "#ef4444",
+      tint: "linear-gradient(135deg, rgba(254,226,226,0.9), rgba(254,242,242,0.9))",
     },
   ];
 
@@ -193,7 +217,7 @@ export default function CampaignsPage() {
               <p className={`${isLightTheme ? "text-slate-500" : "text-white/60"} text-xs font-semibold mb-2`}>
                 {stat.label}
               </p>
-              {loading ? (
+              {campaignStatsLoading ? (
                 statSkeleton
               ) : (
                 <p className="text-3xl font-black" style={{ color: stat.accent }}>

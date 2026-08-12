@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import type { Campaign, CampaignStatus, CreateCampaignInput, DayOfWeek } from "@/lib/types/campaign";
 import { useMediaAssets } from "@/lib/hooks/useMediaAssets";
 import { useTheme } from "@/lib/context/ThemeContext";
+import MediaSearchInput from "@/components/MediaSearchInput";
+import { mediaAssetApi } from "@/lib/api/mediaAsset.api";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
 
 const DAYS_OF_WEEK: DayOfWeek[] = [
@@ -417,6 +419,57 @@ function MediaSlotSelector({
   const isLightTheme = theme === "light";
   const [editingSlot, setEditingSlot] = useState<MediaSlot | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredAssets, setFilteredAssets] = useState<MediaAsset[]>(mediaAssets);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Get clientId from first media asset
+  const clientId = mediaAssets.length > 0 ? mediaAssets[0].clientId : undefined;
+
+  // Search function using API only
+  const searchMediaAssets = async (query: string) => {
+    if (!query.trim()) {
+      setFilteredAssets(mediaAssets);
+      setIsSearching(false);
+      return;
+    }
+
+    if (!clientId) {
+      console.warn("Cannot search: clientId not available");
+      setFilteredAssets([]);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      const results = await mediaAssetApi.search({
+        clientId,
+        name: query,
+      });
+      setFilteredAssets(results);
+    } catch (err) {
+      console.error("Search error:", err);
+      setFilteredAssets([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Handle search with debounce
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      searchMediaAssets(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Reset filtered assets when mediaAssets changes
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredAssets(mediaAssets);
+    }
+  }, [mediaAssets, searchQuery]);
 
   const handleEditSlot = (slot: MediaSlot) => {
     setEditingSlot(slot);
@@ -424,6 +477,7 @@ function MediaSlotSelector({
 
   const handleCloseModal = () => {
     setEditingSlot(null);
+    setSearchQuery("");
   };
 
   const handleAssignMedia = (mediaAssetId: number) => {
@@ -822,14 +876,31 @@ function MediaSlotSelector({
               </button>
             </div>
 
+            {/* Search Input */}
+            <div className="mb-4">
+              <MediaSearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="ابحث باستخدام اسم الإعلان..."
+              />
+            </div>
+
             <div className="flex-1 overflow-y-auto mb-6">
-              {mediaAssets.length === 0 ? (
+              {isSearching ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className={`h-20 rounded-xl ${isLightTheme ? "bg-slate-200/60" : "bg-white/5"} animate-pulse`} />
+                  ))}
+                </div>
+              ) : filteredAssets.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className={isLightTheme ? "text-slate-500" : "text-white/40"}>لا توجد إعلانات متاحة</p>
+                  <p className={isLightTheme ? "text-slate-500" : "text-white/40"}>
+                    {searchQuery ? "لا توجد نتائج مطابقة" : "لا توجد إعلانات متاحة"}
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {mediaAssets.map((asset) => (
+                  {filteredAssets.map((asset) => (
                     <button
                       key={asset.id}
                       type="button"
