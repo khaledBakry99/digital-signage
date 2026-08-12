@@ -7,6 +7,8 @@ import { dashboardApi, cameraApi, type ClientDashboardStats, type Subscription }
 import { useScreensWithHeartbeat } from "@/lib/hooks/useScreensWithHeartbeat";
 import { useTheme } from "@/lib/context/ThemeContext";
 import ScreenStatusDisplay from "@/components/ScreenStatusDisplay";
+import CampaignModal from "@/components/CampaignModal";
+import type { CreateCampaignInput } from "@/lib/types/campaign";
 
 function ModernStatCard({
   label,
@@ -62,6 +64,8 @@ export default function Home() {
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [cameras, setCameras] = useState<any[]>([]);
   const [camerasLoading, setCamerasLoading] = useState(true);
+  const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
+  const [campaignSubmitError, setCampaignSubmitError] = useState<string | null>(null);
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
 
@@ -152,6 +156,22 @@ export default function Home() {
     const diffTime = endDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
+  };
+
+  const handleCampaignSubmit = async (data: CreateCampaignInput) => {
+    try {
+      setCampaignSubmitError(null);
+      // Import campaignApi dynamically to avoid circular dependency
+      const { campaignApi } = await import("@/lib/api");
+      await campaignApi.create(data);
+      setIsCampaignModalOpen(false);
+      // Refresh stats after creating campaign
+      const updatedStats = await dashboardApi.getClientStats(clientId!);
+      setStats(updatedStats);
+    } catch (err) {
+      setCampaignSubmitError("فشل إنشاء الحملة");
+      console.error("Error creating campaign:", err);
+    }
   };
 
 
@@ -652,7 +672,7 @@ export default function Home() {
                   لا توجد حملات نشطة حالياً
                 </p>
                 <button
-                  onClick={() => router.push("/ads/new")}
+                  onClick={() => setIsCampaignModalOpen(true)}
                   className="mt-3 px-4 py-2 text-sm font-medium text-violet-300 bg-violet-500/10 border border-violet-500/20 rounded-xl hover:bg-violet-500/20 transition-colors"
                 >
                   إنشاء حملة جديدة
@@ -676,6 +696,18 @@ export default function Home() {
           <ScreenStatusDisplay screens={screens} loading={screensLoading || statsLoading} />
         </div>
       </section>
+
+      {/* Campaign Modal */}
+      <CampaignModal
+        isOpen={isCampaignModalOpen}
+        onClose={() => {
+          setIsCampaignModalOpen(false);
+          setCampaignSubmitError(null);
+        }}
+        onSubmit={handleCampaignSubmit}
+        clientId={clientId || 0}
+        error={campaignSubmitError}
+      />
     </div>
   );
 }

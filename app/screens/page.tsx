@@ -1,17 +1,41 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import ScreenGrid from "@/components/ScreenGrid";
 import { useScreensWithHeartbeat } from "@/lib/hooks/useScreensWithHeartbeat";
 import { useTheme } from "@/lib/context/ThemeContext";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { dashboardApi, ScreensStats } from "@/lib/api/dashboard.api";
 
 export default function ScreensPage() {
   const { clientId } = useAuth();
   const { screens, loading, error, openScreenTabs } = useScreensWithHeartbeat(clientId);
-  const active = screens.filter((s) => s.connectionStatus === "Online").length;
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
+  const [screensStats, setScreensStats] = useState<ScreensStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!clientId) return;
+
+    const fetchScreensStats = async () => {
+      try {
+        setStatsLoading(true);
+        setStatsError(null);
+        const data = await dashboardApi.getScreensStats(clientId);
+        setScreensStats(data);
+      } catch (err) {
+        setStatsError("Failed to load screens statistics");
+        console.error("Error fetching screens stats:", err);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchScreensStats();
+  }, [clientId]);
 
   const heroContainerClass = isLightTheme
     ? "relative mb-8 overflow-hidden rounded-[32px] border border-white/60 shadow-[0_35px_95px_rgba(15,23,42,0.12)]"
@@ -33,19 +57,19 @@ export default function ScreensPage() {
   const stats = [
     {
       label: "إجمالي الشاشات",
-      value: screens.length,
+      value: screensStats?.totalScreens ?? 0,
       accent: "#818cf8",
       tint: "linear-gradient(135deg, rgba(216,226,255,0.92), rgba(237,247,255,0.85))",
     },
     {
       label: "نشطة",
-      value: active,
+      value: screensStats?.connectedScreens ?? 0,
       accent: "#34d399",
       tint: "linear-gradient(135deg, rgba(209,250,229,0.92), rgba(224,242,254,0.85))",
     },
     {
       label: "خاملة",
-      value: screens.length - active,
+      value: screensStats?.disconnectedScreens ?? 0,
       accent: "#94a3b8",
       tint: "linear-gradient(135deg, rgba(226,232,240,0.92), rgba(241,245,249,0.9))",
     },
@@ -67,7 +91,7 @@ export default function ScreensPage() {
             <h1 className="text-4xl font-bold mb-2">
               <span className="gradient-text-modern">الشاشات</span>
             </h1>
-          
+
           </div>
           <Link
             href="/screens/manage"
@@ -82,7 +106,7 @@ export default function ScreensPage() {
         </div>
 
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 p-6 pt-0">
-          {loading ? (
+          {statsLoading ? (
             // Skeleton for stats cards
             <>
               {[1, 2, 3].map((i) => (
@@ -97,14 +121,12 @@ export default function ScreensPage() {
                 >
                   <div className="animate-pulse">
                     <div
-                      className={`h-3 w-20 rounded mb-3 ${
-                        isLightTheme ? "bg-slate-300/60" : "bg-white/10"
-                      }`}
+                      className={`h-3 w-20 rounded mb-3 ${isLightTheme ? "bg-slate-300/60" : "bg-white/10"
+                        }`}
                     />
                     <div
-                      className={`h-8 w-12 rounded ${
-                        isLightTheme ? "bg-slate-300/60" : "bg-white/10"
-                      }`}
+                      className={`h-8 w-12 rounded ${isLightTheme ? "bg-slate-300/60" : "bg-white/10"
+                        }`}
                     />
                   </div>
                 </div>

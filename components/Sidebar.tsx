@@ -2,11 +2,10 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useMemo, useEffect } from "react";
-import { useAdvertisements } from "@/lib/hooks/useAdvertisements";
-import { useCameras } from "@/lib/cameras/hooks/useCameras";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { getRoleLabel } from "@/lib/utils/roleLabels";
 import { useTheme } from "@/lib/context/ThemeContext";
+import { dashboardApi, MediaStats, CamerasStats } from "@/lib/api/dashboard.api";
 
 // Professional Icons
 const DashboardIcon = () => (
@@ -56,11 +55,34 @@ const cameraNavItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { advertisements, loading: adsLoading } = useAdvertisements();
-  const { cameras, loading: camerasLoading } = useCameras();
-  const { user, logout } = useAuth();
+  const { clientId, user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [mediaStats, setMediaStats] = useState<MediaStats | null>(null);
+  const [camerasStats, setCamerasStats] = useState<CamerasStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!clientId) return;
+
+    const fetchStats = async () => {
+      try {
+        setStatsLoading(true);
+        const [mediaData, camerasData] = await Promise.all([
+          dashboardApi.getMediaStats(clientId),
+          dashboardApi.getCamerasStats(clientId),
+        ]);
+        setMediaStats(mediaData);
+        setCamerasStats(camerasData);
+      } catch (err) {
+        console.error("Error fetching sidebar stats:", err);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [clientId]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -72,18 +94,18 @@ export default function Sidebar() {
 
   const quickStats = useMemo(() => [
     {
-      label: isCollapsed ? "إ" : "إعلانات",
+      label: isCollapsed ? "إ" : "إعلان",
       fullLabel: "إعلانات",
-      value: advertisements.length,
+      value: mediaStats?.totalMedia ?? 0,
       color: "#818cf8",
     },
     {
       label: isCollapsed ? "ك" : "كاميرات",
       fullLabel: "كاميرات",
-      value: cameras.length,
+      value: camerasStats?.totalCameras ?? 0,
       color: "#34d399",
     },
-  ], [advertisements.length, cameras.length, isCollapsed]);
+  ], [mediaStats?.totalMedia, camerasStats?.totalCameras, isCollapsed]);
 
   const handleLogout = () => {
     logout();
@@ -150,7 +172,7 @@ export default function Sidebar() {
       {/* Quick Stats */}
       <div className={`p-4 border-b border-white/5 ${isCollapsed ? "px-2" : ""}`}>
         <div className={`flex gap-2 items-stretch ${isCollapsed ? "flex-col" : ""}`}>
-          {adsLoading || camerasLoading ? (
+          {statsLoading ? (
             // Skeleton loading state
             <>
               <div
