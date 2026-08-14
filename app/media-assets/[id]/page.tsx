@@ -105,9 +105,7 @@ export default function MediaAssetPreviewPage() {
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/5 pb-8">
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em]">
-                Media Preview
-              </div>
+            
               {asset?.type && (
                 <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border ${asset.type === "Image" ? "bg-blue-500/20 border-blue-500/30 text-blue-300" : "bg-fuchsia-500/20 border-fuchsia-500/30 text-fuchsia-300"
                   }`}>
@@ -158,7 +156,7 @@ export default function MediaAssetPreviewPage() {
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl -mr-16 -mt-16" />
               <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 mb-6 flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                File Intelligence
+               معلومات الملف
               </h3>
               <div className="space-y-5">
                 {metaInfo.map((meta) => (

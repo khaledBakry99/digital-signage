@@ -259,7 +259,7 @@ export default function ScreenPage() {
     // If this is a fallback request and we're currently playing a targeted ad, ignore it
     // This ensures targeted ads play to completion without interruption
     if ((!event.currentMediaAssetId || event.usedFallback) && isPlayingTargetedAd) {
-      return; 
+      return;
     }
 
     // Load the specific media asset from the event
@@ -503,7 +503,8 @@ export default function ScreenPage() {
     return (
       <div className="w-full h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
-        <div className="text-indigo-200 text-xl font-medium">Loading screen...</div>
+                <div className="text-indigo-200 text-xl font-medium">جاري تحميل الشاشة </div>
+
       </div>
     );
   }

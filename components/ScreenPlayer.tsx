@@ -31,7 +31,6 @@ export default function ScreenPlayer({
   shouldLoop = false,
   onPlaybackError,
 }: ScreenPlayerProps) {
-  const [currentTime, setCurrentTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const imageTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -254,30 +253,26 @@ export default function ScreenPlayer({
     }
   }, [resolvedUrl, shouldLoop, onPlaybackError]);
 
-  // Image countdown timer
+  // Image countdown timer - use ref instead of state to avoid re-renders
   useEffect(() => {
     const isImage = advertisement?.type?.toLowerCase() === "image";
-    const duration = advertisement?.durationSeconds || 10; // default 10s if not provided
+    const duration = advertisement?.durationSeconds || 10;
 
     if (isImage) {
-      setCurrentTime(0);
       imageStartedAtRef.current = Date.now();
       imageTimerRef.current = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (imageEndedRef.current) {
-            return prev;
+        if (imageEndedRef.current) {
+          return;
+        }
+        const elapsed = Math.floor((Date.now() - imageStartedAtRef.current) / 1000);
+        if (elapsed >= duration) {
+          // Image duration ended, trigger callback
+          if (onEnded) {
+            imageEndedRef.current = true;
+            clearImageTimer();
+            onEnded();
           }
-          if (prev >= duration) {
-            // Image duration ended, trigger callback
-            if (onEnded) {
-              imageEndedRef.current = true;
-              clearImageTimer();
-              onEnded();
-            }
-            return 0;
-          }
-          return prev + 1;
-        });
+        }
       }, 1000);
 
       return () => {
