@@ -183,11 +183,11 @@ export default function AdList({
             {["الإعلان", "الوصف", "المعاينة", "الحجم", "النوع", "التاريخ", "إجراءات"].map((heading, idx) => (
               <th
                 key={heading}
-                className={`${idx === 2
-                  ? "text-center"
+                className={`${idx === 0 || idx === 1 || idx === 5
+                  ? "text-right pr-12"
                   : idx === 6
-                    ? "text-left"
-                    : "text-right"
+                    ? "text-left pl-12"
+                    : "text-center"
                   } px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] ${isLightTheme ? "text-[#6d6fb4]" : "text-white/40"
                   }`}
               >
@@ -215,7 +215,7 @@ export default function AdList({
               </td>
               <td className="px-6 py-4">
                 <p
-                  className={`text-sm max-w-[200px] truncate leading-relaxed ${isLightTheme ? "text-slate-500" : "text-white/50"
+                  className={`text-xs max-w-[280px] line-clamp-2 leading-relaxed ${isLightTheme ? "text-slate-500" : "text-white/50"
                     }`}
                 >
                   {ad.description || "—"}
@@ -224,7 +224,7 @@ export default function AdList({
               <td className="px-6 py-4 text-center">
                 <MediaThumbnail asset={ad} onPreview={() => openMediaPreview(ad)} isLightTheme={isLightTheme} />
               </td>
-              <td className="px-6 py-4">
+              <td className="px-6 py-4 text-center">
                 <span
                   className={`text-xs font-medium tabular-nums ${isLightTheme ? "text-slate-500" : "text-white/40"
                     }`}

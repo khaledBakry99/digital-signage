@@ -8,10 +8,10 @@ export const mediaAssetApi = {
     if (params?.clientId) queryParams.append('clientId', params.clientId.toString());
     if (params?.uploadedFromUtc) queryParams.append('uploadedFromUtc', params.uploadedFromUtc);
     if (params?.uploadedToUtc) queryParams.append('uploadedToUtc', params.uploadedToUtc);
-    
+
     const queryString = queryParams.toString();
     const url = `/api/MediaAssets${queryString ? `?${queryString}` : ''}`;
-    
+
     return apiClient.get<MediaAsset[]>(url);
   },
 
@@ -20,10 +20,10 @@ export const mediaAssetApi = {
     const queryParams = new URLSearchParams();
     if (params.clientId) queryParams.append('clientId', params.clientId.toString());
     if (params.name) queryParams.append('name', params.name);
-    
+
     const queryString = queryParams.toString();
     const url = `/api/MediaAssets/search${queryString ? `?${queryString}` : ''}`;
-    
+
     return apiClient.get<MediaAsset[]>(url);
   },
 
@@ -32,10 +32,10 @@ export const mediaAssetApi = {
     const queryParams = new URLSearchParams();
     if (params?.clientId) queryParams.append('clientId', params.clientId.toString());
     if (params?.itemsPerPage) queryParams.append('itemsPerPage', params.itemsPerPage.toString());
-    
+
     const queryString = queryParams.toString();
     const url = `/api/MediaAssets/${page}/getbypage${queryString ? `?${queryString}` : ''}`;
-    
+
     return apiClient.get<{
       page: number;
       itemsPerPage: number;
@@ -66,7 +66,16 @@ export const mediaAssetApi = {
 
   // Update media asset
   update: async (id: number, data: UpdateMediaAssetInput) => {
-    return apiClient.put<MediaAsset>(`/api/MediaAssets/${id}`, data);
+    const queryParams = new URLSearchParams();
+    if (data.name) queryParams.append('Name', data.name);
+    if (data.description !== undefined) queryParams.append('Description', data.description);
+    if (data.durationSeconds !== undefined) queryParams.append('DurationInSeconds', data.durationSeconds.toString());
+    if (data.type) queryParams.append('Type', data.type);
+
+    const queryString = queryParams.toString();
+    const url = `/api/MediaAssets/${id}${queryString ? `?${queryString}` : ''}`;
+
+    return apiClient.put<MediaAsset>(url, data);
   },
 
   // Update media asset with file
@@ -76,7 +85,7 @@ export const mediaAssetApi = {
     if (data.description) queryParams.append('Description', data.description);
     if (data.durationSeconds !== undefined) queryParams.append('DurationInSeconds', data.durationSeconds.toString());
     if (data.type) queryParams.append('Type', data.type);
-    
+
     const formData = new FormData();
     formData.append('File', data.file);
 
