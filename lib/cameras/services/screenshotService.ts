@@ -120,6 +120,13 @@ class ScreenshotService {
 
       this.lastStablePersonCounts.set(cameraId, currentCount);
 
+      console.log('👥 PERSON COUNT CHANGED:', {
+        cameraId: Number(cameraId),
+        previousCount: lastStableCount,
+        currentCount: currentCount,
+        timestamp: new Date()
+      });
+
       const event = new CustomEvent("person-count-changed", {
         detail: {
           cameraId: Number(cameraId),
@@ -217,10 +224,16 @@ class ScreenshotService {
           .analyze({ cameraId: numericId, image: file })
           .then((response) => {
 
-            // ============================================
-            // 🎯 DISPATCH AI DETECTION EVENT
-            // ============================================
             if (response?.audience) {
+              console.log('🤖 AI DETECTION DETAILS:', {
+                cameraId: numericId,
+                audience: response.audience,
+                selectedSlot: response.selectedSlot,
+                gender: response.gender,
+                ageGroup: response.ageGroup,
+                timestamp: new Date()
+              });
+
               const event = new CustomEvent('ai-detection', {
                 detail: {
                   audience: response.audience,

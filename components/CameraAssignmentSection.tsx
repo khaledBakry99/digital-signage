@@ -307,27 +307,12 @@ export default function CameraAssignmentSection({
                       }`}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                     </svg>
                   </div>
                   <span className={isLightTheme ? "text-slate-500" : "text-white/60"}>الموقع:</span>
                   <span className={`font-semibold ${isLightTheme ? "text-slate-900" : "text-white/90"}`}>
                     {currentCamera.location}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3 text-sm">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${isLightTheme ? "bg-white/80 text-slate-400" : "bg-white/5 text-white/40"
-                      }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <span className={isLightTheme ? "text-slate-500" : "text-white/60"}>التحديث:</span>
-                  <span className={`font-semibold ${isLightTheme ? "text-slate-900" : "text-white/90"}`}>
-                    كل {currentCamera.timeToScreenshot} ثانية
                   </span>
                 </div>
               </div>

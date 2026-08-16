@@ -212,10 +212,19 @@ export default function ScreenPage() {
 
   const playMediaAsset = useCallback(async (mediaAssetId: number, source: PendingMediaUpdate["source"], selectedSlot?: string) => {
     const targetAd = await mediaAssetApi.getById(mediaAssetId);
+
+    console.log('🎬 PLAYING AD:', {
+      mediaAssetId,
+      mediaName: targetAd?.name,
+      mediaType: targetAd?.type,
+      source: source,
+      selectedSlot: selectedSlot,
+      duration: targetAd?.type?.toLowerCase() === 'image' ? `${targetAd?.durationSeconds}s` : 'video (no duration limit)',
+      isTargeted: source === "signalr"
+    });
+
     setAdvertisement(targetAd);
     updateScreenState("PLAYING");
-
-    // Mark as targeted ad if it came from SignalR detection (prevents premature fallback)
     setIsPlayingTargetedAd(source === "signalr");
 
     if (fallbackTimeoutRef.current) {
@@ -244,9 +253,17 @@ export default function ScreenPage() {
       selectedSlot,
     };
 
+    console.log('📅 DETECTION REPLACED:', {
+      mediaAssetId,
+      source,
+      selectedSlot,
+      screenState: screenStateRef.current
+    });
+
     if (screenStateRef.current === "DETECTING") {
       await playLatestDetectionIfPossible();
     } else {
+      console.log('⏳ STORED: Latest detection stored for next ad end');
     }
   }, [playLatestDetectionIfPossible]);
 
@@ -256,13 +273,24 @@ export default function ScreenPage() {
   }, [loadFallbackAd]);
 
   const handleSignalRMediaUpdated = useCallback(async (event: { currentMediaAssetId: number; selectedSlot: string; usedFallback?: boolean }) => {
-    // If this is a fallback request and we're currently playing a targeted ad, ignore it
-    // This ensures targeted ads play to completion without interruption
-    if ((!event.currentMediaAssetId || event.usedFallback) && isPlayingTargetedAd) {
-      return; 
+    console.log('🤖 AI DETECTION RECEIVED:', {
+      currentMediaAssetId: event.currentMediaAssetId,
+      selectedSlot: event.selectedSlot,
+      usedFallback: event.usedFallback,
+      screenState: screenStateRef.current,
+      isPlayingTargetedAd: isPlayingTargetedAd
+    });
+
+    if (screenStateRef.current === "PLAYING") {
+      console.log('⏳ REPLACED: New detection replaces previous one (screen is PLAYING)');
+      latestDetectionRef.current = {
+        mediaAssetId: event.currentMediaAssetId,
+        source: "signalr",
+        selectedSlot: event.selectedSlot,
+      };
+      return;
     }
 
-    // Load the specific media asset from the event
     if (event.currentMediaAssetId) {
       try {
         await scheduleMediaUpdate(event.currentMediaAssetId, "signalr", event.selectedSlot);
@@ -272,7 +300,7 @@ export default function ScreenPage() {
     } else {
       loadFallbackAd();
     }
-  }, [isPlayingTargetedAd, loadFallbackAd, scheduleMediaUpdate]);
+  }, [loadFallbackAd, scheduleMediaUpdate, isPlayingTargetedAd]);
 
   const handleSignalRRefreshRequested = useCallback(() => {
     loadFallbackAd();
@@ -387,42 +415,45 @@ export default function ScreenPage() {
     };
   }, []);
 
-  // Handle ad ended - Check for campaign changes before returning to fallback
   const handleAdEnded = useCallback(async () => {
-    // Check if campaign has changed on the server to ensure we use the correct fallback
+    console.log('🏁 AD ENDED:', {
+      currentAdId: advertisement?.id,
+      currentAdName: advertisement?.name,
+      currentAdType: advertisement?.type,
+      hasPendingDetection: latestDetectionRef.current !== null,
+      pendingDetection: latestDetectionRef.current
+    });
+
+    // Priority 1: Apply pending detection immediately
+    const applied = await playLatestDetectionIfPossible();
+    if (applied) {
+      console.log('✅ PENDING DETECTION APPLIED: Switching to targeted ad');
+      setIsPlayingTargetedAd(true);
+      return;
+    }
+
+    console.log('🔄 NO PENDING DETECTIONS: Checking for campaign changes');
+
+    // Priority 2: Check for campaign changes only if no pending detection
     try {
       const screenData = await screenApi.getById(screenId);
       if (screenData?.currentCampaignId !== currentCampaignId) {
-        // Campaign has changed, reload fallback ad with new campaign data
         await loadFallbackAd();
       }
     } catch (err) {
-      // If check fails, continue with current fallback (graceful degradation)
+      console.log('❌ ERROR CHECKING CAMPAIGN: Returning to fallback ad');
     }
 
-    // Reset targeted ad flag to allow fallback requests for future ads
+    // Return to fallback ad
     setIsPlayingTargetedAd(false);
 
-    playLatestDetectionIfPossible()
-      .then((applied) => {
-        if (applied) return;
-        if (fallbackAd) {
-          if (advertisement?.id && advertisement.id === fallbackAd.id) {
-            setPlayerNonce((prev) => prev + 1);
-          }
-          setAdvertisement(fallbackAd);
-        }
-        updateScreenState("DETECTING");
-      })
-      .catch((err) => {
-        if (fallbackAd) {
-          if (advertisement?.id && advertisement.id === fallbackAd.id) {
-            setPlayerNonce((prev) => prev + 1);
-          }
-          setAdvertisement(fallbackAd);
-        }
-        updateScreenState("DETECTING");
-      });
+    if (fallbackAd) {
+      if (advertisement?.id && advertisement.id === fallbackAd.id) {
+        setPlayerNonce((prev) => prev + 1);
+      }
+      setAdvertisement(fallbackAd);
+    }
+    updateScreenState("DETECTING");
   }, [screenId, currentCampaignId, loadFallbackAd, advertisement, fallbackAd, playLatestDetectionIfPossible, updateScreenState]);
 
   // **DISPLAY ENGINE**: Broadcast playback state to Mirror Players
@@ -503,7 +534,8 @@ export default function ScreenPage() {
     return (
       <div className="w-full h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
-        <div className="text-indigo-200 text-xl font-medium">Loading screen...</div>
+        <div className="text-indigo-200 text-xl font-medium">جاري تحميل الشاشة </div>
+
       </div>
     );
   }
