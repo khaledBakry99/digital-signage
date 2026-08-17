@@ -32,6 +32,7 @@ export default function ScreenPlayer({
   onPlaybackError,
 }: ScreenPlayerProps) {
   const [error, setError] = useState<string | null>(null);
+  const [remainingTime, setRemainingTime] = useState<number>(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const imageTimerRef = useRef<NodeJS.Timeout | null>(null);
   const videoRetryRef = useRef(0);
@@ -44,6 +45,19 @@ export default function ScreenPlayer({
   const videoAnchorMediaAtRef = useRef<number>(0);
 
   const resolvedUrl = advertisement ? resolveMediaUrl(advertisement.url) : "";
+
+  console.log('🎬 SCREEN PLAYER RECEIVED:', {
+    screenId,
+    advertisement: advertisement ? {
+      id: advertisement.id,
+      name: advertisement.name,
+      type: advertisement.type,
+      url: advertisement.url,
+      durationSeconds: advertisement.durationSeconds,
+    } : null,
+    resolvedUrl,
+    shouldLoop,
+  });
 
   const isVideo = advertisement?.type?.toLowerCase() === "video" || (advertisement?.url ? /\.(mp4|webm|ogg)$/i.test(advertisement.url) : false);
   const inferredVideoType = (() => {
@@ -236,6 +250,34 @@ export default function ScreenPlayer({
     }
   }, [advertisement, resolvedUrl, isVideo, onPlaybackError]);
 
+  // Video countdown timer
+  useEffect(() => {
+    if (isVideo && videoRef.current) {
+      const videoElement = videoRef.current;
+
+      const updateTimer = () => {
+        if (videoElement.duration && !isNaN(videoElement.duration)) {
+          const remaining = Math.max(0, videoElement.duration - videoElement.currentTime);
+          setRemainingTime(Math.ceil(remaining));
+          console.log(`⏱️ VIDEO TIMER: ${Math.ceil(remaining)}s remaining (current: ${videoElement.currentTime.toFixed(1)}s, duration: ${videoElement.duration.toFixed(1)}s)`);
+        }
+      };
+
+      const timerInterval = setInterval(updateTimer, 100);
+
+      videoElement.addEventListener('timeupdate', updateTimer);
+      videoElement.addEventListener('loadedmetadata', updateTimer);
+
+      return () => {
+        clearInterval(timerInterval);
+        videoElement.removeEventListener('timeupdate', updateTimer);
+        videoElement.removeEventListener('loadedmetadata', updateTimer);
+      };
+    } else {
+      setRemainingTime(0);
+    }
+  }, [isVideo]);
+
   useEffect(() => {
     if (!shouldLoop) return;
     const videoElement = videoRef.current;
@@ -260,11 +302,18 @@ export default function ScreenPlayer({
 
     if (isImage) {
       imageStartedAtRef.current = Date.now();
+      setRemainingTime(duration);
+
       imageTimerRef.current = setInterval(() => {
         if (imageEndedRef.current) {
           return;
         }
         const elapsed = Math.floor((Date.now() - imageStartedAtRef.current) / 1000);
+        const remaining = Math.max(0, duration - elapsed);
+        setRemainingTime(remaining);
+
+        console.log(`⏱️ IMAGE TIMER: ${remaining}s remaining (elapsed: ${elapsed}s, duration: ${duration}s)`);
+
         if (elapsed >= duration) {
           // Image duration ended, trigger callback
           if (onEnded) {
@@ -278,6 +327,8 @@ export default function ScreenPlayer({
       return () => {
         clearImageTimer();
       };
+    } else {
+      setRemainingTime(0);
     }
   }, [advertisement, onEnded]);
 
@@ -319,8 +370,24 @@ export default function ScreenPlayer({
           src={resolvedUrl}
           alt={advertisement.name}
           className="w-full h-full object-contain"
-          onError={() => setError("فشل تحميل الصورة من الخادم")}
+          onError={() => {
+            console.error('❌ IMAGE LOAD ERROR:', {
+              screenId,
+              advertisementId: advertisement?.id,
+              advertisementName: advertisement?.name,
+              advertisementType: advertisement?.type,
+              resolvedUrl,
+              originalUrl: advertisement?.url,
+            });
+            setError("فشل تحميل الصورة من الخادم");
+          }}
         />
+        {/* Countdown timer overlay */}
+        {remainingTime > 0 && (
+          <div className="absolute bottom-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-xl font-bold">
+            {remainingTime}s
+          </div>
+        )}
       </div>
     );
   }
@@ -386,6 +453,12 @@ export default function ScreenPlayer({
       >
         <source src={resolvedUrl} type={inferredVideoType} />
       </video>
+      {/* Countdown timer overlay */}
+      {remainingTime > 0 && (
+        <div className="absolute bottom-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-xl font-bold">
+          {remainingTime}s
+        </div>
+      )}
     </div>
   );
 }

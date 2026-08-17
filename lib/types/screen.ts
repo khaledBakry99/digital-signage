@@ -67,17 +67,35 @@ export interface ScreenCurrentMedia {
   screenId: number;
   currentCampaignId?: number;
   currentMediaAssetId?: number;
+  currentMediaAssetDuration?: number | null;
+  currentMediaAssetName?: string;
+  currentMediaAssetType?: string;
   url?: string;
   currentBoysKidsMediaAssetId?: number;
   currentBoysKidsMediaUrl?: string;
+  currentBoysKidsMediaDuration?: number | null;
+  currentBoysKidsMediaAssetName?: string;
+  currentBoysKidsMediaAssetType?: string;
   currentGirlsKidsMediaAssetId?: number;
   currentGirlsKidsMediaUrl?: string;
+  currentGirlsKidsMediaDuration?: number | null;
+  currentGirlsKidsMediaAssetName?: string;
+  currentGirlsKidsMediaAssetType?: string;
   currentMenMediaAssetId?: number;
   currentMenMediaUrl?: string;
+  currentMenMediaDuration?: number | null;
+  currentMenMediaAssetName?: string;
+  currentMenMediaAssetType?: string;
   currentWomenMediaAssetId?: number;
   currentWomenMediaUrl?: string;
+  currentWomenMediaDuration?: number | null;
+  currentWomenMediaAssetName?: string;
+  currentWomenMediaAssetType?: string;
   currentDefaultMediaAssetId?: number;
   currentDefaultMediaUrl?: string;
+  currentDefaultMediaDuration?: number | null;
+  currentDefaultMediaAssetName?: string;
+  currentDefaultMediaAssetType?: string;
 }
 
 // Screen Active Campaign
