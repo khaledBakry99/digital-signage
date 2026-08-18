@@ -38,7 +38,7 @@ export default function CampaignAssignmentSection({
     try {
       setLoading(true);
       setError(null);
-      
+
       // Fetch all active campaigns
       const allCampaigns = await campaignApi.getAll({ clientId });
       const activeCampaigns = allCampaigns.filter(c =>
@@ -58,13 +58,13 @@ export default function CampaignAssignmentSection({
 
   const handleAssignClick = () => {
     if (!selectedCampaignId) return;
-    
+
     // Verify that campaign is not already assigned
     if (assignedCampaigns.some(c => c.id === selectedCampaignId)) {
       setError("هذه الحملة مربوطة بالشاشة مسبقاً");
       return;
     }
-    
+
     setConfirmAction({ type: 'assign', campaignId: selectedCampaignId });
     setShowConfirm(true);
   };
@@ -85,7 +85,6 @@ export default function CampaignAssignmentSection({
       setShowConfirm(false);
       setSelectedCampaignId(null);
       await loadData();
-      onUpdate?.();
     } catch (err) {
       setError(extractApiError(err, "فشل ربط الحملة"));
     } finally {
@@ -103,7 +102,6 @@ export default function CampaignAssignmentSection({
       await screenApi.removeCampaign(screenId, confirmAction.campaignId);
       setShowConfirm(false);
       await loadData();
-      onUpdate?.();
     } catch (err) {
       setError(extractApiError(err, "فشل إزالة الحملة"));
     } finally {
@@ -167,18 +165,17 @@ export default function CampaignAssignmentSection({
     );
   }
 
-  const containerClass = `relative overflow-hidden rounded-[28px] border p-6 lg:p-7 shadow-lg animate-fade-in ${
-    isLightTheme ? "border-white/60 shadow-[0_25px_80px_rgba(15,23,42,0.08)]" : "border-white/5"
-  }`;
+  const containerClass = `relative overflow-hidden rounded-[28px] border p-6 lg:p-7 shadow-lg animate-fade-in ${isLightTheme ? "border-white/60 shadow-[0_25px_80px_rgba(15,23,42,0.08)]" : "border-white/5"
+    }`;
 
   const containerStyle = isLightTheme
     ? {
-        background: "linear-gradient(135deg, rgba(238,245,255,0.92), rgba(230,236,255,0.88))",
-        backdropFilter: "blur(20px)",
-      }
+      background: "linear-gradient(135deg, rgba(238,245,255,0.92), rgba(230,236,255,0.88))",
+      backdropFilter: "blur(20px)",
+    }
     : {
-        background: "linear-gradient(135deg, rgba(15,23,42,1), rgba(36,11,46,0.85))",
-      };
+      background: "linear-gradient(135deg, rgba(15,23,42,1), rgba(36,11,46,0.85))",
+    };
 
   const headingClass = `text-lg font-bold flex items-center gap-2 ${isLightTheme ? "text-indigo-700" : "text-white"}`;
   const headingIconClass = `w-5 h-5 ${isLightTheme ? "text-indigo-500" : "text-indigo-300"}`;
@@ -238,11 +235,10 @@ export default function CampaignAssignmentSection({
             {assignedCampaigns.map((campaign) => (
               <div
                 key={campaign.id}
-                className={`p-4 rounded-2xl border transition-all ${
-                  isLightTheme
+                className={`p-4 rounded-2xl border transition-all ${isLightTheme
                     ? "bg-white/85 border-indigo-100 text-slate-800 shadow-[0_15px_40px_rgba(15,23,42,0.06)]"
                     : "border-indigo-500/30 bg-indigo-500/15 text-indigo-50"
-                }`}
+                  }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -250,12 +246,11 @@ export default function CampaignAssignmentSection({
                       <p className={`text-lg font-bold ${isLightTheme ? "text-indigo-700" : "text-white"}`}>
                         {campaign.name}
                       </p>
-                      <span 
-                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${
-                          isLightTheme 
-                            ? "bg-indigo-100 text-indigo-700 border border-indigo-200" 
+                      <span
+                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${isLightTheme
+                            ? "bg-indigo-100 text-indigo-700 border border-indigo-200"
                             : "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                        }`}
+                          }`}
                         title="الأولوية: الرقم الأكبر يُعرض أولاً"
                       >
                         أولوية {campaign.priority}
@@ -281,15 +276,14 @@ export default function CampaignAssignmentSection({
                       </div>
                     </div>
                   </div>
-                  
+
                   <button
                     onClick={() => handleRemoveClick(campaign.id)}
                     disabled={removingId === campaign.id}
-                    className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                      isLightTheme
+                    className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${isLightTheme
                         ? "bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100"
                         : "bg-rose-500/15 border border-rose-400/40 text-rose-200 hover:bg-rose-500/25"
-                    }`}
+                      }`}
                     title="إزالة الحملة"
                   >
                     {removingId === campaign.id ? (
@@ -311,7 +305,7 @@ export default function CampaignAssignmentSection({
           <p className={`text-sm font-semibold ${isLightTheme ? "text-slate-700" : "text-white/90"}`}>
             إضافة حملة جديدة
           </p>
-          
+
           <div>
             <label className={`block text-sm font-medium mb-2 ${isLightTheme ? "text-slate-600" : "text-white/70"}`}>
               اختر حملة إعلانية
@@ -323,9 +317,8 @@ export default function CampaignAssignmentSection({
                   setSelectedCampaignId(Number(e.target.value) || null);
                   setError(null);
                 }}
-                className={`w-full px-4 py-3 rounded-2xl text-sm outline-none cursor-pointer appearance-none transition-all ${
-                  isLightTheme ? "focus:ring-2 focus:ring-indigo-200" : ""
-                }`}
+                className={`w-full px-4 py-3 rounded-2xl text-sm outline-none cursor-pointer appearance-none transition-all ${isLightTheme ? "focus:ring-2 focus:ring-indigo-200" : ""
+                  }`}
                 style={{
                   background: isLightTheme ? "rgba(255,255,255,0.85)" : "rgba(15,23,42,0.6)",
                   border: isLightTheme ? "1px solid rgba(191,219,254,0.8)" : "1px solid rgba(148,163,184,0.2)",
@@ -342,9 +335,8 @@ export default function CampaignAssignmentSection({
                 ))}
               </select>
               <div
-                className={`absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
-                  isLightTheme ? "text-slate-400 group-hover:text-slate-600" : "text-white/40 group-hover:text-white/60"
-                }`}
+                className={`absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${isLightTheme ? "text-slate-400 group-hover:text-slate-600" : "text-white/40 group-hover:text-white/60"
+                  }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -355,11 +347,10 @@ export default function CampaignAssignmentSection({
 
           {campaigns.length === 0 ? (
             <div
-              className={`p-4 rounded-2xl text-sm flex items-center gap-3 ${
-                isLightTheme
+              className={`p-4 rounded-2xl text-sm flex items-center gap-3 ${isLightTheme
                   ? "bg-slate-100 border border-slate-200 text-slate-600"
                   : "bg-slate-500/10 border border-slate-500/20 text-slate-300"
-              }`}
+                }`}
             >
               <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
@@ -368,11 +359,10 @@ export default function CampaignAssignmentSection({
             </div>
           ) : availableCampaigns.length === 0 ? (
             <div
-              className={`p-4 rounded-2xl text-sm flex items-center gap-3 ${
-                isLightTheme
+              className={`p-4 rounded-2xl text-sm flex items-center gap-3 ${isLightTheme
                   ? "bg-amber-100 border border-amber-200 text-amber-700"
                   : "bg-amber-500/10 border border-amber-500/20 text-amber-200/90"
-              }`}
+                }`}
             >
               <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -384,9 +374,8 @@ export default function CampaignAssignmentSection({
           <button
             onClick={handleAssignClick}
             disabled={!selectedCampaignId || assigning}
-            className={`w-full py-3 rounded-2xl text-sm font-bold transition-all cursor-pointer disabled:opacity-40 disabled:scale-[0.98] active:scale-95 ${
-              selectedCampaignId ? "shadow-lg shadow-indigo-500/30" : isLightTheme ? "bg-slate-200 text-slate-400" : "bg-slate-900/50 text-white/40"
-            }`}
+            className={`w-full py-3 rounded-2xl text-sm font-bold transition-all cursor-pointer disabled:opacity-40 disabled:scale-[0.98] active:scale-95 ${selectedCampaignId ? "shadow-lg shadow-indigo-500/30" : isLightTheme ? "bg-slate-200 text-slate-400" : "bg-slate-900/50 text-white/40"
+              }`}
             style={{
               background: selectedCampaignId ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : undefined,
               color: selectedCampaignId ? "white" : undefined,
@@ -403,9 +392,8 @@ export default function CampaignAssignmentSection({
             style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
           >
             <div
-              className={`w-full max-w-md rounded-2xl p-6 shadow-2xl ${
-                isLightTheme ? "bg-white border border-slate-200" : "bg-slate-900 border border-slate-800"
-              }`}
+              className={`w-full max-w-md rounded-2xl p-6 shadow-2xl ${isLightTheme ? "bg-white border border-slate-200" : "bg-slate-900 border border-slate-800"
+                }`}
             >
               <h3 className={`text-xl font-bold mb-4 ${isLightTheme ? "text-slate-900" : "text-white"}`}>
                 {confirmAction.type === 'assign' ? 'تأكيد ربط الحملة' : 'تأكيد إزالة الحملة'}
@@ -419,22 +407,20 @@ export default function CampaignAssignmentSection({
                 <button
                   onClick={confirmAction.type === 'assign' ? handleConfirmAssign : handleConfirmRemove}
                   disabled={assigning || removingId !== null}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-50 ${
-                    confirmAction.type === 'assign'
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-50 ${confirmAction.type === 'assign'
                       ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white"
                       : "bg-gradient-to-r from-rose-500 to-rose-600 text-white"
-                  }`}
+                    }`}
                 >
                   {assigning || removingId !== null ? "جاري المعالجة..." : "تأكيد"}
                 </button>
                 <button
                   onClick={() => setShowConfirm(false)}
                   disabled={assigning || removingId !== null}
-                  className={`px-6 py-2.5 rounded-xl text-sm font-semibold cursor-pointer ${
-                    isLightTheme
+                  className={`px-6 py-2.5 rounded-xl text-sm font-semibold cursor-pointer ${isLightTheme
                       ? "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
                       : "bg-slate-800/40 text-slate-300 hover:bg-slate-800 border border-slate-700"
-                  }`}
+                    }`}
                 >
                   إلغاء
                 </button>

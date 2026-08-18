@@ -548,6 +548,26 @@ export default function ScreenPage() {
 
   // Cleanup handled by beforeunload event and deactivate call
 
+  // Listen for close-all-tabs message via BroadcastChannel
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const channel = new BroadcastChannel('screen-tabs');
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data === 'close-all-tabs') {
+        window.close();
+      }
+    };
+
+    channel.addEventListener('message', handleMessage);
+
+    return () => {
+      channel.removeEventListener('message', handleMessage);
+      channel.close();
+    };
+  }, []);
+
   const handleClick = async () => {
     try {
       if (document.documentElement.requestFullscreen) {

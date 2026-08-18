@@ -11,6 +11,7 @@ export interface Camera {
   location: string; // Camera location
   type: CameraType; // Source type
   source: string; // deviceId for local or URL for network
+  cameraDeviceName?: string; // Device name from API
   status: CameraStatus; // Connection status
   thumbnail?: string; // Thumbnail preview
   timeToScreenshot?: number; // Screenshot interval in seconds

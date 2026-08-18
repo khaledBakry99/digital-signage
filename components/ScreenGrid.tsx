@@ -29,6 +29,25 @@ function registerOpenScreenTab(screenId: number): number[] {
   return ids;
 }
 
+/**
+ * Helper: Unregister screen tab (on close)
+ */
+function unregisterOpenScreenTab(screenId: number): number[] {
+  if (typeof window === "undefined") return [];
+  const stored = localStorage.getItem("openScreenTabs");
+  let ids: number[] = [];
+  if (stored) {
+    try {
+      ids = JSON.parse(stored);
+    } catch {
+      ids = [];
+    }
+  }
+  ids = ids.filter(id => id !== screenId);
+  localStorage.setItem("openScreenTabs", JSON.stringify(ids));
+  return ids;
+}
+
 interface ScreenGridProps {
   screens: Screen[];
   openScreenTabs?: Set<number>;
@@ -39,6 +58,8 @@ interface ScreenGridProps {
 export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenTabs = new Set() }: ScreenGridProps) {
   const { openFloatingCamera, closeFloatingCamera, isCameraFloating } = useFloatingCamera();
   const [openScreenTabs, setOpenScreenTabs] = useState<Set<number>>(initialOpenScreenTabs);
+  const [openWindows, setOpenWindows] = useState<Map<number, Window>>(new Map());
+  const [screenHeartbeats, setScreenHeartbeats] = useState<{ [screenId: number]: number }>({});
 
   // Track opened screen tabs via localStorage
   useEffect(() => {
@@ -67,6 +88,45 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
     };
   }, []);
 
+  // Track heartbeats from open screen tabs
+  useEffect(() => {
+    const checkHeartbeats = () => {
+      const heartbeats: { [screenId: number]: number } = {};
+      const now = Date.now();
+      const staleThreshold = 60000; // 60 seconds
+
+      for (const screen of screens) {
+        const heartbeatKey = `screen-heartbeat-${screen.id}`;
+        const heartbeatStr = localStorage.getItem(heartbeatKey);
+        if (heartbeatStr) {
+          const heartbeatTime = Number(heartbeatStr);
+          if (!Number.isNaN(heartbeatTime) && (now - heartbeatTime) < staleThreshold) {
+            heartbeats[screen.id] = heartbeatTime;
+          }
+        }
+      }
+
+      setScreenHeartbeats(heartbeats);
+
+      // Remove stale entries from openScreenTabs
+      setOpenScreenTabs((prev) => {
+        const updated = new Set<number>();
+        for (const screenId of prev) {
+          const heartbeatTime = heartbeats[screenId];
+          if (heartbeatTime) {
+            updated.add(screenId);
+          }
+        }
+        return updated;
+      });
+    };
+
+    checkHeartbeats();
+    const interval = setInterval(checkHeartbeats, 5000); // Check every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [screens]);
+
   const openScreen = useCallback((screenId: number, e: React.MouseEvent) => {
     e.stopPropagation();
 
@@ -89,6 +149,22 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
     }
 
     registerOpenScreenTab(screenId);
+
+    // Track window to detect quick closure
+    setOpenWindows((prev) => new Map(prev).set(screenId, newWindow));
+
+    // Check if window is closed every second
+    const checkClosed = setInterval(() => {
+      if (newWindow.closed) {
+        clearInterval(checkClosed);
+        setOpenWindows((prev) => {
+          const updated = new Map(prev);
+          updated.delete(screenId);
+          return updated;
+        });
+        unregisterOpenScreenTab(screenId);
+      }
+    }, 1000);
   }, [openScreenTabs]);
 
   const openCamera = useCallback(async (cameraId: number, e: React.MouseEvent) => {
