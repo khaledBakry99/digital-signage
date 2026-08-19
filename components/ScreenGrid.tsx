@@ -60,6 +60,7 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
   const [openScreenTabs, setOpenScreenTabs] = useState<Set<number>>(initialOpenScreenTabs);
   const [openWindows, setOpenWindows] = useState<Map<number, Window>>(new Map());
   const [screenHeartbeats, setScreenHeartbeats] = useState<{ [screenId: number]: number }>({});
+  const [openingScreenIds, setOpeningScreenIds] = useState<Set<number>>(new Set());
 
   // Track opened screen tabs via localStorage
   useEffect(() => {
@@ -134,6 +135,9 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
       return;
     }
 
+    // Mark screen as opening
+    setOpeningScreenIds(prev => new Set(prev).add(screenId));
+
     const width = window.screen.width * 0.8;
     const height = window.screen.height * 0.8;
     const left = (window.screen.width - width) / 2;
@@ -145,6 +149,11 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
       `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
     );
     if (!newWindow) {
+      setOpeningScreenIds(prev => {
+        const updated = new Set(prev);
+        updated.delete(screenId);
+        return updated;
+      });
       return;
     }
 
@@ -163,6 +172,11 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
           return updated;
         });
         unregisterOpenScreenTab(screenId);
+        setOpeningScreenIds(prev => {
+          const updated = new Set(prev);
+          updated.delete(screenId);
+          return updated;
+        });
       }
     }, 1000);
   }, [openScreenTabs]);
@@ -217,7 +231,7 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
   const sortedScreens = useMemo(() => screens.map((screen, order) => ({ screen, order })), [screens]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 stagger">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5 stagger">
       {sortedScreens.map(({ screen, order }) => (
         <ScreenCard
           key={screen.id}
@@ -226,6 +240,7 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
           onOpenCamera={openCamera}
           onOpenScreen={openScreen}
           openScreenTabs={openScreenTabs}
+          openingScreenIds={openingScreenIds}
         />
       ))}
     </div>
@@ -238,6 +253,7 @@ interface ScreenCardProps {
   onOpenCamera: (cameraId: number, e: React.MouseEvent) => void;
   onOpenScreen: (screenId: number, e: React.MouseEvent) => void;
   openScreenTabs?: Set<number>;
+  openingScreenIds?: Set<number>;
 }
 
 function ScreenCard({
@@ -246,6 +262,7 @@ function ScreenCard({
   onOpenCamera,
   onOpenScreen,
   openScreenTabs = new Set(),
+  openingScreenIds = new Set(),
 }: ScreenCardProps) {
   const { theme } = useTheme();
   const { isCameraFloating } = useFloatingCamera();
@@ -253,6 +270,7 @@ function ScreenCard({
   const isActive = screen.connectionStatus === "Online";
   const isCameraFloatingState = !!screen.cameraId && isCameraFloating(screen.cameraId);
   const isScreenOpen = openScreenTabs.has(screen.id);
+  const isScreenOpening = openingScreenIds.has(screen.id);
 
   return (
     <div
@@ -301,7 +319,7 @@ function ScreenCard({
       <div
         className="rounded-xl mb-4 overflow-hidden relative"
         style={{
-          height: "180px",
+          height: "280px",
           background: "var(--bg-secondary)",
           border: "1px solid var(--border)",
         }}
@@ -314,32 +332,41 @@ function ScreenCard({
       <div className="flex gap-2">
         <button
           onClick={(e) => onOpenScreen(screen.id, e)}
-          disabled={isScreenOpen}
-          className={`flex-1 py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100 cursor-pointer hover:scale-105 active:scale-95 ${isScreenOpen ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
+          disabled={isScreenOpen || isScreenOpening}
+          className={`flex-1 py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100 cursor-pointer active:scale-95 ${(isScreenOpen || isScreenOpening) ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
             }`}
           style={{
-            background: isScreenOpen
+            background: (isScreenOpen || isScreenOpening)
               ? "rgba(100,116,139,0.15)"
               : "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))",
-            border: isScreenOpen
+            border: (isScreenOpen || isScreenOpening)
               ? "1px solid rgba(100,116,139,0.2)"
               : "1px solid rgba(99,102,241,0.2)",
-            color: isScreenOpen ? "#94a3b8" : "#818cf8",
+            color: (isScreenOpen || isScreenOpening) ? "#94a3b8" : "#818cf8",
+            boxShadow: (isScreenOpen || isScreenOpening) ? "none" : "0 0 0 0 rgba(129, 140, 248, 0)",
+          }}
+          onMouseEnter={(e) => {
+            if (!(isScreenOpen || isScreenOpening)) {
+              e.currentTarget.style.boxShadow = "0 0 15px 3px rgba(129, 140, 248, 0.2)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = "none";
           }}
           title={
-            isScreenOpen
+            (isScreenOpen || isScreenOpening)
               ? "الشاشة مفتوحة بالفعل"
-              : "فتح الشاشة في تبويب جديد"
+              : "فتح الشاشة في نافذة جديد"
           }
         >
-          {isScreenOpen ? "الشاشة مفتوحة" : "فتح الشاشة ←"}
+          {(isScreenOpen || isScreenOpening) ? "الشاشة مفتوحة" : "فتح الشاشة ←"}
         </button>
 
         {screen.cameraId && (
           <button
             onClick={(e) => onOpenCamera(screen.cameraId!, e)}
             disabled={isCameraFloatingState}
-            className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer ${isCameraFloatingState ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
+            className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-95 cursor-pointer ${isCameraFloatingState ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
               }`}
             style={{
               background: isCameraFloatingState
@@ -349,6 +376,15 @@ function ScreenCard({
                 ? "1px solid rgba(100,116,139,0.2)"
                 : "1px solid rgba(16,185,129,0.3)",
               color: isCameraFloatingState ? "#94a3b8" : "#34d399",
+              boxShadow: isCameraFloatingState ? "none" : "0 0 0 0 rgba(52, 211, 153, 0)",
+            }}
+            onMouseEnter={(e) => {
+              if (!isCameraFloatingState) {
+                e.currentTarget.style.boxShadow = "0 0 15px 3px rgba(52, 211, 153, 0.2)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = "none";
             }}
             title={
               isCameraFloatingState
