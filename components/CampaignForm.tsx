@@ -257,55 +257,33 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
             <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
               وقت البداية اليومي
             </label>
-            <div className="relative">
-              <input
-                type="time"
-                value={dayStartsAt}
-                onChange={(e) => setDayStartsAt(e.target.value)}
-                className="input-dark cursor-pointer pr-10 hide-time-icon"
-              />
-              <svg
-                className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none ${isLightTheme ? "text-black" : "text-white"}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
+            <input
+              type="time"
+              value={dayStartsAt}
+              onChange={(e) => setDayStartsAt(e.target.value)}
+              className="input-dark cursor-pointer"
+              style={{ cursor: 'pointer' }}
+            />
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
               وقت النهاية اليومي
             </label>
-            <div className="relative">
-              <input
-                type="time"
-                value={dayEndsAt}
-                onChange={(e) => setDayEndsAt(e.target.value)}
-                className="input-dark cursor-pointer pr-10 hide-time-icon"
-              />
-              <svg
-                className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none ${isLightTheme ? "text-black" : "text-white"}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
+            <input
+              type="time"
+              value={dayEndsAt}
+              onChange={(e) => setDayEndsAt(e.target.value)}
+              className="input-dark cursor-pointer"
+              style={{ cursor: 'pointer' }}
+            />
           </div>
         </div>
 
         <style jsx global>{`
-          .hide-time-icon::-webkit-calendar-picker-indicator {
-            opacity: 0;
-            position: absolute;
-            right: 0;
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
+          input[type="time"]::-webkit-calendar-picker-indicator {
+            cursor: pointer !important;
+            filter: ${isLightTheme ? 'invert(0)' : 'invert(1)'};
           }
         `}</style>
       </div>
