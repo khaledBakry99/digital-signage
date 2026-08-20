@@ -6,7 +6,7 @@ import { screenSyncService, type ScreenPlaybackState } from "@/lib/services/scre
 
 interface MirrorPlayerProps {
   screenId: number;
-  isScreenOpen: boolean; 
+  isScreenOpen: boolean;
 }
 
 export default function MirrorPlayer({ screenId, isScreenOpen }: MirrorPlayerProps) {
@@ -38,7 +38,7 @@ export default function MirrorPlayer({ screenId, isScreenOpen }: MirrorPlayerPro
     if (playbackState.mediaType !== "video") return;
 
     const video = videoRef.current;
-    
+
     // Sync video time with broadcast state - more precise
     if (playbackState.currentTime !== undefined) {
       const timeDiff = Math.abs(video.currentTime - playbackState.currentTime);
@@ -47,10 +47,10 @@ export default function MirrorPlayer({ screenId, isScreenOpen }: MirrorPlayerPro
         video.currentTime = playbackState.currentTime;
       }
     }
-    
+
     // Start playing if not already
     if (video.paused && playbackState.isPlaying) {
-      video.play().catch(() => {});
+      video.play().catch(() => { });
     }
   }, [playbackState]);
 
@@ -58,7 +58,7 @@ export default function MirrorPlayer({ screenId, isScreenOpen }: MirrorPlayerPro
   useEffect(() => {
     if (!playbackState) return;
     if (playbackState.mediaType !== "image") return;
-    
+
     // Clear any existing timer
     if (imageTimerRef.current) {
       clearTimeout(imageTimerRef.current);
@@ -124,7 +124,7 @@ export default function MirrorPlayer({ screenId, isScreenOpen }: MirrorPlayerPro
               ? `https://backend-42316129731.europe-west1.run.app${playbackState.mediaUrl}`
               : playbackState.mediaUrl ?? undefined
           }
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
           autoPlay
           loop
           muted
@@ -140,7 +140,7 @@ export default function MirrorPlayer({ screenId, isScreenOpen }: MirrorPlayerPro
               : playbackState.mediaUrl ?? undefined
           }
           alt={playbackState.mediaName || "إعلان"}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
         />
       )}
 

@@ -16,6 +16,7 @@ export default function ScreensPage() {
   const [screensStats, setScreensStats] = useState<ScreensStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   useEffect(() => {
     if (!clientId) return;
@@ -36,6 +37,26 @@ export default function ScreensPage() {
 
     fetchScreensStats();
   }, [clientId]);
+
+
+  const handleResetOpenTabs = () => {
+    // Send close message to all open screen tabs
+    const channel = new BroadcastChannel('screen-tabs');
+    channel.postMessage('close-all-tabs');
+    channel.close();
+
+    // Wait a moment for tabs to close, then clear localStorage
+    setTimeout(() => {
+      localStorage.removeItem('openScreenTabs');
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('screen-heartbeat-')) {
+          localStorage.removeItem(key);
+        }
+      });
+      setShowConfirmDialog(false);
+      window.location.reload();
+    }, 500);
+  };
 
   const heroContainerClass = isLightTheme
     ? "relative mb-8 overflow-hidden rounded-[32px] border border-white/60 shadow-[0_35px_95px_rgba(15,23,42,0.12)]"
@@ -93,16 +114,33 @@ export default function ScreensPage() {
             </h1>
 
           </div>
-          <Link
-            href="/screens/manage"
-            className="btn-primary cursor-pointer active:scale-95 transition-transform"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <span>إدارة الشاشات</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowConfirmDialog(true)}
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-2"
+              style={{
+                background: "linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.1))",
+                border: "1px solid rgba(239,68,68,0.3)",
+                color: "#f87171",
+              }}
+              title="إغلاق جميع الشاشات المفتوحة"
+            >
+              اغلاق جميع الشاشات
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </button>
+            <Link
+              href="/screens/manage"
+              className="btn-primary cursor-pointer active:scale-95 transition-transform flex items-center gap-2"
+            >
+              <span>إدارة الشاشات</span>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </Link>
+          </div>
         </div>
 
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 p-6 pt-0">
@@ -164,6 +202,57 @@ export default function ScreensPage() {
           }}
         >
           {error}
+        </div>
+      )}
+
+      {showConfirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowConfirmDialog(false)} />
+          <div
+            className="relative z-10 p-6 rounded-2xl max-w-md w-full animate-fade-in"
+            style={{
+              background: isLightTheme ? "rgba(255,255,255,0.95)" : "rgba(15,23,42,0.95)",
+              border: isLightTheme ? "1px solid rgba(0,0,0,0.1)" : "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: "rgba(239,68,68,0.15)" }}>
+                <svg className="w-6 h-6" style={{ color: "#f87171" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
+                إغلاق الشاشات  المفتوحة
+              </h3>
+            </div>
+            <p className="mb-6" style={{ color: "var(--text-muted)" }}>
+              سيتم اغلاق جميع الشاشات المفتوحة وإعادة تحميل الصفحة. هذا سيؤدي إلى تفعيل جميع أزرار "فتح الشاشة".
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowConfirmDialog(false)}
+                className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                style={{
+                  background: isLightTheme ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)",
+                  border: isLightTheme ? "1px solid rgba(0,0,0,0.1)" : "1px solid rgba(255,255,255,0.1)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleResetOpenTabs}
+                className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                style={{
+                  background: "linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.1))",
+                  border: "1px solid rgba(239,68,68,0.3)",
+                  color: "#f87171",
+                }}
+              >
+                تأكيد إعادة التعيين
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

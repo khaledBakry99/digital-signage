@@ -54,28 +54,9 @@ export function CameraCard({
     }
   };
 
-  const formatCreatedAt = () => {
-    if (!camera.createdAtUtc) return "";
-    try {
-      // Parse UTC date string directly without converting to local timezone
-      const dateStr = camera.createdAtUtc;
-      const date = new Date(dateStr);
-
-      // Use UTC methods to get the original UTC values
-      const day = date.getUTCDate().toString().padStart(2, '0');
-      const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-      const year = date.getUTCFullYear();
-      const hours = date.getUTCHours().toString().padStart(2, '0');
-      const minutes = date.getUTCMinutes().toString().padStart(2, '0');
-
-      return `${day}/${month}/${year} - ${hours}:${minutes}`;
-    } catch {
-      return "";
-    }
-  };
 
   const containerClass = `rounded-[28px] overflow-hidden flex flex-col group border transition-all duration-500 ${isLightTheme
-    ? "bg-white/85 border-white/70 shadow-[0_25px_65px_rgba(15,23,42,0.12)] hover:-translate-y-1 hover:shadow-[0_35px_85px_rgba(15,23,42,0.18)]"
+    ? "bg-white/85 border-white/70 shadow-[0_25px_65px_rgba(15,23,42,0.12)] hover:shadow-[0_35px_85px_rgba(15,23,42,0.18)]"
     : "border-white/5 bg-gradient-to-br from-[#111528] to-[#090c18] shadow-[0_25px_70px_rgba(2,6,23,0.65)] hover:shadow-[0_35px_90px_rgba(2,6,23,0.75)]"
     }`;
 
@@ -140,7 +121,7 @@ export function CameraCard({
       {/* Camera Info Panel */}
       <div className={infoPanelClass}>
         {/* Title / Name */}
-        <h3 className={`text-xl font-bold leading-tight transition-colors mb-4 ${isLightTheme ? "text-slate-900 group-hover:text-indigo-500" : "text-slate-100 group-hover:text-indigo-400"
+        <h3 className={`text-xl font-bold leading-relaxed transition-colors mb-4 ${isLightTheme ? "text-slate-900 group-hover:text-indigo-500" : "text-slate-100 group-hover:text-indigo-400"
           }`}>
           {camera.name}
         </h3>
@@ -149,7 +130,7 @@ export function CameraCard({
         <div className="flex items-center gap-2 justify-start mb-4">
           {camera.location && (
             <span
-              className={`text-[11px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5 ${isLightTheme
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5 whitespace-nowrap ${isLightTheme
                 ? "bg-indigo-50 border border-indigo-100 text-indigo-600"
                 : "bg-indigo-500/10 border border-indigo-500/20 text-indigo-300"
                 }`}
@@ -176,9 +157,12 @@ export function CameraCard({
               <span>{camera.location}</span>
             </span>
           )}
-          <span className={secondaryBadgeClass}>
+          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1.5 ${isLightTheme
+            ? "bg-purple-50 border border-purple-100 text-purple-600"
+            : "bg-purple-500/10 border border-purple-500/20 text-purple-300"
+            }`}>
             <svg
-              className="w-3 h-3"
+              className="w-3 h-3 flex-shrink-0"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -187,10 +171,10 @@ export function CameraCard({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
               />
             </svg>
-            <span>{formatCreatedAt()}</span>
+            <span className="break-all">{camera.source}</span>
           </span>
 
         </div>

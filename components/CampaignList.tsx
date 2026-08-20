@@ -29,21 +29,16 @@ function CampaignStatusCell({ campaign, disabled, changing, isMenuOpen, onToggle
   const [hoveredOption, setHoveredOption] = useState<MutableStatus | null>(null);
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
-  const endsAt = new Date(campaign.endsAtUtc).getTime();
-  const isExpired = !Number.isNaN(endsAt) && endsAt < Date.now();
 
   const derivedStatus = useMemo<MutableStatus>(() => {
-    if (isExpired) {
-      return "Completed";
-    }
     if (MUTABLE_SET.has(campaign.status as MutableStatus)) {
       return campaign.status as MutableStatus;
     }
     return "Active";
-  }, [campaign.status, isExpired]);
+  }, [campaign.status]);
 
   const badge = STATUS_BADGES[derivedStatus];
-  const isLocked = disabled || isExpired;
+  const isLocked = disabled || campaign.status === "Completed";
 
   useEffect(() => {
     if (!isMenuOpen) {
@@ -52,7 +47,7 @@ function CampaignStatusCell({ campaign, disabled, changing, isMenuOpen, onToggle
     }
   }, [isMenuOpen]);
 
-  if (isExpired) {
+  if (campaign.status === "Completed") {
     return (
       <div className="inline-flex items-center w-full">
         <div
@@ -410,12 +405,11 @@ export default function CampaignList({ campaigns, onEdit, onDelete, onStatusChan
                       <p className={`text-lg font-black leading-tight ${campaignNameClass}`}>
                         {campaign.name}
                       </p>
-                      <span 
-                        className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold  shrink-0 ${
-                          isLightTheme 
-                            ? "bg-indigo-100 text-indigo-700 border border-indigo-200" 
-                            : "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                        }`}
+                      <span
+                        className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold  shrink-0 ${isLightTheme
+                          ? "bg-indigo-100 text-indigo-700 border border-indigo-200"
+                          : "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                          }`}
                         title="الأولوية: الرقم الأكبر يُعرض أولاً"
                       >
                         الأولوية: {campaign.priority}

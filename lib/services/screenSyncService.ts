@@ -6,10 +6,10 @@ export interface ScreenPlaybackState {
   mediaUrl: string | null;
   mediaName: string | null;
   mediaType: "image" | "video";
-  currentTime: number; 
-  duration: number | null; 
+  currentTime: number;
+  duration: number | null;
   isPlaying: boolean;
-  timestamp: number; 
+  timestamp: number;
 }
 
 const CHANNEL_NAME = "screen-sync-channel";
@@ -36,39 +36,48 @@ class ScreenSyncService {
     this.channel.onmessage = (event: MessageEvent<ScreenPlaybackState>) => {
       const state = event.data;
       const screenListeners = this.listeners.get(state.screenId);
-      
+
       // Cache the last state for instant initial load
       this.lastBroadcastState.set(state.screenId, state);
-      
+
       if (screenListeners) {
         screenListeners.forEach(callback => callback(state));
       }
     };
   }
 
- 
+
   broadcastState(state: ScreenPlaybackState) {
     if (!this.channel) return;
-    
+
     try {
+      const lastState = this.lastBroadcastState.get(state.screenId);
+
+      // Debounce: only broadcast if mediaAssetId changed
+      if (lastState && lastState.mediaAssetId === state.mediaAssetId) {
+        console.log('⏭️ SKIPPED BROADCAST - Same mediaAssetId:', state.mediaAssetId);
+        return;
+      }
+
       const stateWithTimestamp = {
         ...state,
         timestamp: Date.now()
       };
-      
+
       this.lastBroadcastState.set(state.screenId, stateWithTimestamp);
       this.channel.postMessage(stateWithTimestamp);
+      console.log('📡 BROADCAST SENT - mediaAssetId changed:', state.mediaAssetId);
     } catch (e) {
       console.error("Failed to broadcast state:", e);
     }
   }
 
- 
+
   subscribe(screenId: number, callback: (state: ScreenPlaybackState) => void): () => void {
     if (!this.listeners.has(screenId)) {
       this.listeners.set(screenId, new Set());
     }
-    
+
     this.listeners.get(screenId)!.add(callback);
 
     // Send last known state immediately for instant load

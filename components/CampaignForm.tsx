@@ -33,6 +33,8 @@ interface CampaignFormProps {
 
 export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }: CampaignFormProps) {
   const { mediaAssets, loading: mediaAssetsLoading } = useMediaAssets();
+  const { theme } = useTheme();
+  const isLightTheme = theme === "light";
 
   const [name, setName] = useState(campaign?.name || "");
   const [description, setDescription] = useState(campaign?.description || "");
@@ -260,6 +262,7 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
               value={dayStartsAt}
               onChange={(e) => setDayStartsAt(e.target.value)}
               className="input-dark cursor-pointer"
+              style={{ cursor: 'pointer' }}
             />
           </div>
 
@@ -272,9 +275,17 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
               value={dayEndsAt}
               onChange={(e) => setDayEndsAt(e.target.value)}
               className="input-dark cursor-pointer"
+              style={{ cursor: 'pointer' }}
             />
           </div>
         </div>
+
+        <style jsx global>{`
+          input[type="time"]::-webkit-calendar-picker-indicator {
+            cursor: pointer !important;
+            filter: ${isLightTheme ? 'invert(0)' : 'invert(1)'};
+          }
+        `}</style>
       </div>
 
       {/* Media Assets */}
@@ -482,9 +493,9 @@ function MediaSlotSelector({
 
   const handleAssignMedia = (mediaAssetId: number) => {
     if (!editingSlot) return;
-    
+
     setAssigning(true);
-    
+
     switch (editingSlot) {
       case "Men":
         setMenMediaAssetId(mediaAssetId);
@@ -502,7 +513,7 @@ function MediaSlotSelector({
         setDefaultMediaAssetId(mediaAssetId);
         break;
     }
-    
+
     setAssigning(false);
     handleCloseModal();
   };
@@ -534,15 +545,14 @@ function MediaSlotSelector({
 
     return (
       <div
-        className={`relative w-20 h-20 rounded-2xl overflow-hidden border focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
-          isVideo
-            ? isLightTheme
-              ? "border-fuchsia-200 bg-fuchsia-50"
-              : "border-fuchsia-400/30 bg-fuchsia-500/10"
-            : isLightTheme
+        className={`relative w-20 h-20 rounded-2xl overflow-hidden border focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${isVideo
+          ? isLightTheme
+            ? "border-fuchsia-200 bg-fuchsia-50"
+            : "border-fuchsia-400/30 bg-fuchsia-500/10"
+          : isLightTheme
             ? "border-indigo-100 bg-white"
             : "border-white/15 bg-white/5"
-        }`}
+          }`}
         title="معاينة الوسيط"
       >
         {isVideo ? (
@@ -552,18 +562,16 @@ function MediaSlotSelector({
             playsInline
             preload="metadata"
             loop
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-              loaded ? "opacity-100" : "opacity-0"
-            }`}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"
+              }`}
             onLoadedData={() => setLoaded(true)}
           />
         ) : (
           <img
             src={media.url}
             alt={media.name}
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-              loaded ? "opacity-100" : "opacity-0"
-            }`}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"
+              }`}
             loading="lazy"
             onLoad={() => setLoaded(true)}
           />
@@ -571,15 +579,13 @@ function MediaSlotSelector({
 
         {!loaded && (
           <div
-            className={`absolute inset-0 flex flex-col items-center justify-center gap-1 text-[10px] font-semibold tracking-[0.35em] uppercase ${
-              isLightTheme ? "text-slate-500 bg-white/80" : "text-white/80 bg-slate-900/70"
-            }`}
+            className={`absolute inset-0 flex flex-col items-center justify-center gap-1 text-[10px] font-semibold tracking-[0.35em] uppercase ${isLightTheme ? "text-slate-500 bg-white/80" : "text-white/80 bg-slate-900/70"
+              }`}
           >
             load
             <span
-              className={`block w-8 h-0.5 animate-pulse ${
-                isLightTheme ? "bg-slate-400/60" : "bg-white/30"
-              }`}
+              className={`block w-8 h-0.5 animate-pulse ${isLightTheme ? "bg-slate-400/60" : "bg-white/30"
+                }`}
             />
           </div>
         )}
@@ -604,17 +610,16 @@ function MediaSlotSelector({
     );
   }
 
-  const containerClass = `relative overflow-hidden rounded-[32px] border p-6 lg:p-8 shadow-2xl animate-fade-in ${
-    isLightTheme ? "border-white/60 shadow-[0_35px_95px_rgba(15,23,42,0.08)]" : "border-white/5"
-  }`;
+  const containerClass = `relative overflow-hidden rounded-[32px] border p-6 lg:p-8 shadow-2xl animate-fade-in ${isLightTheme ? "border-white/60 shadow-[0_35px_95px_rgba(15,23,42,0.08)]" : "border-white/5"
+    }`;
   const containerStyle = isLightTheme
     ? {
-        background: "linear-gradient(135deg, rgba(240,247,255,0.95), rgba(230,245,255,0.9))",
-        backdropFilter: "blur(22px)",
-      }
+      background: "linear-gradient(135deg, rgba(240,247,255,0.95), rgba(230,245,255,0.9))",
+      backdropFilter: "blur(22px)",
+    }
     : {
-        background: "linear-gradient(135deg, rgba(15,23,42,1), rgba(22,13,46,0.85))",
-      };
+      background: "linear-gradient(135deg, rgba(15,23,42,1), rgba(22,13,46,0.85))",
+    };
 
   return (
     <div className={containerClass} style={containerStyle}>
@@ -631,9 +636,8 @@ function MediaSlotSelector({
         <div>
           <h3 className={`text-2xl font-extrabold flex items-center gap-3 ${isLightTheme ? "text-slate-900" : "text-white"}`}>
             <div
-              className={`p-2.5 rounded-2xl border ${
-                isLightTheme ? "bg-white/75 text-indigo-500 border-white/80" : "bg-indigo-500/20 text-indigo-400 border-indigo-500/20"
-              }`}
+              className={`p-2.5 rounded-2xl border ${isLightTheme ? "bg-white/75 text-indigo-500 border-white/80" : "bg-indigo-500/20 text-indigo-400 border-indigo-500/20"
+                }`}
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
@@ -653,15 +657,14 @@ function MediaSlotSelector({
 
         <div className="flex flex-wrap items-center gap-3 justify-end">
           <div
-            className={`flex items-center gap-3 px-4 py-2 rounded-2xl ${
-              allSlotsAssigned()
-                ? isLightTheme
-                  ? "bg-emerald-50 border border-emerald-200 text-emerald-600"
-                  : "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-                : isLightTheme
+            className={`flex items-center gap-3 px-4 py-2 rounded-2xl ${allSlotsAssigned()
+              ? isLightTheme
+                ? "bg-emerald-50 border border-emerald-200 text-emerald-600"
+                : "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+              : isLightTheme
                 ? "bg-amber-50 border border-amber-200 text-amber-600"
                 : "bg-amber-500/10 border border-amber-500/20 text-amber-400"
-            }`}
+              }`}
           >
             {allSlotsAssigned() ? (
               <div className="flex items-center gap-2">
@@ -693,9 +696,8 @@ function MediaSlotSelector({
           return (
             <div
               key={slot}
-              className={`relative overflow-hidden group rounded-[28px] border transition-all duration-500 ${
-                isLightTheme ? SLOT_THEMES[slot].borderLight : SLOT_THEMES[slot].borderDark
-              }`}
+              className={`relative overflow-hidden group rounded-[28px] border transition-all duration-500 ${isLightTheme ? SLOT_THEMES[slot].borderLight : SLOT_THEMES[slot].borderDark
+                }`}
               style={{
                 background: isLightTheme ? SLOT_THEMES[slot].lightBackground : SLOT_THEMES[slot].darkBackground,
               }}
@@ -713,11 +715,10 @@ function MediaSlotSelector({
                     </div>
                   ) : (
                     <div
-                      className={`w-20 h-20 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1 ${
-                        isLightTheme
-                          ? "border-indigo-100 bg-white text-slate-300"
-                          : "border-white/10 bg-black/20 text-white/20"
-                      }`}
+                      className={`w-20 h-20 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1 ${isLightTheme
+                        ? "border-indigo-100 bg-white text-slate-300"
+                        : "border-white/10 bg-black/20 text-white/20"
+                        }`}
                     >
                       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path
@@ -735,9 +736,8 @@ function MediaSlotSelector({
                 <div className="flex-1 min-w-0">
                   <div className="mb-1.5">
                     <p
-                      className={`text-lg font-bold transition-colors ${
-                        isLightTheme ? SLOT_THEMES[slot].labelLight : "text-white"
-                      }`}
+                      className={`text-lg font-bold transition-colors ${isLightTheme ? SLOT_THEMES[slot].labelLight : "text-white"
+                        }`}
                     >
                       {config.ar}
                     </p>
@@ -745,17 +745,15 @@ function MediaSlotSelector({
 
                   {slotMedia ? (
                     <p
-                      className={`text-sm font-medium truncate mr-12 px-3 py-1 rounded-lg border inline-block ${
-                        isLightTheme ? SLOT_THEMES[slot].badgeLight : SLOT_THEMES[slot].badgeDark
-                      }`}
+                      className={`text-sm font-medium truncate mr-12 px-3 py-1 rounded-lg border inline-block ${isLightTheme ? SLOT_THEMES[slot].badgeLight : SLOT_THEMES[slot].badgeDark
+                        }`}
                     >
                       {slotMedia.name}
                     </p>
                   ) : (
                     <p
-                      className={`text-xs font-bold mr-12 uppercase tracking-wider italic ${
-                        isLightTheme ? "text-amber-600" : "text-amber-500/80"
-                      }`}
+                      className={`text-xs font-bold mr-12 uppercase tracking-wider italic ${isLightTheme ? "text-amber-600" : "text-amber-500/80"
+                        }`}
                     >
                       في انتظار التعيين
 
@@ -766,15 +764,14 @@ function MediaSlotSelector({
                 <div className="flex flex-col items-end gap-3">
                   {slotMedia && (
                     <span
-                      className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em] shadow-lg ${
-                        slotMedia.type === "Image"
-                          ? isLightTheme
-                            ? "bg-blue-100 text-blue-600 border border-blue-200"
-                            : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
-                          : isLightTheme
+                      className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em] shadow-lg ${slotMedia.type === "Image"
+                        ? isLightTheme
+                          ? "bg-blue-100 text-blue-600 border border-blue-200"
+                          : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                        : isLightTheme
                           ? "bg-fuchsia-100 text-fuchsia-600 border border-fuchsia-200"
                           : "bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30"
-                      }`}
+                        }`}
                     >
                       {slotMedia.type === "Image" ? "Image" : "Video"}
                     </span>
@@ -782,9 +779,8 @@ function MediaSlotSelector({
                   <button
                     type="button"
                     onClick={() => handleEditSlot(slot)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 shadow-md ${
-                      isLightTheme ? SLOT_THEMES[slot].typeBadgeLight : SLOT_THEMES[slot].typeBadgeDark
-                    }`}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 shadow-md ${isLightTheme ? SLOT_THEMES[slot].typeBadgeLight : SLOT_THEMES[slot].typeBadgeDark
+                      }`}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path
@@ -805,16 +801,14 @@ function MediaSlotSelector({
 
       {!allSlotsAssigned() && (
         <div
-          className={`mt-8 p-5 rounded-[24px] border flex items-center gap-4 animate-pulse ${
-            isLightTheme
-              ? "bg-gradient-to-r from-amber-100 to-transparent border-amber-200"
-              : "bg-gradient-to-r from-amber-500/10 to-transparent border-amber-500/20"
-          }`}
+          className={`mt-8 p-5 rounded-[24px] border flex items-center gap-4 animate-pulse ${isLightTheme
+            ? "bg-gradient-to-r from-amber-100 to-transparent border-amber-200"
+            : "bg-gradient-to-r from-amber-500/10 to-transparent border-amber-500/20"
+            }`}
         >
           <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${
-              isLightTheme ? "bg-amber-100 text-amber-600" : "bg-amber-500/20 text-amber-400"
-            }`}
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${isLightTheme ? "bg-amber-100 text-amber-600" : "bg-amber-500/20 text-amber-400"
+              }`}
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -844,18 +838,17 @@ function MediaSlotSelector({
           }}
         >
           <div
-            className={`w-full max-w-2xl max-h-[80vh] rounded-[28px] p-6 animate-fade-in border overflow-hidden flex flex-col ${
-              isLightTheme ? "border-white/70 shadow-[0_25px_70px_rgba(15,23,42,0.15)]" : "border-white/5"
-            }`}
+            className={`w-full max-w-2xl max-h-[80vh] rounded-[28px] p-6 animate-fade-in border overflow-hidden flex flex-col ${isLightTheme ? "border-white/70 shadow-[0_25px_70px_rgba(15,23,42,0.15)]" : "border-white/5"
+              }`}
             style={
               isLightTheme
                 ? {
-                    background: "linear-gradient(150deg, rgba(255,255,255,0.95), rgba(235,242,255,0.92))",
-                  }
+                  background: "linear-gradient(150deg, rgba(255,255,255,0.95), rgba(235,242,255,0.92))",
+                }
                 : {
-                    background: "linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95))",
-                    boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
-                  }
+                  background: "linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95))",
+                  boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+                }
             }
           >
             <div className="flex items-center justify-between mb-6">
@@ -864,11 +857,10 @@ function MediaSlotSelector({
               </h2>
               <button
                 onClick={handleCloseModal}
-                className={`p-2 rounded-xl transition-all ${
-                  isLightTheme
-                    ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    : "bg-white/10 text-white/60 hover:bg-white/20"
-                }`}
+                className={`p-2 rounded-xl transition-all ${isLightTheme
+                  ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  : "bg-white/10 text-white/60 hover:bg-white/20"
+                  }`}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -906,18 +898,16 @@ function MediaSlotSelector({
                       type="button"
                       onClick={() => handleAssignMedia(asset.id)}
                       disabled={assigning}
-                      className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:scale-[1.02] ${
-                        isLightTheme
-                          ? "bg-white/80 border-slate-200 hover:border-indigo-300 hover:shadow-md"
-                          : "bg-white/5 border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/10"
-                      } ${assigning ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:scale-[1.02] ${isLightTheme
+                        ? "bg-white/80 border-slate-200 hover:border-indigo-300 hover:shadow-md"
+                        : "bg-white/5 border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/10"
+                        } ${assigning ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
                         {asset.type === "Video" ? (
                           <div
-                            className={`w-full h-full flex items-center justify-center ${
-                              isLightTheme ? "bg-fuchsia-100" : "bg-fuchsia-500/20"
-                            }`}
+                            className={`w-full h-full flex items-center justify-center ${isLightTheme ? "bg-fuchsia-100" : "bg-fuchsia-500/20"
+                              }`}
                           >
                             <svg className="w-6 h-6 text-fuchsia-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path
@@ -940,15 +930,14 @@ function MediaSlotSelector({
                       </div>
                       <div className="flex items-center gap-2">
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            asset.type === "Image"
-                              ? isLightTheme
-                                ? "bg-blue-100 text-blue-600"
-                                : "bg-blue-500/20 text-blue-300"
-                              : isLightTheme
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${asset.type === "Image"
+                            ? isLightTheme
+                              ? "bg-blue-100 text-blue-600"
+                              : "bg-blue-500/20 text-blue-300"
+                            : isLightTheme
                               ? "bg-fuchsia-100 text-fuchsia-600"
                               : "bg-fuchsia-500/20 text-fuchsia-300"
-                          }`}
+                            }`}
                         >
                           {asset.type === "Image" ? "صورة" : "فيديو"}
                         </span>
@@ -971,11 +960,10 @@ function MediaSlotSelector({
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  isLightTheme
-                    ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    : "bg-white/10 text-white/70 hover:bg-white/20"
-                }`}
+                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${isLightTheme
+                  ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  : "bg-white/10 text-white/70 hover:bg-white/20"
+                  }`}
               >
                 إلغاء
               </button>
