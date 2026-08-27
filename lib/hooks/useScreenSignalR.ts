@@ -9,6 +9,7 @@ interface ScreenMediaUpdatedEvent {
   usedFallback: boolean;
   message: string;
   updatedAtUtc: string;
+  personCount?: number; // Number of people detected at time of detection
 }
 
 interface ScreenMediaRefreshEvent {
@@ -20,7 +21,7 @@ interface ScreenMediaRefreshEvent {
 
 /**
  * Hook to listen to SignalR events for screens
- * 
+ *
  * @param screenId - Screen ID
  * @param onMediaUpdated - callback when media is updated
  * @param onRefreshRequested - callback when refresh is requested

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 
 export default function ScreenLayout({
   children,
@@ -9,10 +9,16 @@ export default function ScreenLayout({
   children: React.ReactNode;
 }) {
   const params = useParams();
+  const pathname = usePathname();
   const screenId = Number(params.id);
 
+  // Only track open tabs for the main screen display page, not manage page
+  const isScreenDisplayPage = pathname === `/screens/${params.id}`;
+
   useEffect(() => {
-    // تسجيل فتح التبويب
+    if (!isScreenDisplayPage) return;
+
+ 
     const stored = localStorage.getItem("openScreenTabs");
     const currentOpen = stored ? JSON.parse(stored) : [];
     if (!currentOpen.includes(screenId)) {
@@ -21,7 +27,7 @@ export default function ScreenLayout({
       window.dispatchEvent(new Event("storage"));
     }
 
-    // تنظيف عند إغلاق التبويب
+
     const handleBeforeUnload = () => {
       const stored = localStorage.getItem("openScreenTabs");
       if (stored) {
@@ -38,7 +44,7 @@ export default function ScreenLayout({
       window.removeEventListener("beforeunload", handleBeforeUnload);
       handleBeforeUnload();
     };
-  }, [screenId]);
+  }, [screenId, isScreenDisplayPage]);
 
   return <>{children}</>;
 }
