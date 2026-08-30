@@ -137,6 +137,26 @@ class ScreenshotService {
       });
       window.dispatchEvent(event);
 
+      if (typeof BroadcastChannel !== "undefined") {
+        // Use camera-specific channel to ensure isolation
+        const channel = new BroadcastChannel(`person-count-changed-camera-${cameraId}`);
+
+        console.log("📡 BROADCAST PERSON COUNT:", {
+          channel: `person-count-changed-camera-${cameraId}`,
+          currentCount,
+        });
+
+        channel.postMessage({
+          type: "person-count-changed",
+          cameraId: Number(cameraId),
+          previousCount: lastStableCount,
+          currentCount,
+          timestamp: new Date().toISOString(),
+        });
+
+        channel.close();
+      }
+
       if (currentCount === 0) {
         return;
       }
@@ -241,6 +261,7 @@ class ScreenshotService {
                   cameraId: numericId,
                   gender: response.gender,
                   ageGroup: response.ageGroup,
+                  peopleCount: response.peopleCount,
                   timestamp: new Date()
                 }
               });
@@ -366,7 +387,7 @@ class ScreenshotService {
   private getScreenState(cameraId: string): "DETECTING" | "PLAYING" {
     if (typeof window === "undefined") return "DETECTING";
     const key = `screen_state_${cameraId}`;
-    const value = window.sessionStorage.getItem(key);
+    const value = window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key);
     return value === "PLAYING" ? "PLAYING" : "DETECTING";
   }
 

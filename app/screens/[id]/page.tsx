@@ -14,7 +14,12 @@ type PendingMediaUpdate = {
   mediaAssetId: number;
   source: "signalr";
   selectedSlot?: string;
+  peopleCount?: number;
 };
+
+const TARGETED_SLOTS = new Set(["Men", "Women", "BoysKids", "GirlsKids"]);
+
+const isTargetedSlot = (slot?: string | null) => Boolean(slot && TARGETED_SLOTS.has(slot));
 
 const isVideoMediaAsset = (asset?: MediaAsset | null) => {
   if (!asset) return false;
@@ -70,6 +75,7 @@ export default function ScreenPage() {
   const [loading, setLoading] = useState(true);
   const [signalRConnected, setSignalRConnected] = useState(false);
   const [isPlayingTargetedAd, setIsPlayingTargetedAd] = useState(false);
+  const [initialAdLoaded, setInitialAdLoaded] = useState(false);
 
   // State machine
   const [screenState, setScreenState] = useState<ScreenState>("DETECTING");
@@ -87,111 +93,217 @@ export default function ScreenPage() {
       : `screen-tab-${screenId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     tabInstanceIdRef.current = unique;
   }
+  const advertisementRef = useRef<MediaAsset | null>(null);
+  advertisementRef.current = advertisement;
   const latestDetectionRef = useRef<PendingMediaUpdate | null>(null);
+  const currentPersonCountRef = useRef(0);
+  const presenceKnownRef = useRef(false);
+  const cameraIdRef = useRef<number | null>(null);
+  const playbackGenerationRef = useRef(0);
+  const playMediaAssetRef = useRef<(
+    mediaAssetId: number,
+    source: PendingMediaUpdate["source"],
+    selectedSlot?: string,
+  ) => Promise<void>>(async () => { });
+  const loadFallbackAdRef = useRef<() => Promise<void>>(async () => { });
+
+  const activeTargetedAdRef = useRef<{
+    mediaAssetId: number;
+    startedAt: number;
+  } | null>(null);
+
+  const fallbackRequestIdRef = useRef(0);
+
+  const isTargetedPlaybackLocked = () => activeTargetedAdRef.current !== null;
+
+  const isSceneEmpty = () =>
+    presenceKnownRef.current && currentPersonCountRef.current <= 0;
+
+  const clearPendingDetection = (reason: string) => {
+    if (latestDetectionRef.current) {
+      console.log("🧹 CLEARED PENDING DETECTION:", reason);
+    }
+    latestDetectionRef.current = null;
+  };
+
+  const persistPlaybackMode = (state: ScreenState) => {
+    const cameraId = cameraIdRef.current;
+    if (!cameraId || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(`screen_state_${cameraId}`, state);
+    } catch {
+      // ignore quota / private mode
+    }
+  };
+
+  const applyLivePersonCount = (count: number, source: "camera" | "signalr") => {
+    if (source === "signalr" && presenceKnownRef.current) {
+      return;
+    }
+
+    presenceKnownRef.current = true;
+    currentPersonCountRef.current = count;
+
+    if (count === 0) {
+      clearPendingDetection(`count=0 (${source})`);
+    }
+  };
 
   useEffect(() => {
     screenStateRef.current = screenState;
+    persistPlaybackMode(screenState);
   }, [screenState]);
 
+  useEffect(() => {
+    let cleanup: (() => void) | null = null;
 
+    const setupCameraChannel = async () => {
+      try {
+        const screenData = await screenApi.getById(screenId);
+        if (screenData?.cameraId) {
+          cameraIdRef.current = screenData.cameraId;
+          persistPlaybackMode(screenStateRef.current);
 
-  // Load initial fallback ad using new API
+          const channel = new BroadcastChannel(`person-count-changed-camera-${screenData.cameraId}`);
+
+          const handleMessage = (event: MessageEvent) => {
+            if (event.data?.type !== "person-count-changed") {
+              return;
+            }
+
+            const count = Number(event.data.currentCount);
+            if (!Number.isFinite(count)) {
+              return;
+            }
+
+            console.log("📥 LIVE PERSON COUNT (camera):", count);
+            applyLivePersonCount(count, "camera");
+          };
+
+          channel.addEventListener("message", handleMessage);
+
+          cleanup = () => {
+            channel.removeEventListener("message", handleMessage);
+            channel.close();
+          };
+        } else {
+          console.warn(`Screen ${screenId} has no cameraId assigned. Person count tracking disabled.`);
+        }
+      } catch (error) {
+        console.error("Failed to fetch screen data for camera channel:", error);
+      }
+    };
+
+    setupCameraChannel();
+
+    return () => {
+      cleanup?.();
+    };
+  }, [screenId]);
+
+  const updateScreenState = useCallback((state: ScreenState) => {
+    screenStateRef.current = state;
+    setScreenState(state);
+    persistPlaybackMode(state);
+  }, []);
+
   const loadFallbackAd = useCallback(async () => {
-    console.log('📡 loadFallbackAd CALLED:', {
+    if (isTargetedPlaybackLocked()) {
+      console.log("⛔ FALLBACK BLOCKED → TARGETED AD LOCKED");
+      return;
+    }
+
+    const requestId = ++fallbackRequestIdRef.current;
+
+    console.log("📡 loadFallbackAd CALLED:", {
       screenState: screenStateRef.current,
-      isPlayingTargetedAd,
-      stackTrace: new Error().stack?.split('\n')[1]?.trim()
+      locked: isTargetedPlaybackLocked(),
     });
 
     try {
-      console.log('📡 LOADING FALLBACK AD FROM NEW API...');
       const currentMedia = await screenApi.getCurrentMedia(screenId);
 
-      console.log('📊 NEW API RESPONSE:', {
-        screenId: currentMedia.screenId,
-        currentCampaignId: currentMedia.currentCampaignId,
-        currentDefaultMediaAssetId: currentMedia.currentDefaultMediaAssetId,
-        currentDefaultMediaUrl: currentMedia.currentDefaultMediaUrl,
-        currentDefaultMediaDuration: currentMedia.currentDefaultMediaDuration,
-        currentMenMediaAssetId: currentMedia.currentMenMediaAssetId,
-        currentMenMediaDuration: currentMedia.currentMenMediaDuration,
-        currentWomenMediaAssetId: currentMedia.currentWomenMediaAssetId,
-        currentWomenMediaDuration: currentMedia.currentWomenMediaDuration,
-        currentBoysKidsMediaAssetId: currentMedia.currentBoysKidsMediaAssetId,
-        currentBoysKidsMediaDuration: currentMedia.currentBoysKidsMediaDuration,
-        currentGirlsKidsMediaAssetId: currentMedia.currentGirlsKidsMediaAssetId,
-        currentGirlsKidsMediaDuration: currentMedia.currentGirlsKidsMediaDuration,
-      });
+      if (requestId !== fallbackRequestIdRef.current) {
+        console.log("⛔ STALE FALLBACK REQUEST IGNORED");
+        return;
+      }
 
-      // The new API already determines the correct fallback ad
-      let fallbackAd: MediaAsset | null = null;
+      if (isTargetedPlaybackLocked()) {
+        console.log("⛔ FALLBACK IGNORED → TARGETED AD LOCKED AFTER FETCH");
+        return;
+      }
+
+      let nextFallback: MediaAsset | null = null;
 
       if (currentMedia.currentDefaultMediaAssetId && currentMedia.currentDefaultMediaUrl) {
-        fallbackAd = createMediaAssetFromSlot(
+        nextFallback = createMediaAssetFromSlot(
           currentMedia.currentDefaultMediaAssetId,
           currentMedia.currentDefaultMediaUrl,
           currentMedia.currentDefaultMediaDuration ?? null,
           currentMedia.currentDefaultMediaAssetName,
           currentMedia.currentDefaultMediaAssetType,
-          true // isFallback: true for default media
+          true
         );
-
-        console.log('✅ CREATED FALLBACK AD:', {
-          id: fallbackAd.id,
-          name: fallbackAd.name,
-          type: fallbackAd.type,
-          url: fallbackAd.url,
-          durationSeconds: fallbackAd.durationSeconds,
-        });
-      } else {
-        console.warn('⚠️ NO FALLBACK AD AVAILABLE - currentDefaultMediaAssetId or currentDefaultMediaUrl is missing');
       }
 
-      if (fallbackAd) {
-        setFallbackAd(fallbackAd);
-        setAdvertisement(fallbackAd);
+      if (isTargetedPlaybackLocked()) {
+        return;
+      }
+
+      if (nextFallback) {
+        setFallbackAd(nextFallback);
+        setAdvertisement(nextFallback);
+        setIsPlayingTargetedAd(false);
+        updateScreenState("DETECTING");
+        setInitialAdLoaded(true);
+        setLoading(false);
       } else {
         setFallbackAd(null);
         setAdvertisement(null);
       }
     } catch (err) {
-      console.error('❌ ERROR LOADING FALLBACK AD:', err);
-      setFallbackAd(null);
-      setAdvertisement(null);
-    } finally {
-      setLoading(false);
+      console.error("❌ ERROR LOADING FALLBACK AD:", err);
+      if (!isTargetedPlaybackLocked()) {
+        setFallbackAd(null);
+        setAdvertisement(null);
+      }
     }
-  }, [screenId]);
-
-
-
-  const updateScreenState = useCallback((state: ScreenState) => {
-    screenStateRef.current = state;
-    setScreenState(state);
-  }, []);
+  }, [screenId, updateScreenState]);
 
   const playMediaAsset = useCallback(async (mediaAssetId: number, source: PendingMediaUpdate["source"], selectedSlot?: string) => {
-    let targetAd: MediaAsset | null = null;
+    if (source !== "signalr" || !isTargetedSlot(selectedSlot)) {
+      console.log("⛔ SKIP PLAY: not a targeted slot", { source, selectedSlot });
+      return;
+    }
 
-    console.log('🎬 PLAY MEDIA ASSET CALLED:', {
+    const generation = ++playbackGenerationRef.current;
+    activeTargetedAdRef.current = {
+      mediaAssetId,
+      startedAt: Date.now(),
+    };
+    setIsPlayingTargetedAd(true);
+
+    console.log("🎬 PLAY MEDIA ASSET CALLED:", {
       mediaAssetId,
       source,
       selectedSlot,
+      generation,
     });
 
-    if (source === "signalr") {
-      // For AI detections, use the new API to get the correct media with correct duration
-      console.log('📡 FETCHING CURRENT MEDIA FROM NEW API FOR DETECTION...');
+    const releaseLockIfCurrent = () => {
+      if (generation !== playbackGenerationRef.current) return;
+      activeTargetedAdRef.current = null;
+      setIsPlayingTargetedAd(false);
+    };
+
+    try {
       const currentMedia = await screenApi.getCurrentMedia(screenId);
 
-      console.log('📊 NEW API RESPONSE FOR DETECTION:', {
-        currentMediaAssetId: currentMedia.currentMediaAssetId,
-        currentMediaUrl: currentMedia.url,
-        currentMediaDuration: currentMedia.currentMediaAssetDuration,
-        selectedSlot,
-      });
+      if (generation !== playbackGenerationRef.current) {
+        console.log("⛔ STALE TARGETED PLAY IGNORED");
+        return;
+      }
 
-      // Get the correct media based on selectedSlot
       let url: string | undefined;
       let duration: number | null | undefined;
       let assetId: number | undefined;
@@ -199,28 +311,28 @@ export default function ScreenPage() {
       let type: string | undefined;
 
       switch (selectedSlot) {
-        case 'Men':
+        case "Men":
           url = currentMedia.currentMenMediaUrl;
           duration = currentMedia.currentMenMediaDuration;
           assetId = currentMedia.currentMenMediaAssetId;
           name = currentMedia.currentMenMediaAssetName;
           type = currentMedia.currentMenMediaAssetType;
           break;
-        case 'Women':
+        case "Women":
           url = currentMedia.currentWomenMediaUrl;
           duration = currentMedia.currentWomenMediaDuration;
           assetId = currentMedia.currentWomenMediaAssetId;
           name = currentMedia.currentWomenMediaAssetName;
           type = currentMedia.currentWomenMediaAssetType;
           break;
-        case 'BoysKids':
+        case "BoysKids":
           url = currentMedia.currentBoysKidsMediaUrl;
           duration = currentMedia.currentBoysKidsMediaDuration;
           assetId = currentMedia.currentBoysKidsMediaAssetId;
           name = currentMedia.currentBoysKidsMediaAssetName;
           type = currentMedia.currentBoysKidsMediaAssetType;
           break;
-        case 'GirlsKids':
+        case "GirlsKids":
           url = currentMedia.currentGirlsKidsMediaUrl;
           duration = currentMedia.currentGirlsKidsMediaDuration;
           assetId = currentMedia.currentGirlsKidsMediaAssetId;
@@ -228,155 +340,132 @@ export default function ScreenPage() {
           type = currentMedia.currentGirlsKidsMediaAssetType;
           break;
         default:
-          url = currentMedia.currentDefaultMediaUrl;
-          duration = currentMedia.currentDefaultMediaDuration;
-          assetId = currentMedia.currentDefaultMediaAssetId;
-          name = currentMedia.currentDefaultMediaAssetName;
-          type = currentMedia.currentDefaultMediaAssetType;
+          releaseLockIfCurrent();
+          return;
       }
 
-      if (url && assetId) {
-        targetAd = createMediaAssetFromSlot(assetId, url, duration ?? null, name, type, false); // isFallback: false for targeted ads
-        console.log('✅ CREATED TARGET AD FROM NEW API:', {
-          id: targetAd.id,
-          name: targetAd.name,
-          type: targetAd.type,
-          url: targetAd.url,
-          durationSeconds: targetAd.durationSeconds,
-          selectedSlot,
-        });
-      } else {
-        console.error('❌ NO MEDIA FOUND FOR SLOT:', selectedSlot);
+      if (!url || !assetId) {
+        console.error("❌ NO MEDIA FOUND FOR SLOT:", selectedSlot);
+        releaseLockIfCurrent();
         return;
       }
-    } else {
-      // For fallback ads, this shouldn't be called with the new API approach
-      console.error('playMediaAsset called with non-signalr source, which is unexpected');
-      return;
-    }
 
-    if (!targetAd) {
-      console.error('Failed to load media asset:', mediaAssetId);
-      return;
-    }
+      const targetAd = createMediaAssetFromSlot(assetId, url, duration ?? null, name, type, false);
 
-    console.log('🎬 PLAYING AD:', {
-      mediaAssetId,
-      mediaName: targetAd?.name,
-      mediaType: targetAd?.type,
-      source: source,
-      selectedSlot: selectedSlot,
-      duration: targetAd?.type?.toLowerCase() === 'image' ? `${targetAd?.durationSeconds}s` : 'video (no duration limit)',
-      isTargeted: source === "signalr"
-    });
+      if (generation !== playbackGenerationRef.current) {
+        return;
+      }
 
-    setAdvertisement(targetAd);
-    updateScreenState("PLAYING");
-    setIsPlayingTargetedAd(source === "signalr");
+      activeTargetedAdRef.current = {
+        mediaAssetId: targetAd.id,
+        startedAt: Date.now(),
+      };
 
-    if (fallbackTimeoutRef.current) {
-      clearTimeout(fallbackTimeoutRef.current);
-      fallbackTimeoutRef.current = null;
+      setAdvertisement(targetAd);
+      updateScreenState("PLAYING");
+      setInitialAdLoaded(true);
+      setLoading(false);
+
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
+        fallbackTimeoutRef.current = null;
+      }
+    } catch (error) {
+      console.error("❌ FAILED TO PLAY TARGETED AD:", error);
+      releaseLockIfCurrent();
     }
   }, [updateScreenState, screenId]);
 
+  playMediaAssetRef.current = playMediaAsset;
+  loadFallbackAdRef.current = loadFallbackAd;
+
   const playLatestDetectionIfPossible = useCallback(async () => {
+    if (isSceneEmpty()) {
+      clearPendingDetection("scene empty before next targeted play");
+      return false;
+    }
+
     const detection = latestDetectionRef.current;
-    if (!detection) return false;
+    if (!detection || !isTargetedSlot(detection.selectedSlot)) {
+      clearPendingDetection("no usable pending detection");
+      return false;
+    }
 
     latestDetectionRef.current = null;
     await playMediaAsset(detection.mediaAssetId, detection.source, detection.selectedSlot);
     return true;
   }, [playMediaAsset]);
 
-  const scheduleMediaUpdate = useCallback(async (
-    mediaAssetId: number,
-    source: PendingMediaUpdate["source"],
-    selectedSlot?: string,
-  ) => {
-    latestDetectionRef.current = {
-      mediaAssetId,
-      source,
-      selectedSlot,
-    };
-
-    console.log('📅 DETECTION REPLACED:', {
-      mediaAssetId,
-      source,
-      selectedSlot,
-      screenState: screenStateRef.current
-    });
-
-    if (screenStateRef.current === "DETECTING") {
-      await playLatestDetectionIfPossible();
-    } else {
-      console.log('⏳ STORED: Latest detection stored for next ad end');
-    }
-  }, [playLatestDetectionIfPossible]);
-
-  // Initial load - run only once on mount
   useEffect(() => {
-    loadFallbackAd();
+    void loadFallbackAd();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSignalRMediaUpdated = useCallback(async (event: { currentMediaAssetId: number; selectedSlot: string; usedFallback?: boolean }) => {
-    const gender = event.selectedSlot;
-    console.log('🤖 AI DETECTION RECEIVED:', {
+  const handleSignalRMediaUpdated = useCallback(async (event: {
+    currentMediaAssetId: number;
+    selectedSlot: string;
+    usedFallback?: boolean;
+    personCount?: number;
+    message?: string;
+    updatedAtUtc?: string;
+  }) => {
+    console.log("🤖 AI DETECTION RECEIVED:", {
       currentMediaAssetId: event.currentMediaAssetId,
       selectedSlot: event.selectedSlot,
       usedFallback: event.usedFallback,
+      personCount: event.personCount,
       screenState: screenStateRef.current,
-      isPlayingTargetedAd: isPlayingTargetedAd
+      locked: isTargetedPlaybackLocked(),
     });
 
-    // Print gender 6 times for visibility
-    for (let i = 0; i < 6; i++) {
-      console.log(`👤 GENDER DETECTED: ${gender}`);
+    if (event.personCount !== undefined && Number.isFinite(Number(event.personCount))) {
+      applyLivePersonCount(Number(event.personCount), "signalr");
     }
 
-    // If no media asset, clear detection
-    if (!event.currentMediaAssetId) {
-      console.log('⏳ CLEARED: No media asset, clearing detection');
-      latestDetectionRef.current = null;
+    const usableTarget =
+      Boolean(event.currentMediaAssetId) &&
+      isTargetedSlot(event.selectedSlot) &&
+      event.usedFallback !== true;
+
+    if (isSceneEmpty() || !usableTarget) {
+      clearPendingDetection(
+        isSceneEmpty()
+          ? "AI event while scene empty"
+          : "AI fallback / missing targeted slot"
+      );
       return;
     }
 
-    // Check if current ad is fallback (default)
-    const isPlayingFallback = advertisement?.isFallback === true;
-
-    if (isPlayingFallback) {
-      console.log('⚡ IMMEDIATE SWITCH: Detection received while playing fallback ad - switching immediately');
-      // Switch immediately to targeted ad
-      await playMediaAsset(event.currentMediaAssetId, "signalr", event.selectedSlot);
-      setIsPlayingTargetedAd(true);
+    if (isTargetedPlaybackLocked()) {
+      latestDetectionRef.current = {
+        mediaAssetId: event.currentMediaAssetId,
+        source: "signalr",
+        selectedSlot: event.selectedSlot,
+        peopleCount: event.personCount,
+      };
+      console.log("⏳ STORED LATEST DETECTION FOR AD END:", event.selectedSlot);
       return;
     }
 
-    // For targeted ads, store detection for next ad end
-    console.log('⏳ STORED: Detection stored for next ad end (targeted ad is playing)');
-    latestDetectionRef.current = {
-      mediaAssetId: event.currentMediaAssetId,
-      source: "signalr",
-      selectedSlot: event.selectedSlot,
-    };
-  }, [advertisement, playMediaAsset]);
+    console.log("⚡ IMMEDIATE SWITCH FROM FALLBACK →", event.selectedSlot);
+    await playMediaAssetRef.current(event.currentMediaAssetId, "signalr", event.selectedSlot);
+  }, []);
 
-  const handleSignalRRefreshRequested = useCallback((event: any) => {
-    console.log('🔄 REFRESH REQUESTED:', {
+  const handleSignalRRefreshRequested = useCallback((event: { screenId?: number; reason?: string }) => {
+    console.log("🔄 REFRESH REQUESTED:", {
       screenId: event?.screenId,
       reason: event?.reason,
       screenState: screenStateRef.current,
-      isPlayingTargetedAd
+      locked: isTargetedPlaybackLocked(),
     });
 
-    // Don't reload fallback ad while playing a targeted ad
-    if (screenStateRef.current === "PLAYING" || isPlayingTargetedAd) {
-      console.log('⏭️ REFRESH IGNORED: Screen is PLAYING, ignoring refresh request');
+    if (isTargetedPlaybackLocked() || screenStateRef.current === "PLAYING") {
+      console.log("⛔ REFRESH IGNORED → TARGETED PLAYBACK LOCK");
       return;
     }
-    loadFallbackAd();
-  }, [loadFallbackAd, isPlayingTargetedAd]);
+
+    void loadFallbackAdRef.current();
+  }, []);
 
   // SignalR: listen for real-time updates
   const { connected } = useScreenSignalR(
@@ -488,32 +577,39 @@ export default function ScreenPage() {
   }, []);
 
   const handleAdEnded = useCallback(async () => {
-    console.log('🏁 AD ENDED:', {
-      currentAdId: advertisement?.id,
-      currentAdName: advertisement?.name,
-      currentAdType: advertisement?.type,
-      hasPendingDetection: latestDetectionRef.current !== null,
-      pendingDetection: latestDetectionRef.current
-    });
+    const stillShowingFallback = advertisementRef.current?.isFallback === true;
 
-    // Priority 1: Apply pending detection immediately
-    const applied = await playLatestDetectionIfPossible();
-    if (applied) {
-      console.log('✅ PENDING DETECTION APPLIED: Switching to targeted ad');
-      setIsPlayingTargetedAd(true);
+    if (isTargetedPlaybackLocked() && stillShowingFallback) {
+      console.log("⏳ FALLBACK ENDED DURING TARGETED LOAD → KEEP LOCK");
       return;
     }
 
-    console.log('🔄 NO PENDING DETECTIONS: Returning to fallback ad');
-
-    // Return to fallback ad (new API handles campaign changes automatically)
+    playbackGenerationRef.current += 1;
+    activeTargetedAdRef.current = null;
     setIsPlayingTargetedAd(false);
 
-    // Reload fallback ad to get latest state
-    await loadFallbackAd();
+    if (isSceneEmpty()) {
+      clearPendingDetection("natural ad end with empty scene");
+      await loadFallbackAd();
+      return;
+    }
 
-    updateScreenState("DETECTING");
-  }, [advertisement, fallbackAd, playLatestDetectionIfPossible, updateScreenState, loadFallbackAd]);
+    // Check if latest detection has peopleCount > 0 before playing
+    const detection = latestDetectionRef.current;
+    if (detection && detection.peopleCount !== undefined && detection.peopleCount <= 0) {
+      console.log("🧹 CLEARED DETECTION: peopleCount is 0");
+      latestDetectionRef.current = null;
+      await loadFallbackAd();
+      return;
+    }
+
+    const applied = await playLatestDetectionIfPossible();
+    if (applied) {
+      return;
+    }
+
+    await loadFallbackAd();
+  }, [playLatestDetectionIfPossible, loadFallbackAd]);
 
   // **DISPLAY ENGINE**: Broadcast playback state to Mirror Players
   // This is the MASTER - it broadcasts what's playing
@@ -580,6 +676,16 @@ export default function ScreenPage() {
 
   const lastPlaybackErrorAtRef = useRef(0);
   const handlePlaybackError = useCallback((err: unknown) => {
+    if (activeTargetedAdRef.current) {
+      console.error(
+        "❌ TARGETED AD PLAYBACK ERROR → RETRY"
+      );
+
+      setPlayerNonce((prev: number) => prev + 1);
+
+      return;
+    }
+
     const now = Date.now();
     if (now - lastPlaybackErrorAtRef.current < 2000) {
       return;
@@ -591,12 +697,12 @@ export default function ScreenPage() {
     }
 
     if (advertisement?.id && advertisement.id === fallbackAd.id) {
-      setPlayerNonce((prev) => prev + 1);
+      setPlayerNonce((prev: number) => prev + 1);
       return;
     }
 
     setAdvertisement(fallbackAd);
-    setPlayerNonce((prev) => prev + 1);
+    setPlayerNonce((prev: number) => prev + 1);
     updateScreenState("DETECTING");
   }, [advertisement?.id, advertisement?.url, fallbackAd, updateScreenState]);
 
@@ -613,7 +719,6 @@ export default function ScreenPage() {
       <div className="w-full h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
         <div className="text-indigo-200 text-xl font-medium">جاري تحميل الشاشة </div>
-
       </div>
     );
   }
@@ -628,24 +733,6 @@ export default function ScreenPage() {
         shouldLoop={shouldLoopFallbackAd}
         onPlaybackError={handlePlaybackError}
       />
-
-      {/* Diagnostic overlay */}
-      <div className="absolute top-4 left-4 right-4 z-50 flex items-center justify-between pointer-events-none opacity-0 hover:opacity-100 transition-opacity duration-300">
-        <div className="glass px-4 py-2.5 rounded-2xl text-xs font-semibold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Screen {screenId} Active</span>
-          {signalRConnected && (
-            <>
-              <span className="mx-1">•</span>
-              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-              <span className="text-blue-300">SignalR</span>
-            </>
-          )}
-        </div>
-        <div className="glass px-4 py-2.5 rounded-2xl text-xs font-semibold flex flex-col gap-1 items-end text-right">
-          <span className="text-indigo-400 font-bold">State: {screenState}</span>
-        </div>
-      </div>
     </div>
   );
 }
