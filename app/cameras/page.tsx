@@ -86,6 +86,7 @@ export default function CamerasPage() {
     name: string;
     location: string;
     cameraDeviceName: string;
+    cameraDeviceRealName?: string;
     timeToScreenshot: number;
   }) => {
     const newCamera = await addCamera(data);
@@ -103,6 +104,7 @@ export default function CamerasPage() {
     name: string;
     location: string;
     cameraDeviceName: string;
+    cameraDeviceRealName?: string;
     timeToScreenshot: number;
   }) => {
     if (!editingCamera) return;

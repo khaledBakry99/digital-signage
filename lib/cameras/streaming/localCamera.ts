@@ -50,8 +50,18 @@ class LocalCameraHandler {
       const devices = await navigator.mediaDevices.enumerateDevices();
 
       // Filter video input devices only
-      return devices.filter((device) => device.kind === "videoinput");
+      const videoDevices = devices.filter((device) => device.kind === "videoinput");
+
+      // Log for debugging
+      console.log('📷 [CAMERA DEVICES]', videoDevices.map(d => ({
+        deviceId: d.deviceId.slice(0, 8) + '...',
+        label: d.label || '(empty)',
+        hasLabel: !!d.label
+      })));
+
+      return videoDevices;
     } catch (error) {
+      console.error('❌ [GET DEVICES ERROR]', error);
       throw error;
     }
   }

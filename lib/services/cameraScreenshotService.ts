@@ -20,6 +20,13 @@ export class CameraScreenshotService {
     onSuccess?: (result: any) => void,
     onError?: (error: Error) => void,
   ): Promise<void> {
+    const startTime = new Date();
+    console.log('🎬 [SCREENSHOT TAKEN]', {
+      cameraId,
+      time: startTime.toISOString(),
+      timeLocal: startTime.toLocaleTimeString('ar-SA')
+    });
+
     try {
       // Ensure the video is ready and playing
       if (!videoElement || videoElement.paused || videoElement.ended) {
@@ -64,13 +71,33 @@ export class CameraScreenshotService {
         );
       });
 
+      console.log('💾 [SCREENSHOT SAVED]', {
+        cameraId,
+        dataSize: Math.round(blob.size / 1024) + ' KB',
+        time: new Date().toISOString(),
+        timeLocal: new Date().toLocaleTimeString('ar-SA')
+      });
+
       // Wrap the blob in a File for upload
       const file = new File([blob], `camera-${cameraId}-screenshot.jpg`, {
         type: "image/jpeg",
       });
 
+      console.log('🚀 [SENDING TO AI]', {
+        cameraId,
+        fileSize: Math.round(file.size / 1024) + ' KB',
+        time: new Date().toISOString(),
+        timeLocal: new Date().toLocaleTimeString('ar-SA')
+      });
+
       // Send the image to the AI service
       const result = await genderAiApi.detectGender(cameraId, file);
+
+      console.log('✅ [AI RESPONSE RECEIVED]', {
+        cameraId,
+        time: new Date().toISOString(),
+        timeLocal: new Date().toLocaleTimeString('ar-SA')
+      });
 
       // Invoke success callback if provided
       if (onSuccess) {
@@ -132,6 +159,16 @@ export class CameraScreenshotService {
           const previousCount = lastStablePersonCount;
           lastStablePersonCount = currentPersonCount;
 
+          const changeTime = new Date();
+          console.log('👥 [PERSON COUNT CHANGED]', {
+            cameraId,
+            previousCount,
+            currentCount: currentPersonCount,
+            stableFrames: candidateStableFrames,
+            time: changeTime.toISOString(),
+            timeLocal: changeTime.toLocaleTimeString('ar-SA')
+          });
+
           const event = new CustomEvent("person-count-changed", {
             detail: {
               cameraId,
@@ -143,6 +180,12 @@ export class CameraScreenshotService {
           window.dispatchEvent(event);
 
           if (currentPersonCount > 0 && sendToAi) {
+            const captureTime = new Date();
+            console.log('📸 [SCREENSHOT CAPTURE START]', {
+              cameraId,
+              time: captureTime.toISOString(),
+              timeLocal: captureTime.toLocaleTimeString('ar-SA')
+            });
             await this.captureAndSendToAi(videoElement, cameraId);
           } else if (currentPersonCount > 0) {
           } else {
