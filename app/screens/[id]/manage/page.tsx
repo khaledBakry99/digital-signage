@@ -211,17 +211,16 @@ export default function ScreenManagePage({ params }: PageProps) {
           </div>
 
           <Link
-            href="/screens"
+            href="/screens/manage"
             className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all ${isLightTheme
-              ? "text-slate-700 bg-white/85 border border-white/70 shadow-[0_10px_25px_rgba(15,23,42,0.08)] hover:-translate-y-0.5"
-              : "text-white border border-white/20 hover:border-white/40"
+              ? "bg-gradient-to-r from-slate-50 to-white border border-slate-200 text-slate-700 hover:shadow-[0_8px_30px_rgba(59,130,246,0.12)]"
+              : "bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-white hover:shadow-[0_8px_30px_rgba(99,102,241,0.2)]"
               }`}
-            style={isLightTheme ? undefined : { background: "rgba(15,23,42,0.35)" }}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            رجوع للشاشات
+            <span>رجوع لإدارة الشاشات</span>
           </Link>
         </div>
       </div>

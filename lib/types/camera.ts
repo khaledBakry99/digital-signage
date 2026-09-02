@@ -12,6 +12,7 @@ export interface Camera {
   type: CameraType; // Source type
   source: string; // deviceId for local or URL for network
   cameraDeviceName?: string; // Device name from API
+  cameraDeviceRealName?: string; // Real device name (e.g., "Logitech C920")
   status: CameraStatus; // Connection status
   thumbnail?: string; // Thumbnail preview
   timeToScreenshot?: number; // Screenshot interval in seconds

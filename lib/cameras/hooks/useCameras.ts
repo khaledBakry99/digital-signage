@@ -15,6 +15,7 @@ interface UseCamerasReturn {
     name: string;
     location: string;
     cameraDeviceName: string;
+    cameraDeviceRealName?: string;
     timeToScreenshot?: number;
   }) => Promise<BackendCamera>;
   updateCamera: (
@@ -23,6 +24,7 @@ interface UseCamerasReturn {
       name: string;
       location: string;
       cameraDeviceName: string;
+      cameraDeviceRealName?: string;
       timeToScreenshot?: number;
     },
   ) => Promise<BackendCamera>;
@@ -51,6 +53,7 @@ export function mapBackendToFrontendCamera(bc: BackendCamera, isOnline?: boolean
     location: bc.location,
     type: deriveTypeFromSource(bc.cameraDeviceName),
     source: bc.cameraDeviceName,
+    cameraDeviceRealName: bc.cameraDeviceRealName,
     // Status depends on heartbeat, not state
     status: onlineStatus !== undefined ? (onlineStatus ? "connected" : "disconnected") : (bc.state === "Active" ? "connected" : "disconnected"),
     timeToScreenshot: bc.timeToScreenshot,
@@ -176,6 +179,7 @@ export function useCameras(): UseCamerasReturn {
       name: string;
       location: string;
       cameraDeviceName: string;
+      cameraDeviceRealName?: string;
       timeToScreenshot?: number;
     }): Promise<BackendCamera> => {
       try {
@@ -190,6 +194,7 @@ export function useCameras(): UseCamerasReturn {
           name: data.name,
           location: data.location,
           cameraDeviceName: data.cameraDeviceName,
+          cameraDeviceRealName: data.cameraDeviceRealName,
           timeToScreenshot: data.timeToScreenshot || 10,
         });
 
@@ -215,6 +220,7 @@ export function useCameras(): UseCamerasReturn {
         name: string;
         location: string;
         cameraDeviceName: string;
+        cameraDeviceRealName?: string;
         timeToScreenshot?: number;
       },
     ): Promise<BackendCamera> => {
@@ -226,6 +232,7 @@ export function useCameras(): UseCamerasReturn {
           name: data.name,
           location: data.location,
           cameraDeviceName: data.cameraDeviceName,
+          cameraDeviceRealName: data.cameraDeviceRealName,
           timeToScreenshot: data.timeToScreenshot || 10,
         });
 

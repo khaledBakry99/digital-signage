@@ -18,6 +18,7 @@ interface CameraFormProps {
     name: string;
     location: string;
     cameraDeviceName: string;
+    cameraDeviceRealName?: string;
     timeToScreenshot: number;
   }) => Promise<void>;
   onCancel: () => void;
@@ -69,6 +70,9 @@ export function CameraForm({
   );
   const [cameraDeviceName, setCameraDeviceName] = useState(
     camera ? "" : "", // Always empty initially, even for editing
+  );
+  const [cameraDeviceRealName, setCameraDeviceRealName] = useState(
+    camera?.source ? "" : "", // Will be auto-filled for webcam
   );
   const [timeToScreenshot, setTimeToScreenshot] = useState<number>(
     camera?.timeToScreenshot || 10,
@@ -136,6 +140,7 @@ export function CameraForm({
         name: name.trim(),
         location: location.trim(),
         cameraDeviceName: cameraDeviceName.trim() || "", // Allow empty for webcam (will use default)
+        cameraDeviceRealName: cameraDeviceRealName.trim() || undefined,
         timeToScreenshot: Number(timeToScreenshot) || 10,
       });
     } catch (err) {
@@ -242,7 +247,13 @@ export function CameraForm({
             <div className="relative">
               <select
                 value={cameraDeviceName}
-                onChange={(e) => setCameraDeviceName(e.target.value)}
+                onChange={(e) => {
+                  const deviceId = e.target.value;
+                  setCameraDeviceName(deviceId);
+                  // Auto-fill real name from device label
+                  const selectedDevice = devices.find(d => d.deviceId === deviceId);
+                  setCameraDeviceRealName(selectedDevice?.label || "");
+                }}
                 disabled={loadingDevices}
                 className={`${selectClass} ${!cameraDeviceName.trim() && devices.length > 0 ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
               >
@@ -255,7 +266,7 @@ export function CameraForm({
                     value={d.deviceId}
                     className={lightOptionClass}
                   >
-                    {d.label || `كاميرا ${idx + 1}`}
+                    {d.label || `كاميرا ${idx + 1} (${d.deviceId.slice(0, 8)}...)`}
                   </option>
                 ))}
               </select>

@@ -280,24 +280,8 @@ export default function CameraAssignmentSection({
                 : "bg-white/5 border-white/10 text-slate-200"
                 }`}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className={`text-xl font-bold ${isLightTheme ? "text-slate-900" : "text-white"}`}>{currentCamera.name}</p>
-                </div>
-                <div
-                  className={`px-3 py-1.5 rounded-full flex items-center gap-2 border ${isLightTheme
-                    ? "bg-emerald-50 border-emerald-200"
-                    : "bg-emerald-500/15 border-emerald-500/30"
-                    }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${isLightTheme ? "bg-emerald-500" : "bg-emerald-400"} animate-pulse`} />
-                  <span
-                    className={`text-[10px] font-bold uppercase tracking-wider ${isLightTheme ? "text-emerald-600" : "text-emerald-400"
-                      }`}
-                  >
-                    Online
-                  </span>
-                </div>
+              <div className="mb-4">
+                <p className={`text-xl font-bold ${isLightTheme ? "text-slate-900" : "text-white"}`}>{currentCamera.name}</p>
               </div>
 
               <div className={`grid grid-cols-1 gap-3 pt-3 border-t ${isLightTheme ? "border-white" : "border-white/5"}`}>

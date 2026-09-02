@@ -8,6 +8,7 @@ export interface BackendCamera {
   name: string;
   location: string;
   cameraDeviceName: string;
+  cameraDeviceRealName?: string;
   state: CameraState;
   timeToScreenshot: number;
   createdAtUtc: string;
@@ -21,6 +22,7 @@ export interface HeartbeatResponse {
   name: string;
   location: string;
   cameraDeviceName: string;
+  cameraDeviceRealName?: string;
   state: CameraState;
   timeToScreenshot: number;
   createdAtUtc: string;
@@ -39,6 +41,7 @@ export interface CreateCameraInput {
   name: string;
   location: string;
   cameraDeviceName: string;
+  cameraDeviceRealName?: string;
   timeToScreenshot: number;
 }
 
@@ -46,6 +49,7 @@ export interface UpdateCameraInput {
   name: string;
   location: string;
   cameraDeviceName: string;
+  cameraDeviceRealName?: string;
   timeToScreenshot: number;
 }
 
