@@ -4,6 +4,7 @@ import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useTheme } from "@/lib/context/ThemeContext";
+import { API_CONFIG } from "@/lib/api/config";
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -84,7 +85,7 @@ export default function ChangePasswordPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`https://backend-42316129731.europe-west1.run.app/api/Users/${user.id}/reset-password`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/Users/${user.id}/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
