@@ -21,9 +21,19 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
   const [isDragging, setIsDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({}); // Track field-specific errors
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
+  const durationInputRef = useRef<HTMLInputElement>(null);
+  
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
+
+  // Character limits
+  const NAME_MAX_LENGTH = 40;
+  const DESCRIPTION_MAX_LENGTH = 100;
 
   // Prevent background scrolling when modal is open
   useEffect(() => {
@@ -46,11 +56,14 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
       setFile(null);
       setPreview(null);
       setError(null);
+      setFieldErrors({});
     }
   }, [ad]);
 
   const handleFileChange = (selectedFile: File) => {
     setError(null);
+    setFieldErrors(prev => ({ ...prev, file: "" }));
+    
     const fn = selectedFile.name.toLowerCase();
     const isImage =
       selectedFile.type.startsWith("image/") ||
@@ -71,16 +84,43 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
     setPreview(URL.createObjectURL(selectedFile));
   };
 
+  // Scroll to field and highlight it
+  const scrollToField = (ref: React.RefObject<HTMLElement | null>, fieldName: string) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    ref.current?.focus();
+    setFieldErrors(prev => ({ ...prev, [fieldName]: "هذا الحقل مطلوب" }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ad) return;
 
+    setError(null);
+    setFieldErrors({});
+
+    // Validate all required fields
+    if (!name.trim()) {
+      scrollToField(nameInputRef, 'name');
+      return;
+    }
+    
+    if (!description.trim()) {
+      scrollToField(descriptionInputRef, 'description');
+      return;
+    }
+
+    // Determine if we're dealing with an image (either existing or new file)
+    const isImageContent = file ? file.type.startsWith('image/') : ad.type === 'Image';
+    
+    // Validate duration for images
+    if (isImageContent && (!durationSeconds || durationSeconds < 1)) {
+      scrollToField(durationInputRef, 'duration');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-      
-      // Determine if we're dealing with an image (either existing or new file)
-      const isImageContent = file ? file.type.startsWith('image/') : ad.type === 'Image';
       
       await onSave(ad.id, { 
         name, 
@@ -285,37 +325,72 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Name Field */}
           <div>
             <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightTheme ? "text-slate-600" : "text-slate-400"}`}>
               اسم الإعلان
             </label>
             <input
+              ref={nameInputRef}
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 shadow-inner focus:outline-none focus:ring-2 ${isLightTheme
-                ? "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-indigo-500/50 focus:border-indigo-500"
-                : "bg-slate-900/60 border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-indigo-500/50 focus:border-indigo-500"
-                }`}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.length <= NAME_MAX_LENGTH) {
+                  setName(value);
+                  setFieldErrors(prev => ({ ...prev, name: "" }));
+                }
+              }}
+              className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 shadow-inner focus:outline-none focus:ring-2 ${fieldErrors.name ? 'ring-2 ring-red-500 border-red-500' : ''} ${
+                isLightTheme
+                  ? "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-indigo-500/50 focus:border-indigo-500"
+                  : "bg-slate-900/60 border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-indigo-500/50 focus:border-indigo-500"
+              }`}
               required
+              maxLength={NAME_MAX_LENGTH}
               placeholder="مثال: عسل طبيعي فاخر"
             />
+            {/* Character counter */}
+            <div className={`text-xs mt-1 text-left ${name.length >= NAME_MAX_LENGTH ? 'text-red-500 font-semibold' : isLightTheme ? 'text-slate-400' : 'text-slate-500'}`}>
+              {name.length} / {NAME_MAX_LENGTH}
+            </div>
+            {fieldErrors.name && (
+              <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.name}</p>
+            )}
           </div>
 
+          {/* Description Field */}
           <div>
             <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightTheme ? "text-slate-600" : "text-slate-400"}`}>
               الوصف
             </label>
             <textarea
+              ref={descriptionInputRef}
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 resize-none shadow-inner focus:outline-none focus:ring-2 ${isLightTheme
-                ? "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-indigo-500/50 focus:border-indigo-500"
-                : "bg-slate-900/60 border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-indigo-500/50 focus:border-indigo-500"
-                }`}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.length <= DESCRIPTION_MAX_LENGTH) {
+                  setDescription(value);
+                  setFieldErrors(prev => ({ ...prev, description: "" }));
+                }
+              }}
+              className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 resize-none shadow-inner focus:outline-none focus:ring-2 ${fieldErrors.description ? 'ring-2 ring-red-500 border-red-500' : ''} ${
+                isLightTheme
+                  ? "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-indigo-500/50 focus:border-indigo-500"
+                  : "bg-slate-900/60 border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-indigo-500/50 focus:border-indigo-500"
+              }`}
               rows={3}
+              required
+              maxLength={DESCRIPTION_MAX_LENGTH}
               placeholder="اكتب تفاصيل عروضك، مثل عسل للبيع مع شحن سريع..."
             />
+            {/* Character counter */}
+            <div className={`text-xs mt-1 text-left ${description.length >= DESCRIPTION_MAX_LENGTH ? 'text-red-500 font-semibold' : isLightTheme ? 'text-slate-400' : 'text-slate-500'}`}>
+              {description.length} / {DESCRIPTION_MAX_LENGTH}
+            </div>
+            {fieldErrors.description && (
+              <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.description}</p>
+            )}
           </div>
 
           {/* Duration for Images */}
@@ -326,18 +401,21 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
               </label>
               <div className="grid grid-cols-5 gap-3">
                 <input
+                  ref={durationInputRef}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 shadow-inner focus:outline-none focus:ring-2 text-center ${isLightTheme
-                    ? "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-indigo-500/50 focus:border-indigo-500"
-                    : "bg-slate-900/60 border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-indigo-500/50 focus:border-indigo-500"
-                    }`}
+                  className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 shadow-inner focus:outline-none focus:ring-2 text-center ${fieldErrors.duration ? 'ring-2 ring-red-500 border-red-500' : ''} ${
+                    isLightTheme
+                      ? "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:ring-indigo-500/50 focus:border-indigo-500"
+                      : "bg-slate-900/60 border-slate-800 text-slate-100 placeholder-slate-600 focus:ring-indigo-500/50 focus:border-indigo-500"
+                  }`}
                   value={durationSeconds}
                   onChange={(e) => {
                     const value = e.target.value.replace(/[^0-9]/g, '');
                     const numValue = parseInt(value) || 1;
                     setDurationSeconds(Math.max(1, numValue));
+                    setFieldErrors(prev => ({ ...prev, duration: "" }));
                   }}
                   onBlur={(e) => {
                     if (!e.target.value || parseInt(e.target.value) < 1) {
@@ -347,16 +425,16 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
                   placeholder="01"
                   dir="ltr"
                   lang="en"
-                  style={{
-                    fontFamily: "system-ui, -apple-system, sans-serif",
-                    fontVariantNumeric: "lining-nums tabular-nums",
-                  }}
+                  required
                 />
                 {[10, 20, 30, 60].map((seconds) => (
                   <button
                     key={seconds}
                     type="button"
-                    onClick={() => setDurationSeconds(seconds)}
+                    onClick={() => {
+                      setDurationSeconds(seconds);
+                      setFieldErrors(prev => ({ ...prev, duration: "" }));
+                    }}
                     className={`py-3 px-4 rounded-xl text-sm font-semibold transition-all border-2 ${
                       durationSeconds === seconds
                         ? "border-indigo-500 bg-indigo-500/20 text-indigo-400"
@@ -370,6 +448,9 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
                   </button>
                 ))}
               </div>
+              {fieldErrors.duration && (
+                <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.duration}</p>
+              )}
             </div>
           )}
 
@@ -382,9 +463,11 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
               className={`border-2 border-dashed rounded-2xl p-6 transition-all duration-200 cursor-pointer ${
                 isDragging 
                   ? "border-indigo-500 bg-indigo-500/10" 
-                  : isLightTheme
-                    ? "border-slate-200 hover:border-indigo-300 bg-slate-50"
-                    : "border-slate-700 hover:border-indigo-500/50 bg-slate-900/40"
+                  : fieldErrors.file
+                    ? "border-red-500"
+                    : isLightTheme
+                      ? "border-slate-200 hover:border-indigo-300 bg-slate-50"
+                      : "border-slate-700 hover:border-indigo-500/50 bg-slate-900/40"
               }`}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -474,10 +557,11 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
             <button
               type="button"
               onClick={onClose}
-              className={`flex-1 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer active:scale-[0.98] select-none text-center ${isLightTheme
-                ? "bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700"
-                : "bg-slate-800/40 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-700 text-slate-300 hover:text-slate-100"
-                }`}
+              className={`flex-1 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer active:scale-[0.98] select-none text-center ${
+                isLightTheme
+                  ? "bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700"
+                  : "bg-slate-800/40 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-700 text-slate-300 hover:text-slate-100"
+              }`}
               disabled={loading}
             >
               إلغاء

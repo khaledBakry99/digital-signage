@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useScreensWithHeartbeat } from "@/lib/hooks/useScreensWithHeartbeat";
 import { useCameras } from "@/lib/cameras/hooks/useCameras";
@@ -32,6 +32,16 @@ export default function ManageScreensPage() {
   const [formCameraEnabled, setFormCameraEnabled] = useState(false);
   const [formAiEnabled, setFormAiEnabled] = useState(false);
   const [formCameraId, setFormCameraId] = useState<string>("");
+  
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({}); // Track field-specific errors
+  
+  const formNameRef = useRef<HTMLInputElement>(null);
+  const formExternalIdRef = useRef<HTMLInputElement>(null);
+  const formLocationNameRef = useRef<HTMLInputElement>(null);
+  const formCityRef = useRef<HTMLInputElement>(null);
+  
+  // Character limits
+  const FIELD_MAX_LENGTH = 40;
 
   // Delete modal state
   const [screenToDelete, setScreenToDelete] = useState<Screen | null>(null);
@@ -89,6 +99,7 @@ export default function ManageScreensPage() {
     setFormAiEnabled(false);
     setFormCameraId("");
     setError(null);
+    setFieldErrors({});
     setShowForm(true);
   };
 
@@ -102,13 +113,39 @@ export default function ManageScreensPage() {
     setFormAiEnabled(screen.aiEnabled);
     setFormCameraId(screen.cameraId?.toString() || "");
     setError(null);
+    setFieldErrors({});
     setShowForm(true);
+  };
+
+  // Scroll to field and highlight it
+  const scrollToField = (ref: React.RefObject<HTMLElement | null>, fieldName: string) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    ref.current?.focus();
+    setFieldErrors(prev => ({ ...prev, [fieldName]: "هذا الحقل مطلوب" }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFieldErrors({});
+    
+    // Validate required fields
     if (!formName.trim()) {
-      setError("اسم الشاشة مطلوب");
+      scrollToField(formNameRef, 'name');
+      return;
+    }
+    
+    if (!formExternalId.trim()) {
+      scrollToField(formExternalIdRef, 'externalId');
+      return;
+    }
+    
+    if (!formLocationName.trim()) {
+      scrollToField(formLocationNameRef, 'locationName');
+      return;
+    }
+    
+    if (!formCity.trim()) {
+      scrollToField(formCityRef, 'city');
       return;
     }
 
@@ -352,14 +389,30 @@ export default function ManageScreensPage() {
                     اسم الشاشة *
                   </label>
                   <input
+                    ref={formNameRef}
                     type="text"
                     value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value.length <= FIELD_MAX_LENGTH) {
+                        setFormName(value);
+                        setFieldErrors(prev => ({ ...prev, name: "" }));
+                      }
+                    }}
                     placeholder="مثال: شاشة المدخل"
-                    className={`${inputClass} cursor-text`}
-                    style={inputStyle}
+                    className={`${inputClass} cursor-text ${fieldErrors.name ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+                    style={isLightTheme && fieldErrors.name ? {
+                      ...inputStyle,
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #ef4444",
+                      color: "#0f172a",
+                    } : inputStyle}
                     required
+                    maxLength={FIELD_MAX_LENGTH}
                   />
+                  {fieldErrors.name && (
+                    <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.name}</p>
+                  )}
                 </div>
 
                 <div>
@@ -367,16 +420,33 @@ export default function ManageScreensPage() {
                     className="block text-sm font-medium mb-1.5"
                     style={{ color: "var(--text-muted)" }}
                   >
-                    المعرّف الخارجي (External ID)
+                    المعرّف الخارجي (External ID) *
                   </label>
                   <input
+                    ref={formExternalIdRef}
                     type="text"
                     value={formExternalId}
-                    onChange={(e) => setFormExternalId(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value.length <= FIELD_MAX_LENGTH) {
+                        setFormExternalId(value);
+                        setFieldErrors(prev => ({ ...prev, externalId: "" }));
+                      }
+                    }}
                     placeholder="مثال: SCR-101"
-                    className={`${inputClass} cursor-text`}
-                    style={inputStyle}
+                    className={`${inputClass} cursor-text ${fieldErrors.externalId ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+                    style={isLightTheme && fieldErrors.externalId ? {
+                      ...inputStyle,
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #ef4444",
+                      color: "#0f172a",
+                    } : inputStyle}
+                    required
+                    maxLength={FIELD_MAX_LENGTH}
                   />
+                  {fieldErrors.externalId && (
+                    <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.externalId}</p>
+                  )}
                 </div>
               </div>
 
@@ -386,16 +456,33 @@ export default function ManageScreensPage() {
                     className="block text-sm font-medium mb-1.5"
                     style={{ color: "var(--text-muted)" }}
                   >
-                    الموقع / صالة العرض
+                    الموقع / صالة العرض *
                   </label>
                   <input
+                    ref={formLocationNameRef}
                     type="text"
                     value={formLocationName}
-                    onChange={(e) => setFormLocationName(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value.length <= FIELD_MAX_LENGTH) {
+                        setFormLocationName(value);
+                        setFieldErrors(prev => ({ ...prev, locationName: "" }));
+                      }
+                    }}
                     placeholder="مثال: البوابة الرئيسية"
-                    className={`${inputClass} cursor-text`}
-                    style={inputStyle}
+                    className={`${inputClass} cursor-text ${fieldErrors.locationName ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+                    style={isLightTheme && fieldErrors.locationName ? {
+                      ...inputStyle,
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #ef4444",
+                      color: "#0f172a",
+                    } : inputStyle}
+                    required
+                    maxLength={FIELD_MAX_LENGTH}
                   />
+                  {fieldErrors.locationName && (
+                    <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.locationName}</p>
+                  )}
                 </div>
 
                 <div>
@@ -403,16 +490,33 @@ export default function ManageScreensPage() {
                     className="block text-sm font-medium mb-1.5"
                     style={{ color: "var(--text-muted)" }}
                   >
-                    المدينة
+                    المدينة *
                   </label>
                   <input
+                    ref={formCityRef}
                     type="text"
                     value={formCity}
-                    onChange={(e) => setFormCity(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value.length <= FIELD_MAX_LENGTH) {
+                        setFormCity(value);
+                        setFieldErrors(prev => ({ ...prev, city: "" }));
+                      }
+                    }}
                     placeholder="مثال: الرياض"
-                    className={`${inputClass} cursor-text`}
-                    style={inputStyle}
+                    className={`${inputClass} cursor-text ${fieldErrors.city ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+                    style={isLightTheme && fieldErrors.city ? {
+                      ...inputStyle,
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #ef4444",
+                      color: "#0f172a",
+                    } : inputStyle}
+                    required
+                    maxLength={FIELD_MAX_LENGTH}
                   />
+                  {fieldErrors.city && (
+                    <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.city}</p>
+                  )}
                 </div>
               </div>
 

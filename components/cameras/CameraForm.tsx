@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { localCameraHandler } from "@/lib/cameras/streaming/localCamera";
 import { useTheme } from "@/lib/context/ThemeContext";
 import { cameraApi } from "@/lib/api/camera.api";
@@ -81,6 +81,13 @@ export function CameraForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingDevices, setLoadingDevices] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({}); // Track field-specific errors
+  
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const locationInputRef = useRef<HTMLInputElement>(null);
+  
+  // Character limits
+  const FIELD_MAX_LENGTH = 40;
 
   useEffect(() => {
     async function loadDevices() {
@@ -101,16 +108,25 @@ export function CameraForm({
   }, [sourceType]);
 
 
+  // Scroll to field and highlight it
+  const scrollToField = (ref: React.RefObject<HTMLElement | null>, fieldName: string) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    ref.current?.focus();
+    setFieldErrors(prev => ({ ...prev, [fieldName]: "هذا الحقل مطلوب" }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
 
+    // Validate required fields
     if (!name.trim()) {
-      setError("اسم الكاميرا مطلوب");
+      scrollToField(nameInputRef, 'name');
       return;
     }
     if (!location.trim()) {
-      setError("موقع الكاميرا مطلوب");
+      scrollToField(locationInputRef, 'location');
       return;
     }
     // For non-webcam sources, cameraDeviceName is required
@@ -165,28 +181,48 @@ export function CameraForm({
       <div>
         <label className={labelClass}>اسم الكاميرا *</label>
         <input
+          ref={nameInputRef}
           type="text"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value.length <= FIELD_MAX_LENGTH) {
+              setName(value);
+              setFieldErrors(prev => ({ ...prev, name: "" }));
+            }
+          }}
           placeholder="مثال: كاميرا المدخل الرئيسي"
-          className={inputClass}
-          maxLength={50}
+          className={`${inputClass} ${fieldErrors.name ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+          maxLength={FIELD_MAX_LENGTH}
           required
         />
+        {fieldErrors.name && (
+          <p className="text-red-500 text-xs mt-1 animate-fade-in text-right">{fieldErrors.name}</p>
+        )}
       </div>
 
       {/* Location */}
       <div>
         <label className={labelClass}>الموقع الجغرافي / الوصف *</label>
         <input
+          ref={locationInputRef}
           type="text"
           value={location}
-          onChange={(e) => setLocation(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value.length <= FIELD_MAX_LENGTH) {
+              setLocation(value);
+              setFieldErrors(prev => ({ ...prev, location: "" }));
+            }
+          }}
           placeholder="مثال: الطابق الأول - قسم الخدمة"
-          className={inputClass}
-          maxLength={100}
+          className={`${inputClass} ${fieldErrors.location ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+          maxLength={FIELD_MAX_LENGTH}
           required
         />
+        {fieldErrors.location && (
+          <p className="text-red-500 text-xs mt-1 animate-fade-in text-right">{fieldErrors.location}</p>
+        )}
       </div>
 
       {/* Source Type + Device/URL */}
