@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { CameraPlayer } from "@/components/cameras/CameraPlayer";
 import { cameraApi } from "@/lib/api";
-import type { Camera, CameraType } from "@/lib/types/camera";
+import type { Camera } from "@/lib/types/camera";
+import { mapBackendToFrontendCamera } from "@/lib/cameras/hooks/useCameras";
 
 export default function CameraViewPage() {
   const params = useParams();
@@ -26,24 +27,8 @@ export default function CameraViewPage() {
           return;
         }
 
-        // Map backend camera to UI shape
-        const cameraData: Camera = {
-          id: String(backendCamera.id),
-          name: backendCamera.name,
-          location: backendCamera.location,
-          type: deriveTypeFromSource(backendCamera.cameraDeviceName),
-          source: backendCamera.cameraDeviceName,
-          status:
-            backendCamera.state === "Active" ? "connected" : "disconnected",
-          timeToScreenshot: backendCamera.timeToScreenshot,
-          settings: {
-            resolution: "1080p",
-            frameRate: 30,
-            quality: "high",
-          },
-          createdAt: new Date(backendCamera.createdAtUtc),
-          updatedAt: new Date(backendCamera.createdAtUtc),
-        };
+        // Map backend camera to UI shape using the updated mapper
+        const cameraData = mapBackendToFrontendCamera(backendCamera);
 
         setCamera(cameraData);
       } catch (err) {
@@ -67,16 +52,6 @@ export default function CameraViewPage() {
     return () => {
     };
   }, []);
-
-  // Helper function to derive camera type from source
-  function deriveTypeFromSource(source: string): CameraType {
-    const s = (source || "").toLowerCase();
-    if (s.startsWith("rtsp:")) return "rtsp";
-    if (s.endsWith(".m3u8") || s.includes("m3u8") || s.includes("/hls"))
-      return "hls";
-    if (s.startsWith("http:") || s.startsWith("https:")) return "http";
-    return "local";
-  }
 
   if (loading) {
     return (

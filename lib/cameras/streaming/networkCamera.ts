@@ -28,14 +28,9 @@ class NetworkCameraHandler {
           break;
 
         case "rtsp":
-          // RTSP typically needs to be converted to HLS on the server side
-          // For now, we'll try to use it as HLS
-          if (element instanceof HTMLVideoElement) {
-            await hlsHandler.startHLSStream(url, element);
-          } else {
-            throw new Error("RTSP requires a video element");
-          }
-          break;
+          // RTSP should use WebRTC via useCameraStream hook
+          // This handler should NOT be called for RTSP directly
+          throw new Error("RTSP cameras must use WebRTC handler. Call useCameraStream hook instead.");
 
         case "http":
           // HTTP can be either MJPEG or HLS, try to detect
