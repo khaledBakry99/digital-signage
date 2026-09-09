@@ -99,15 +99,23 @@ export function useCameraStream(camera: Camera | null): UseCameraStreamReturn {
           }
 
           // Fix localhost URLs by replacing with actual backend host
+          // Only replace if backend is NOT localhost (i.e., backend is remote)
           if (webrtcUrl.includes('localhost') || webrtcUrl.includes('127.0.0.1')) {
             const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://backend-42316129731.europe-west1.run.app';
-            const backendHost = new URL(backendUrl).hostname;
+            const isBackendLocal = backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1');
             
-            // Replace localhost with backend hostname, keep the port
-            webrtcUrl = webrtcUrl.replace(/localhost|127\.0\.0\.1/g, backendHost);
-            
-            console.log('[useCameraStream] ⚠️ تم استبدال localhost بعنوان الخادم');
-            console.log('[useCameraStream] رابط WebRTC للتشغيل (بعد الإصلاح):', webrtcUrl);
+            // Only replace localhost if backend is remote
+            if (!isBackendLocal) {
+              const backendHost = new URL(backendUrl).hostname;
+              
+              // Replace localhost with backend hostname, keep the port
+              webrtcUrl = webrtcUrl.replace(/localhost|127\.0\.0\.1/g, backendHost);
+              
+              console.log('[useCameraStream] ⚠️ تم استبدال localhost بعنوان الخادم (Backend على Cloud)');
+              console.log('[useCameraStream] رابط WebRTC للتشغيل (بعد الإصلاح):', webrtcUrl);
+            } else {
+              console.log('[useCameraStream] ℹ️ Backend محلي - استخدام localhost مباشرة');
+            }
           }
 
           // Start WebRTC stream
