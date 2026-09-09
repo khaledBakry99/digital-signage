@@ -86,8 +86,8 @@ export function useCameraStream(camera: Camera | null): UseCameraStreamReturn {
           }
 
           // Get WebRTC playback URL from backend
-          const webrtcUrl = camera.playback?.webrtcUrl;
-          console.log('[useCameraStream] رابط WebRTC للتشغيل:', webrtcUrl || 'غير متاح');
+          let webrtcUrl = camera.playback?.webrtcUrl;
+          console.log('[useCameraStream] رابط WebRTC للتشغيل (أصلي):', webrtcUrl || 'غير متاح');
 
           if (!webrtcUrl) {
             console.error('[useCameraStream] خطأ: رابط WebRTC للتشغيل غير متاح');
@@ -96,6 +96,18 @@ export function useCameraStream(camera: Camera | null): UseCameraStreamReturn {
               "WebRTC playback URL غير متاح. " +
               "يرجى التأكد من أن MediaMTX مكوّن بشكل صحيح على الخادم."
             );
+          }
+
+          // Fix localhost URLs by replacing with actual backend host
+          if (webrtcUrl.includes('localhost') || webrtcUrl.includes('127.0.0.1')) {
+            const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://backend-42316129731.europe-west1.run.app';
+            const backendHost = new URL(backendUrl).hostname;
+            
+            // Replace localhost with backend hostname, keep the port
+            webrtcUrl = webrtcUrl.replace(/localhost|127\.0\.0\.1/g, backendHost);
+            
+            console.log('[useCameraStream] ⚠️ تم استبدال localhost بعنوان الخادم');
+            console.log('[useCameraStream] رابط WebRTC للتشغيل (بعد الإصلاح):', webrtcUrl);
           }
 
           // Start WebRTC stream
