@@ -39,10 +39,21 @@ export function useCameraStream(camera: Camera | null): UseCameraStreamReturn {
    */
   const startStream = useCallback(
     async (element: HTMLVideoElement | HTMLImageElement): Promise<void> => {
+      console.log('[useCameraStream] ===== بدء تشغيل بث الكاميرا =====');
+
       if (!camera) {
+        console.error('[useCameraStream] خطأ: لا توجد كاميرا محددة');
         setError("لا توجد كاميرا محددة");
         return;
       }
+
+      console.log('[useCameraStream] معلومات الكاميرا:');
+      console.log('[useCameraStream]   - المعرف:', camera.id);
+      console.log('[useCameraStream]   - الاسم:', camera.name);
+      console.log('[useCameraStream]   - النوع:', camera.type);
+      console.log('[useCameraStream]   - نوع المصدر:', camera.sourceType);
+      console.log('[useCameraStream]   - المصدر:', camera.source);
+      console.log('[useCameraStream]   - معلومات التشغيل:', camera.playback);
 
       try {
         setIsConnecting(true);
@@ -51,26 +62,36 @@ export function useCameraStream(camera: Camera | null): UseCameraStreamReturn {
 
         // Local Webcam
         if (camera.type === "local") {
+          console.log('[useCameraStream] نوع الكاميرا: محلية (USB/Webcam)');
           if (element instanceof HTMLVideoElement) {
+            console.log('[useCameraStream] جاري بدء بث الكاميرا المحلية...');
             const stream = await localCameraHandler.startStream(
               camera.source,
               element,
             );
             streamRef.current = stream;
+            console.log('[useCameraStream] ✓ تم بدء بث الكاميرا المحلية بنجاح');
           } else {
+            console.error('[useCameraStream] خطأ: الكاميرا المحلية تتطلب عنصر فيديو');
             throw new Error("Local camera requires a video element");
           }
         }
         // RTSP Camera → WebRTC
         else if (camera.type === "rtsp") {
+          console.log('[useCameraStream] نوع الكاميرا: RTSP');
+
           if (!(element instanceof HTMLVideoElement)) {
+            console.error('[useCameraStream] خطأ: كاميرا RTSP تتطلب عنصر فيديو');
             throw new Error("RTSP camera requires a video element");
           }
 
           // Get WebRTC playback URL from backend
           const webrtcUrl = camera.playback?.webrtcUrl;
+          console.log('[useCameraStream] رابط WebRTC للتشغيل:', webrtcUrl || 'غير متاح');
 
           if (!webrtcUrl) {
+            console.error('[useCameraStream] خطأ: رابط WebRTC للتشغيل غير متاح');
+            console.error('[useCameraStream] تفاصيل الكاميرا:', JSON.stringify(camera, null, 2));
             throw new Error(
               "WebRTC playback URL غير متاح. " +
               "يرجى التأكد من أن MediaMTX مكوّن بشكل صحيح على الخادم."
@@ -78,23 +99,33 @@ export function useCameraStream(camera: Camera | null): UseCameraStreamReturn {
           }
 
           // Start WebRTC stream
+          console.log('[useCameraStream] جاري بدء بث WebRTC...');
           await webrtcHandler.startWebRTCStream(webrtcUrl, element);
           currentPlaybackUrlRef.current = webrtcUrl;
+          console.log('[useCameraStream] ✓ تم بدء بث WebRTC بنجاح');
         }
         // Network cameras (HLS, HTTP/MJPEG)
         else {
+          console.log('[useCameraStream] نوع الكاميرا: شبكية (' + camera.type + ')');
+          console.log('[useCameraStream] جاري بدء بث الكاميرا الشبكية...');
           await networkCameraHandler.startNetworkStream(
             camera.source,
             camera.type,
             element,
           );
+          console.log('[useCameraStream] ✓ تم بدء بث الكاميرا الشبكية بنجاح');
         }
 
         setIsPlaying(true);
+        console.log('[useCameraStream] ✓ تم تشغيل البث بنجاح');
       } catch (err) {
         const message = err instanceof Error ? err.message : "فشل بدء البث";
         setError(message);
-        console.error('[useCameraStream] Error starting stream:', err);
+        console.error('[useCameraStream] ✗ فشل بدء البث:', err);
+        if (err instanceof Error) {
+          console.error('[useCameraStream] رسالة الخطأ:', err.message);
+          console.error('[useCameraStream] تتبع الخطأ:', err.stack);
+        }
       } finally {
         setIsConnecting(false);
       }

@@ -136,6 +136,8 @@ class WebRTCHandler {
       });
 
       // Send offer to WHEP endpoint
+      console.log('[WebRTC] WHEP URL:', resolvedOptions.webrtcUrl);
+      console.log('[WebRTC] Sending SDP offer to WHEP endpoint...');
       const response = await fetch(resolvedOptions.webrtcUrl, {
         method: "POST",
         headers: {

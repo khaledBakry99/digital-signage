@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Camera, CameraType } from "@/lib/types/camera";
 import { cameraApi, type BackendCamera, type CameraState } from "@/lib/api";
+import type { CameraSourceType } from "@/lib/api/camera.api";
 import { useAuth } from "@/lib/hooks/useAuth";
 
 interface UseCamerasReturn {
@@ -47,13 +48,21 @@ function mapSourceTypeToCameraType(sourceType: string): CameraType {
 }
 
 export function mapBackendToFrontendCamera(bc: BackendCamera, isOnline?: boolean | number): Camera {
+  console.log('[mapBackendToFrontendCamera] ===== تحويل كاميرا من الباك إند إلى الفرونت إند =====');
+  console.log('[mapBackendToFrontendCamera] معرف الكاميرا:', bc.id);
+  console.log('[mapBackendToFrontendCamera] نوع المصدر من الباك إند:', bc.sourceType);
+  console.log('[mapBackendToFrontendCamera] اسم جهاز الكاميرا:', bc.cameraDeviceName);
+  console.log('[mapBackendToFrontendCamera] رابط التشغيل (playbackUrl):', bc.playbackUrl || 'غير متاح');
+  console.log('[mapBackendToFrontendCamera] مسار الكاميرا (cameraPathName):', bc.cameraPathName || 'غير متاح');
+
   // If isOnline is a number, it's an index from map() - ignore it
   const onlineStatus = typeof isOnline === 'boolean' ? isOnline : undefined;
 
   // Map backend sourceType to CameraType
   const cameraType = mapSourceTypeToCameraType(bc.sourceType);
+  console.log('[mapBackendToFrontendCamera] نوع الكاميرا بعد التحويل:', cameraType);
 
-  return {
+  const camera: Camera = {
     id: String(bc.id),
     name: bc.name,
     location: bc.location,
@@ -84,6 +93,11 @@ export function mapBackendToFrontendCamera(bc: BackendCamera, isOnline?: boolean
     createdAt: new Date(bc.createdAtUtc),
     updatedAt: new Date(bc.createdAtUtc),
   };
+
+  console.log('[mapBackendToFrontendCamera] معلومات التشغيل:', camera.playback);
+  console.log('[mapBackendToFrontendCamera] ✓ تم التحويل بنجاح');
+
+  return camera;
 }
 
 /**
@@ -105,35 +119,51 @@ export function useCameras(): UseCamerasReturn {
    * Load cameras from server
    */
   const loadCameras = useCallback(async () => {
+    console.log('[useCameras] ===== بدء تحميل قائمة الكاميرات =====');
+    console.log('[useCameras] معرف العميل:', clientId);
+
     try {
       setLoading(true);
       setError(null);
 
       if (!clientId) {
+        console.error('[useCameras] خطأ: معرف العميل غير موجود');
         setError("No client ID provided");
         setLoading(false);
         return;
       }
 
+      console.log('[useCameras] جاري جلب الكاميرات من الخادم...');
       const response = await cameraApi.getAll({ clientId });
+      console.log('[useCameras] تم استلام', response.length, 'كاميرا من الخادم');
 
       setBackendCameras(response);
       // On Login: Update all cameras status from last heartbeat
       const statusMap: { [cameraId: number]: boolean } = {};
 
+      console.log('[useCameras] جاري التحقق من حالة كل كاميرا...');
       for (const camera of response) {
+        console.log('[useCameras] التحقق من حالة الكاميرا', camera.id, '-', camera.name);
         try {
           const statusResponse = await cameraApi.checkOnlineStatus(camera.id);
           // Status depends on heartbeat from server
           statusMap[camera.id] = statusResponse.state === "Active";
+          console.log('[useCameras]   ✓ حالة الكاميرا:', statusMap[camera.id] ? 'نشطة' : 'غير نشطة');
         } catch (err) {
+          console.error('[useCameras]   ✗ فشل التحقق من حالة الكاميرا:', err);
           statusMap[camera.id] = false;
         }
       }
 
       setCameraOnlineStatus(statusMap);
-      setCameras(response.map(cam => mapBackendToFrontendCamera(cam, statusMap[cam.id])));
+
+      console.log('[useCameras] جاري تحويل الكاميرات إلى تنسيق الفرونت إند...');
+      const frontendCameras = response.map(cam => mapBackendToFrontendCamera(cam, statusMap[cam.id]));
+      setCameras(frontendCameras);
+
+      console.log('[useCameras] ✓ تم تحميل', frontendCameras.length, 'كاميرا بنجاح');
     } catch (err) {
+      console.error('[useCameras] ✗ فشل تحميل الكاميرات:', err);
       const message =
         err instanceof Error ? err.message : "Failed to load cameras from server";
       setError(message);
@@ -201,26 +231,52 @@ export function useCameras(): UseCamerasReturn {
       timeToScreenshot?: number;
       sourceType: string;
     }): Promise<BackendCamera> => {
+      console.log('[useCameras] ===== بدء عملية إضافة كاميرا =====');
+      console.log('[useCameras] البيانات المستلمة:', JSON.stringify(data, null, 2));
+      console.log('[useCameras] معرف العميل (clientId):', clientId);
+
       try {
         setError(null);
 
         if (!clientId) {
+          console.error('[useCameras] خطأ: معرف العميل غير موجود');
           throw new Error("No client ID provided");
         }
 
-        const newCamera = await cameraApi.create({
+        const requestData = {
           clientId,
           name: data.name,
           location: data.location,
           cameraDeviceName: data.cameraDeviceName,
           cameraDeviceRealName: data.cameraDeviceRealName,
           timeToScreenshot: data.timeToScreenshot || 10,
-          sourceType: data.sourceType as any, // Cast to match backend enum
-        });
+          sourceType: data.sourceType as CameraSourceType, // البak إند يتوقع string وليس enum
+        };
 
+        console.log('[useCameras] البيانات التي سيتم إرسالها إلى API:', JSON.stringify(requestData, null, 2));
+        console.log('[useCameras] جاري إرسال الطلب إلى /api/Cameras...');
+
+        const newCamera = await cameraApi.create(requestData);
+
+        console.log('[useCameras] ✓ تم إنشاء الكاميرا بنجاح');
+        console.log('[useCameras] معرف الكاميرا الجديدة:', newCamera.id);
+        console.log('[useCameras] نوع المصدر المرجع:', newCamera.sourceType);
+        console.log('[useCameras] رابط التشغيل (playbackUrl):', newCamera.playbackUrl || 'غير متاح');
+        console.log('[useCameras] مسار الكاميرا (cameraPathName):', newCamera.cameraPathName || 'غير متاح');
+
+        console.log('[useCameras] جاري تحديث قائمة الكاميرات...');
         await loadCameras();
+        console.log('[useCameras] ✓ تم تحديث قائمة الكاميرات');
+
         return newCamera;
       } catch (err) {
+        console.error('[useCameras] ✗ فشل إضافة الكاميرا:', err);
+
+        if (err instanceof Error) {
+          console.error('[useCameras] رسالة الخطأ:', err.message);
+          console.error('[useCameras] تتبع الخطأ:', err.stack);
+        }
+
         const message =
           err instanceof Error ? err.message : "Failed to add camera via server";
         setError(message);
@@ -255,7 +311,7 @@ export function useCameras(): UseCamerasReturn {
           cameraDeviceName: data.cameraDeviceName,
           cameraDeviceRealName: data.cameraDeviceRealName,
           timeToScreenshot: data.timeToScreenshot || 10,
-          sourceType: data.sourceType as any, // Cast to match backend enum
+          sourceType: (data.sourceType || 'USB') as CameraSourceType, // البak إند يتوقع string
         });
 
         await loadCameras();
