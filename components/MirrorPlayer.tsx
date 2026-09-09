@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { screenSyncService, type ScreenPlaybackState } from "@/lib/services/screenSyncService";
+import { API_CONFIG } from "@/lib/api/config";
 
 interface MirrorPlayerProps {
   screenId: number;
@@ -121,7 +122,7 @@ export default function MirrorPlayer({ screenId, isScreenOpen }: MirrorPlayerPro
           key={playbackState.mediaUrl}
           src={
             playbackState.mediaUrl?.startsWith("/")
-              ? `https://backend-42316129731.europe-west1.run.app${playbackState.mediaUrl}`
+              ? `${API_CONFIG.BASE_URL}${playbackState.mediaUrl}`
               : playbackState.mediaUrl ?? undefined
           }
           className="w-full h-full object-contain"
@@ -136,7 +137,7 @@ export default function MirrorPlayer({ screenId, isScreenOpen }: MirrorPlayerPro
           key={playbackState.mediaUrl}
           src={
             playbackState.mediaUrl?.startsWith("/")
-              ? `https://backend-42316129731.europe-west1.run.app${playbackState.mediaUrl}`
+              ? `${API_CONFIG.BASE_URL}${playbackState.mediaUrl}`
               : playbackState.mediaUrl ?? undefined
           }
           alt={playbackState.mediaName || "إعلان"}

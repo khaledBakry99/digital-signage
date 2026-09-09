@@ -1308,3 +1308,43 @@ button:not(:disabled),
 .light input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
+
+/* ===== Placeholder Styles ===== */
+/* Dark Theme Placeholder */
+:not(.light) input::placeholder,
+:not(.light) textarea::placeholder {
+  color: #94a3b8 !important;
+  opacity: 0.7 !important;
+}
+
+:not(.light) input:focus::placeholder,
+:not(.light) textarea:focus::placeholder {
+  color: #cbd5e1 !important;
+  opacity: 0.6 !important;
+}
+
+/* Light Theme Placeholder */
+.light input::placeholder,
+.light textarea::placeholder {
+  color: #64748b !important;
+  opacity: 0.7 !important;
+}
+
+.light input:focus::placeholder,
+.light textarea:focus::placeholder {
+  color: #94a3b8 !important;
+  opacity: 0.6 !important;
+}
+
+/* Ensure input text color is maintained */
+:not(.light) input,
+:not(.light) textarea,
+:not(.light) select {
+  color: #e2e8f0 !important;
+}
+
+.light input,
+.light textarea,
+.light select {
+  color: #1e293b !important;
+}

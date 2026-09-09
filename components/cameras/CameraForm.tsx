@@ -1,17 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { localCameraHandler } from "@/lib/cameras/streaming/localCamera";
 import { useTheme } from "@/lib/context/ThemeContext";
-import { cameraApi } from "@/lib/api/camera.api";
+import type { CameraSourceType } from "@/lib/api/camera.api";
 
 interface CameraFormProps {
   camera?: {
     id: string;
     name: string;
     location: string;
-    source: string; // represent cameraDeviceName
+    source: string;
     timeToScreenshot?: number;
+    sourceType?: string;
+    rtspConfig?: {
+      rtspUrl: string;
+    };
   };
   usedWebcamDeviceIds?: string[];
   onSubmit: (data: {
@@ -20,40 +24,42 @@ interface CameraFormProps {
     cameraDeviceName: string;
     cameraDeviceRealName?: string;
     timeToScreenshot: number;
+    sourceType: string;
   }) => Promise<void>;
   onCancel: () => void;
 }
 
-type SourceType = "webcam" | "hls" | "rtsp" | "http";
+type SourceType = "USB" | "RTSP" | "HLS" | "HTTP";
 
-function detectSourceType(source?: string): SourceType {
+function detectSourceType(sourceType?: string, source?: string): SourceType {
+  if (sourceType) {
+    const normalized = sourceType.toUpperCase();
+    if (normalized === "USB") return "USB";
+    if (normalized === "RTSP") return "RTSP";
+    if (normalized === "HLS") return "HLS";
+    if (normalized === "HTTP") return "HTTP";
+  }
+
+  // Fallback: derive from source URL
   const s = (source || "").toLowerCase();
-  if (s.startsWith("rtsp:")) return "rtsp";
-  if (s.endsWith(".m3u8") || s.includes("m3u8") || s.includes("/hls"))
-    return "hls";
-  if (s.startsWith("http:") || s.startsWith("https:")) return "http";
-  return "webcam";
+  if (s.startsWith("rtsp:")) return "RTSP";
+  if (s.endsWith(".m3u8") || s.includes("m3u8") || s.includes("/hls")) return "HLS";
+  if (s.startsWith("http:") || s.startsWith("https:")) return "HTTP";
+  return "USB";
 }
 
 function urlPlaceholder(type: SourceType): string {
   switch (type) {
-    case "hls":
+    case "HLS":
       return "مثال: https://example.com/live/stream.m3u8";
-    case "rtsp":
-      return "مثال: rtsp://user:pass@192.168.1.10:554/stream";
-    case "http":
+    case "RTSP":
+      return "مثال: rtsp://admin:password@192.168.1.10:554/h264.sdp";
+    case "HTTP":
       return "مثال: http://192.168.1.20/mjpeg";
     default:
       return "";
   }
 }
-
-const PRESETS = [
-  { value: 5, label: "5 ثوانٍ", desc: "استجابة فائقة السرعة" },
-  { value: 10, label: "10 ثوانٍ", desc: "المعدل الافتراضي الموصى به" },
-  { value: 30, label: "30 ثانية", desc: "تحليل متوازن مستمر" },
-  { value: 60, label: "60 ثانية", desc: "توفير موارد البث" },
-];
 
 export function CameraForm({
   camera,
@@ -63,36 +69,41 @@ export function CameraForm({
 }: CameraFormProps) {
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
+
   const [name, setName] = useState(camera?.name || "");
   const [location, setLocation] = useState(camera?.location || "");
   const [sourceType, setSourceType] = useState<SourceType>(
-    detectSourceType(camera?.source),
+    detectSourceType(camera?.sourceType, camera?.source)
   );
-  const [cameraDeviceName, setCameraDeviceName] = useState(
-    camera ? "" : "", // Always empty initially, even for editing
-  );
-  const [cameraDeviceRealName, setCameraDeviceRealName] = useState(
-    camera?.source ? "" : "", // Will be auto-filled for webcam
-  );
-  const [timeToScreenshot, setTimeToScreenshot] = useState<number>(
-    camera?.timeToScreenshot || 10,
-  );
+  const [cameraDeviceName, setCameraDeviceName] = useState("");
+  const [cameraDeviceRealName, setCameraDeviceRealName] = useState("");
+  const [timeToScreenshot] = useState<number>(camera?.timeToScreenshot || 10);
+
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingDevices, setLoadingDevices] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const locationInputRef = useRef<HTMLInputElement>(null);
+  const rtspUrlRef = useRef<HTMLInputElement>(null);
+
+  const FIELD_MAX_LENGTH = 40;
+
+  // Load webcam devices when USB is selected
   useEffect(() => {
     async function loadDevices() {
       try {
         setLoadingDevices(true);
-        if (sourceType === "webcam") {
+        if (sourceType === "USB") {
           const availableDevices = await localCameraHandler.getDevices();
           setDevices(availableDevices);
         } else {
           setDevices([]);
         }
       } catch (err) {
+        console.error('Failed to load webcam devices:', err);
       } finally {
         setLoadingDevices(false);
       }
@@ -100,37 +111,87 @@ export function CameraForm({
     loadDevices();
   }, [sourceType]);
 
+  // Initialize camera data when editing
+  useEffect(() => {
+    if (camera) {
+      if (sourceType === "RTSP" && camera.rtspConfig?.rtspUrl) {
+        setCameraDeviceName(camera.rtspConfig.rtspUrl);
+      } else if (sourceType === "USB") {
+        // Will be selected from dropdown
+        setCameraDeviceName("");
+      } else {
+        setCameraDeviceName(camera.source || "");
+      }
+    }
+  }, [camera, sourceType]);
+
+  const scrollToField = (ref: React.RefObject<HTMLElement | null>, fieldName: string) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    ref.current?.focus();
+    setFieldErrors(prev => ({ ...prev, [fieldName]: "هذا الحقل مطلوب" }));
+  };
+
+  const validateRtspUrl = (url: string): boolean => {
+    if (!url.startsWith('rtsp://')) {
+      setError('يجب أن يبدأ رابط RTSP بـ rtsp://');
+      return false;
+    }
+
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      setError('رابط RTSP غير صالح');
+      return false;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
 
+    // Validate required fields
     if (!name.trim()) {
-      setError("اسم الكاميرا مطلوب");
+      scrollToField(nameInputRef, 'name');
       return;
     }
     if (!location.trim()) {
-      setError("موقع الكاميرا مطلوب");
-      return;
-    }
-    // For non-webcam sources, cameraDeviceName is required
-    if (sourceType !== "webcam" && !cameraDeviceName.trim()) {
-      setError("رابط البث مطلوب");
+      scrollToField(locationInputRef, 'location');
       return;
     }
 
-    if (sourceType === "webcam" && devices.length > 0 && !cameraDeviceName.trim()) {
-      setError("الرجاء اختيار كاميرا الويب");
-      return;
-    }
-
-    if (sourceType === "webcam" && cameraDeviceName.trim()) {
-      const usedByOthers = new Set(
-        usedWebcamDeviceIds.filter((id) => !!id && id !== camera?.source),
-      );
-      if (usedByOthers.has(cameraDeviceName.trim())) {
-        setError("هذه الكاميرا مستخدمة بالفعل في كاميرا أخرى داخل التطبيق");
+    // Validate source-specific fields
+    if (sourceType === "USB") {
+      if (devices.length > 0 && !cameraDeviceName.trim()) {
+        setError("الرجاء اختيار كاميرا الويب");
         return;
+      }
+
+      // Check if webcam is already used
+      if (cameraDeviceName.trim()) {
+        const usedByOthers = new Set(
+          usedWebcamDeviceIds.filter((id) => !!id && id !== camera?.source)
+        );
+        if (usedByOthers.has(cameraDeviceName.trim())) {
+          setError("هذه الكاميرا مستخدمة بالفعل في كاميرا أخرى");
+          return;
+        }
+      }
+    } else {
+      // For network cameras (RTSP, HLS, HTTP)
+      if (!cameraDeviceName.trim()) {
+        setError("رابط البث مطلوب");
+        scrollToField(rtspUrlRef, 'url');
+        return;
+      }
+
+      // Validate RTSP URL
+      if (sourceType === "RTSP") {
+        if (!validateRtspUrl(cameraDeviceName.trim())) {
+          scrollToField(rtspUrlRef, 'url');
+          return;
+        }
       }
     }
 
@@ -139,9 +200,10 @@ export function CameraForm({
       await onSubmit({
         name: name.trim(),
         location: location.trim(),
-        cameraDeviceName: cameraDeviceName.trim() || "", // Allow empty for webcam (will use default)
+        cameraDeviceName: cameraDeviceName.trim(),
         cameraDeviceRealName: cameraDeviceRealName.trim() || undefined,
-        timeToScreenshot: Number(timeToScreenshot) || 10,
+        timeToScreenshot: 10,
+        sourceType: sourceType,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "فشل حفظ الكاميرا");
@@ -150,8 +212,9 @@ export function CameraForm({
     }
   };
 
-  const labelClass = `block text-xs font-bold mb-2 uppercase tracking-wider text-right ${isLightTheme ? "text-slate-500" : "text-slate-400"
-    }`;
+  const labelClass = `block text-xs font-bold mb-2 uppercase tracking-wider text-right ${
+    isLightTheme ? "text-slate-500" : "text-slate-400"
+  }`;
   const baseFieldClass = "w-full px-4 py-3 rounded-xl text-sm outline-none transition-all text-right";
   const inputClass = isLightTheme
     ? `${baseFieldClass} bg-white/90 border border-white/70 text-slate-700 shadow-[0_12px_35px_rgba(15,23,42,0.08)] focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100`
@@ -165,140 +228,144 @@ export function CameraForm({
       <div>
         <label className={labelClass}>اسم الكاميرا *</label>
         <input
+          ref={nameInputRef}
           type="text"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value.length <= FIELD_MAX_LENGTH) {
+              setName(value);
+              setFieldErrors(prev => ({ ...prev, name: "" }));
+            }
+          }}
           placeholder="مثال: كاميرا المدخل الرئيسي"
-          className={inputClass}
-          maxLength={50}
+          className={`${inputClass} ${fieldErrors.name ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+          maxLength={FIELD_MAX_LENGTH}
           required
         />
+        {fieldErrors.name && (
+          <p className="text-red-500 text-xs mt-1 animate-fade-in text-right">{fieldErrors.name}</p>
+        )}
       </div>
 
       {/* Location */}
       <div>
-        <label className={labelClass}>الموقع الجغرافي / الوصف *</label>
+        <label className={labelClass}>الموقع الجغرافي *</label>
         <input
+          ref={locationInputRef}
           type="text"
           value={location}
-          onChange={(e) => setLocation(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value.length <= FIELD_MAX_LENGTH) {
+              setLocation(value);
+              setFieldErrors(prev => ({ ...prev, location: "" }));
+            }
+          }}
           placeholder="مثال: الطابق الأول - قسم الخدمة"
-          className={inputClass}
-          maxLength={100}
+          className={`${inputClass} ${fieldErrors.location ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+          maxLength={FIELD_MAX_LENGTH}
           required
         />
+        {fieldErrors.location && (
+          <p className="text-red-500 text-xs mt-1 animate-fade-in text-right">{fieldErrors.location}</p>
+        )}
       </div>
 
-      {/* Source Type + Device/URL */}
+      {/* Source Type */}
       <div>
-        <label className={labelClass}>نوع المصدر</label>
+        <label className={labelClass}>نوع المصدر *</label>
         <div className="relative mb-3">
           <select
             value={sourceType}
             onChange={(e) => {
               const v = e.target.value as SourceType;
               setSourceType(v);
-              if (v !== "webcam") {
-                setCameraDeviceName("");
-              } else {
-                setCameraDeviceName("");
-              }
+              setCameraDeviceName("");
+              setCameraDeviceRealName("");
             }}
             className={selectClass}
           >
-            <option value="webcam" className={lightOptionClass}>
+            <option value="USB" className={lightOptionClass}>
               كاميرا محلية (Webcam)
             </option>
-            <option value="hls" className={lightOptionClass}>
+            <option value="RTSP" className={lightOptionClass}>
+              كاميرا  (RTSP)
+            </option>
+            <option value="HLS" className={lightOptionClass}>
               HLS Stream
             </option>
-            <option value="rtsp" className={lightOptionClass}>
-              RTSP Stream
-            </option>
-            <option value="http" className={lightOptionClass}>
+            <option value="HTTP" className={lightOptionClass}>
               HTTP/MJPEG Stream
             </option>
           </select>
           <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
         </div>
 
-        {/* Conditional: Stream URL */}
+        {/* Source-specific input */}
         <div>
           <label className={labelClass}>
-            {sourceType === "webcam"
-              ? "اختيار كاميرا الويب"
-              : "رابط البث *"}
+            {sourceType === "USB" ? "اختيار كاميرا الويب *" : "رابط البث *"}
           </label>
-          {sourceType === "webcam" ? (
+
+          {sourceType === "USB" ? (
             <div className="relative">
               <select
                 value={cameraDeviceName}
                 onChange={(e) => {
                   const deviceId = e.target.value;
                   setCameraDeviceName(deviceId);
-                  // Auto-fill real name from device label
                   const selectedDevice = devices.find(d => d.deviceId === deviceId);
                   setCameraDeviceRealName(selectedDevice?.label || "");
                 }}
                 disabled={loadingDevices}
-                className={`${selectClass} ${!cameraDeviceName.trim() && devices.length > 0 ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
+                className={`${selectClass} ${!cameraDeviceName.trim() && devices.length > 0 ? "border-red-500" : ""}`}
               >
                 <option value="" disabled className={lightOptionClass}>
                   {loadingDevices ? "جاري تحميل الكاميرات..." : "اختر كاميرا"}
                 </option>
                 {devices.map((d, idx) => (
-                  <option
-                    key={d.deviceId}
-                    value={d.deviceId}
-                    className={lightOptionClass}
-                  >
+                  <option key={d.deviceId} value={d.deviceId} className={lightOptionClass}>
                     {d.label || `كاميرا ${idx + 1} (${d.deviceId.slice(0, 8)}...)`}
                   </option>
                 ))}
               </select>
               <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
             </div>
           ) : (
-            <input
-              type="url"
-              value={cameraDeviceName}
-              onChange={(e) => setCameraDeviceName(e.target.value)}
-              placeholder={urlPlaceholder(sourceType)}
-              className={inputClass}
-              required
-            />
+            <>
+              <input
+                ref={rtspUrlRef}
+                type="text"
+                value={cameraDeviceName}
+                onChange={(e) => setCameraDeviceName(e.target.value)}
+                placeholder={urlPlaceholder(sourceType)}
+                className={inputClass}
+                required
+              />
+              {sourceType === "RTSP" && (
+                <p className="text-xs mt-2 text-slate-500 text-right">
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>
 
-
       {error && (
-        <div
-          className={`p-3 rounded-xl text-sm animate-fade-in text-right border ${isLightTheme ? "bg-rose-50 border-rose-200 text-rose-500" : "bg-[rgba(239,68,68,0.1)] border-rose-500/30 text-rose-300"}`}
-        >
+        <div className={`p-3 rounded-xl text-sm animate-fade-in text-right border ${
+          isLightTheme
+            ? "bg-rose-50 border-rose-200 text-rose-500"
+            : "bg-[rgba(239,68,68,0.1)] border-rose-500/30 text-rose-300"
+        }`}>
           {error}
         </div>
       )}
@@ -307,19 +374,19 @@ export function CameraForm({
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={loading || (sourceType === "webcam" && !cameraDeviceName.trim() && devices.length > 0)}
-          className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer active:scale-95 bg-linear-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 shadow-md shadow-indigo-500/10 hover:shadow-indigo-500/20"
+          disabled={loading || (sourceType === "USB" && !cameraDeviceName.trim() && devices.length > 0)}
+          className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer active:scale-95 bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 shadow-md"
         >
-          {loading
-            ? "جاري الحفظ..."
-            : camera
-              ? "تحديث الكاميرا"
-              : "إضافة الكاميرا"}
+          {loading ? "جاري الحفظ..." : camera ? "تحديث الكاميرا" : "إضافة الكاميرا"}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer border ${isLightTheme ? "bg-white/85 border-white/60 text-slate-500 hover:text-slate-700 hover:shadow-[0_15px_30px_rgba(15,23,42,0.08)]" : "bg-slate-950/40 border-white/5 text-slate-400 hover:bg-slate-950/60 hover:text-slate-200"}`}
+          className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer border ${
+            isLightTheme
+              ? "bg-white/85 border-white/60 text-slate-500 hover:text-slate-700"
+              : "bg-slate-950/40 border-white/5 text-slate-400 hover:text-slate-200"
+          }`}
         >
           إلغاء
         </button>

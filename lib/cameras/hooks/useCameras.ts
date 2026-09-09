@@ -17,6 +17,7 @@ interface UseCamerasReturn {
     cameraDeviceName: string;
     cameraDeviceRealName?: string;
     timeToScreenshot?: number;
+    sourceType: string;
   }) => Promise<BackendCamera>;
   updateCamera: (
     id: string | number,
@@ -26,6 +27,7 @@ interface UseCamerasReturn {
       cameraDeviceName: string;
       cameraDeviceRealName?: string;
       timeToScreenshot?: number;
+      sourceType?: string;
     },
   ) => Promise<BackendCamera>;
   deleteCamera: (id: string | number) => Promise<void>;
@@ -34,12 +36,13 @@ interface UseCamerasReturn {
   refreshCameras: () => Promise<void>;
 }
 
-// Function to convert server object to interface-compatible object
-function deriveTypeFromSource(source: string): CameraType {
-  const s = (source || "").toLowerCase();
-  if (s.startsWith("rtsp:")) return "rtsp";
-  if (s.endsWith(".m3u8") || s.includes("m3u8") || s.includes("/hls")) return "hls";
-  if (s.startsWith("http:") || s.startsWith("https:")) return "http";
+// Function to map backend sourceType to CameraType
+function mapSourceTypeToCameraType(sourceType: string): CameraType {
+  const normalized = sourceType.toLowerCase();
+  if (normalized === "rtsp") return "rtsp";
+  if (normalized === "hls") return "hls";
+  if (normalized === "http") return "http";
+  if (normalized === "usb" || normalized === "local" || normalized === "webcam") return "local";
   return "local";
 }
 
@@ -47,14 +50,29 @@ export function mapBackendToFrontendCamera(bc: BackendCamera, isOnline?: boolean
   // If isOnline is a number, it's an index from map() - ignore it
   const onlineStatus = typeof isOnline === 'boolean' ? isOnline : undefined;
 
+  // Map backend sourceType to CameraType
+  const cameraType = mapSourceTypeToCameraType(bc.sourceType);
+
   return {
     id: String(bc.id),
     name: bc.name,
     location: bc.location,
-    type: deriveTypeFromSource(bc.cameraDeviceName),
+    type: cameraType,
     source: bc.cameraDeviceName,
+    sourceType: bc.sourceType,
+
+    // NEW: Playback information from Backend
+    playback: bc.playbackUrl ? {
+      webrtcUrl: bc.playbackUrl,
+      streamPath: bc.cameraPathName
+    } : undefined,
+
+    // RTSP config (source only, not for playback)
+    rtspConfig: bc.sourceType === 'RTSP' && bc.cameraDeviceName ? {
+      rtspUrl: bc.cameraDeviceName
+    } : undefined,
+
     cameraDeviceRealName: bc.cameraDeviceRealName,
-    // Status depends on heartbeat, not state
     status: onlineStatus !== undefined ? (onlineStatus ? "connected" : "disconnected") : (bc.state === "Active" ? "connected" : "disconnected"),
     timeToScreenshot: bc.timeToScreenshot,
     settings: {
@@ -181,6 +199,7 @@ export function useCameras(): UseCamerasReturn {
       cameraDeviceName: string;
       cameraDeviceRealName?: string;
       timeToScreenshot?: number;
+      sourceType: string;
     }): Promise<BackendCamera> => {
       try {
         setError(null);
@@ -196,6 +215,7 @@ export function useCameras(): UseCamerasReturn {
           cameraDeviceName: data.cameraDeviceName,
           cameraDeviceRealName: data.cameraDeviceRealName,
           timeToScreenshot: data.timeToScreenshot || 10,
+          sourceType: data.sourceType as any, // Cast to match backend enum
         });
 
         await loadCameras();
@@ -222,6 +242,7 @@ export function useCameras(): UseCamerasReturn {
         cameraDeviceName: string;
         cameraDeviceRealName?: string;
         timeToScreenshot?: number;
+        sourceType?: string;
       },
     ): Promise<BackendCamera> => {
       try {
@@ -234,6 +255,7 @@ export function useCameras(): UseCamerasReturn {
           cameraDeviceName: data.cameraDeviceName,
           cameraDeviceRealName: data.cameraDeviceRealName,
           timeToScreenshot: data.timeToScreenshot || 10,
+          sourceType: data.sourceType as any, // Cast to match backend enum
         });
 
         await loadCameras();

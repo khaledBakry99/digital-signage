@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent, useEffect } from "react";
+import { useState, FormEvent, useEffect, useRef } from "react";
 import type { Campaign, CampaignStatus, CreateCampaignInput, DayOfWeek } from "@/lib/types/campaign";
 import { useMediaAssets } from "@/lib/hooks/useMediaAssets";
 import { useTheme } from "@/lib/context/ThemeContext";
@@ -38,6 +38,14 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
 
   const [name, setName] = useState(campaign?.name || "");
   const [description, setDescription] = useState(campaign?.description || "");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({}); // Track field-specific errors
+  
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Character limits
+  const NAME_MAX_LENGTH = 40;
+  const DESCRIPTION_MAX_LENGTH = 100;
   const ALLOWED_STATUSES: AllowedFormStatus[] = ['Active', 'Paused', 'Completed'];
   const initialStatus: AllowedFormStatus = (campaign?.status && ALLOWED_STATUSES.includes(campaign.status as AllowedFormStatus)
     ? (campaign.status as AllowedFormStatus)
@@ -67,6 +75,13 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
     setDaysOfWeek(prev =>
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
     );
+  };
+
+  // Scroll to field and highlight it
+  const scrollToField = (ref: React.RefObject<HTMLElement | null>, fieldName: string) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    ref.current?.focus();
+    setFieldErrors(prev => ({ ...prev, [fieldName]: "هذا الحقل مطلوب" }));
   };
 
   const getUtcDateWithCurrentTime = (dateStr: string): string => {
@@ -100,6 +115,19 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    
+    // Validate required fields
+    setFieldErrors({});
+    
+    if (!name.trim()) {
+      scrollToField(nameInputRef, 'name');
+      return;
+    }
+    
+    if (!description.trim()) {
+      scrollToField(descriptionInputRef, 'description');
+      return;
+    }
 
     const data: CreateCampaignInput = {
       clientId,
@@ -135,26 +163,67 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
             اسم الحملة *
           </label>
           <input
+            ref={nameInputRef}
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="input-dark"
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value.length <= NAME_MAX_LENGTH) {
+                setName(value);
+                setFieldErrors(prev => ({ ...prev, name: "" }));
+              }
+            }}
+            className={`input-dark ${fieldErrors.name ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+            style={isLightTheme && fieldErrors.name ? {
+              backgroundColor: "#ffffff",
+              border: "1px solid #ef4444",
+              color: "#0f172a",
+            } : undefined}
             placeholder="أدخل اسم الحملة"
             required
+            maxLength={NAME_MAX_LENGTH}
           />
+          {/* Character counter */}
+          <div className={`text-xs mt-1 text-left ${name.length >= NAME_MAX_LENGTH ? 'text-red-500 font-semibold' : isLightTheme ? 'text-slate-400' : 'text-slate-500'}`}>
+            {name.length} / {NAME_MAX_LENGTH}
+          </div>
+          {fieldErrors.name && (
+            <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.name}</p>
+          )}
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
-            الوصف
+            الوصف *
           </label>
           <textarea
+            ref={descriptionInputRef}
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="input-dark"
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value.length <= DESCRIPTION_MAX_LENGTH) {
+                setDescription(value);
+                setFieldErrors(prev => ({ ...prev, description: "" }));
+              }
+            }}
+            className={`input-dark ${fieldErrors.description ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+            style={isLightTheme && fieldErrors.description ? {
+              backgroundColor: "#ffffff",
+              border: "1px solid #ef4444",
+              color: "#0f172a",
+            } : undefined}
             rows={3}
             placeholder="وصف الحملة..."
+            required
+            maxLength={DESCRIPTION_MAX_LENGTH}
           />
+          {/* Character counter */}
+          <div className={`text-xs mt-1 text-left ${description.length >= DESCRIPTION_MAX_LENGTH ? 'text-red-500 font-semibold' : isLightTheme ? 'text-slate-400' : 'text-slate-500'}`}>
+            {description.length} / {DESCRIPTION_MAX_LENGTH}
+          </div>
+          {fieldErrors.description && (
+            <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.description}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">

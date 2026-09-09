@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
+import { API_CONFIG } from "@/lib/api/config";
 
 interface ScreenPlayerProps {
   advertisement: MediaAsset | null;
@@ -17,7 +18,7 @@ function resolveMediaUrl(url: string): string {
 
   // If it's relative, prefix with the backend host
   if (url.startsWith("/")) {
-    return `https://backend-42316129731.europe-west1.run.app${url}`;
+    return `${API_CONFIG.BASE_URL}${url}`;
   }
 
   // Return URL as-is from backend

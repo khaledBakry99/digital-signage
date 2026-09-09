@@ -88,6 +88,7 @@ export default function CamerasPage() {
     cameraDeviceName: string;
     cameraDeviceRealName?: string;
     timeToScreenshot: number;
+    sourceType: string;
   }) => {
     const newCamera = await addCamera(data);
     // Save camera device name for permanent binding
@@ -106,6 +107,7 @@ export default function CamerasPage() {
     cameraDeviceName: string;
     cameraDeviceRealName?: string;
     timeToScreenshot: number;
+    sourceType?: string;
   }) => {
     if (!editingCamera) return;
     await updateCamera(editingCamera, data);

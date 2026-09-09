@@ -257,8 +257,8 @@ export default function ScreensPage() {
       )}
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="glass p-6 animate-pulse space-y-4">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">

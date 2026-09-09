@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 
 export type CameraState = 'Active' | 'Inactive';
+export type CameraSourceType = 'USB' | 'RTSP' | 'HLS' | 'HTTP';
 
 export interface BackendCamera {
   id: number;
@@ -14,6 +15,10 @@ export interface BackendCamera {
   createdAtUtc: string;
   heartbeat: string;
   screenIds: number[];
+  // New fields from Backend
+  sourceType: CameraSourceType;
+  playbackUrl?: string;
+  cameraPathName?: string;
 }
 
 export interface HeartbeatResponse {
@@ -28,6 +33,10 @@ export interface HeartbeatResponse {
   createdAtUtc: string;
   heartbeat: string;
   screenIds: number[];
+  // New fields from Backend
+  sourceType: CameraSourceType;
+  playbackUrl?: string;
+  cameraPathName?: string;
 }
 
 export interface OnlineCheckResponse {
@@ -43,6 +52,7 @@ export interface CreateCameraInput {
   cameraDeviceName: string;
   cameraDeviceRealName?: string;
   timeToScreenshot: number;
+  sourceType: CameraSourceType;
 }
 
 export interface UpdateCameraInput {
@@ -51,6 +61,7 @@ export interface UpdateCameraInput {
   cameraDeviceName: string;
   cameraDeviceRealName?: string;
   timeToScreenshot: number;
+  sourceType: CameraSourceType;
 }
 
 class CameraApi {
@@ -82,22 +93,18 @@ class CameraApi {
     return apiClient.post<BackendCamera>(`/api/Cameras/${id}/deactivate`);
   }
 
-  // جديد: إرسال heartbeat للكاميرا (يتم كل 40 ثانية)
   async sendHeartbeat(id: number): Promise<HeartbeatResponse> {
     return apiClient.post<HeartbeatResponse>(`/api/Cameras/${id}/heartbeat`);
   }
 
-  // جديد: التحقق من حالة الكاميرا (هل هي متصلة أم لا)
   async checkOnlineStatus(id: number): Promise<OnlineCheckResponse> {
     return apiClient.post<OnlineCheckResponse>(`/api/Cameras/${id}/camera-online-check`);
   }
 
-  // حفظ اسم جهاز الكاميرا (للربط الدائم)
   async setCameraDeviceName(id: number, deviceName: string): Promise<void> {
     return apiClient.post<void>(`/api/Cameras/${id}/set-camera-device-name?devicename=${encodeURIComponent(deviceName)}`);
   }
 
-  // جلب اسم جهاز الكاميرا المحفوظ
   async getCameraDeviceName(id: number): Promise<{ cameraDeviceName: string }> {
     return apiClient.get<{ cameraDeviceName: string }>(`/api/Cameras/${id}/get-camera-device-name`);
   }
