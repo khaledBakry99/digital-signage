@@ -90,15 +90,29 @@ export default function CamerasPage() {
     timeToScreenshot: number;
     sourceType: string;
   }) => {
-    const newCamera = await addCamera(data);
-    // Save camera device name for permanent binding
-    if (newCamera.id && data.cameraDeviceName) {
-      try {
-        await cameraApi.setCameraDeviceName(newCamera.id, data.cameraDeviceName);
-      } catch (err) {
+    console.log('[CamerasPage] ===== بدء إضافة كاميرا جديدة =====');
+    console.log('[CamerasPage] البيانات:', JSON.stringify(data, null, 2));
+    
+    try {
+      const newCamera = await addCamera(data);
+      console.log('[CamerasPage] ✓ تم إنشاء الكاميرا:', newCamera);
+      
+      // Save camera device name for permanent binding
+      if (newCamera.id && data.cameraDeviceName) {
+        try {
+          console.log('[CamerasPage] جاري حفظ اسم جهاز الكاميرا...');
+          await cameraApi.setCameraDeviceName(newCamera.id, data.cameraDeviceName);
+          console.log('[CamerasPage] ✓ تم حفظ اسم جهاز الكاميرا');
+        } catch (err) {
+          console.error('[CamerasPage] ✗ فشل حفظ اسم جهاز الكاميرا:', err);
+        }
       }
+      
+      setShowForm(false);
+      console.log('[CamerasPage] ✓ تمت إضافة الكاميرا بنجاح');
+    } catch (error) {
+      console.error('[CamerasPage] ✗ فشل إضافة الكاميرا:', error);
     }
-    setShowForm(false);
   };
 
   const handleUpdateCamera = async (data: {

@@ -151,19 +151,31 @@ export function CameraForm({
     setError(null);
     setFieldErrors({});
 
+    console.log('[CameraForm] ===== بدء عملية إضافة/تعديل الكاميرا =====');
+    console.log('[CameraForm] نوع المصدر المحدد:', sourceType);
+    console.log('[CameraForm] اسم الكاميرا:', name.trim());
+    console.log('[CameraForm] الموقع:', location.trim());
+
     // Validate required fields
     if (!name.trim()) {
+      console.error('[CameraForm] خطأ: اسم الكاميرا مطلوب');
       scrollToField(nameInputRef, 'name');
       return;
     }
     if (!location.trim()) {
+      console.error('[CameraForm] خطأ: الموقع مطلوب');
       scrollToField(locationInputRef, 'location');
       return;
     }
 
     // Validate source-specific fields
     if (sourceType === "USB") {
+      console.log('[CameraForm] التحقق من كاميرا USB...');
+      console.log('[CameraForm] عدد الأجهزة المتاحة:', devices.length);
+      console.log('[CameraForm] الجهاز المحدد:', cameraDeviceName);
+
       if (devices.length > 0 && !cameraDeviceName.trim()) {
+        console.error('[CameraForm] خطأ: لم يتم اختيار كاميرا ويب');
         setError("الرجاء اختيار كاميرا الويب");
         return;
       }
@@ -174,13 +186,18 @@ export function CameraForm({
           usedWebcamDeviceIds.filter((id) => !!id && id !== camera?.source)
         );
         if (usedByOthers.has(cameraDeviceName.trim())) {
+          console.error('[CameraForm] خطأ: الكاميرا مستخدمة بالفعل');
           setError("هذه الكاميرا مستخدمة بالفعل في كاميرا أخرى");
           return;
         }
       }
     } else {
       // For network cameras (RTSP, HLS, HTTP)
+      console.log('[CameraForm] التحقق من كاميرا شبكية (' + sourceType + ')...');
+      console.log('[CameraForm] رابط البث:', cameraDeviceName.trim());
+
       if (!cameraDeviceName.trim()) {
+        console.error('[CameraForm] خطأ: رابط البث مطلوب');
         setError("رابط البث مطلوب");
         scrollToField(rtspUrlRef, 'url');
         return;
@@ -188,24 +205,36 @@ export function CameraForm({
 
       // Validate RTSP URL
       if (sourceType === "RTSP") {
+        console.log('[CameraForm] التحقق من صحة رابط RTSP...');
         if (!validateRtspUrl(cameraDeviceName.trim())) {
+          console.error('[CameraForm] خطأ: رابط RTSP غير صالح');
           scrollToField(rtspUrlRef, 'url');
           return;
         }
+        console.log('[CameraForm] ✓ رابط RTSP صالح');
       }
     }
 
+    const submitData = {
+      name: name.trim(),
+      location: location.trim(),
+      cameraDeviceName: cameraDeviceName.trim(),
+      cameraDeviceRealName: cameraDeviceRealName.trim() || undefined,
+      timeToScreenshot: 10,
+      sourceType: sourceType,
+    };
+
+    console.log('[CameraForm] البيانات التي سيتم إرسالها:', JSON.stringify(submitData, null, 2));
+
     try {
       setLoading(true);
-      await onSubmit({
-        name: name.trim(),
-        location: location.trim(),
-        cameraDeviceName: cameraDeviceName.trim(),
-        cameraDeviceRealName: cameraDeviceRealName.trim() || undefined,
-        timeToScreenshot: 10,
-        sourceType: sourceType,
-      });
+      console.log('[CameraForm] جاري إرسال البيانات إلى الخادم...');
+      const result = await onSubmit(submitData);
+      console.log('[CameraForm] ✓ تم حفظ الكاميرا بنجاح');
+      console.log('[CameraForm] النتيجة من الخادم:', result);
     } catch (err) {
+      console.error('[CameraForm] ✗ فشل حفظ الكاميرا:', err);
+      console.error('[CameraForm] تفاصيل الخطأ:', err instanceof Error ? err.message : err);
       setError(err instanceof Error ? err.message : "فشل حفظ الكاميرا");
     } finally {
       setLoading(false);

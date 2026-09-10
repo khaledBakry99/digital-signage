@@ -1,8 +1,5 @@
 import type { ReconnectConfig } from "@/lib/types/camera";
 
-/**
- * WebRTC Connection State
- */
 export type WebRTCConnectionState =
   | "idle"
   | "connecting"
@@ -10,30 +7,25 @@ export type WebRTCConnectionState =
   | "disconnected"
   | "failed";
 
-/**
- * WebRTC Handler Options
- */
 export interface WebRTCOptions {
-  webrtcUrl: string; // WHEP endpoint URL
+  webrtcUrl: string;
   reconnectConfig?: ReconnectConfig;
   onStateChange?: (state: WebRTCConnectionState) => void;
   onError?: (error: Error) => void;
 }
 
-/**
- * WebRTC/WHEP Handler
- * Manages WebRTC connections for RTSP camera playback
- * Uses WHEP (WebRTC HTTP Egress Protocol) for server-to-client streaming
- */
+interface WebRTCConnection {
+  peerConnection: RTCPeerConnection;
+  videoElement: HTMLVideoElement;
+  state: WebRTCConnectionState;
+  reconnectAttempts: number;
+  reconnectTimer?: ReturnType<typeof setTimeout>;
+  options: WebRTCOptions;
+  manuallyStopped: boolean;
+}
+
 class WebRTCHandler {
-  private connections: Map<string, {
-    peerConnection: RTCPeerConnection;
-    videoElement: HTMLVideoElement;
-    state: WebRTCConnectionState;
-    reconnectAttempts: number;
-    reconnectTimer?: NodeJS.Timeout;
-    options: WebRTCOptions;
-  }> = new Map();
+  private connections = new Map<string, WebRTCConnection>();
 
   private readonly DEFAULT_RECONNECT_CONFIG: ReconnectConfig = {
     maxAttempts: 3,
@@ -41,272 +33,633 @@ class WebRTCHandler {
     backoffMultiplier: 1.5,
   };
 
-  /**
-   * Start WebRTC stream using WHEP protocol
-   */
   async startStream(
     url: string,
     videoElement: HTMLVideoElement,
-    options: WebRTCOptions,
+    options?: WebRTCOptions,
   ): Promise<void> {
     return this.startWebRTCStream(url, videoElement, options);
   }
 
-  /**
-   * Start WebRTC stream (alias for useCameraStream)
-   */
   async startWebRTCStream(
     url: string,
     videoElement: HTMLVideoElement,
     options?: WebRTCOptions,
   ): Promise<void> {
-    // Resolve options with defaults
-    const resolvedOptions: WebRTCOptions = options || {
+    const resolvedOptions: WebRTCOptions = {
       webrtcUrl: url,
-      reconnectConfig: this.DEFAULT_RECONNECT_CONFIG,
+      ...options,
+      reconnectConfig: {
+        ...this.DEFAULT_RECONNECT_CONFIG,
+        ...(options?.reconnectConfig ?? {}),
+      },
     };
 
-    try {
-      // Check if already connected
-      const existing = this.connections.get(url);
-      if (existing) {
-        this.stopStream(url);
+    console.log("[WebRTC] Starting stream");
+    console.log("[WebRTC] WHEP URL:", resolvedOptions.webrtcUrl);
+
+    if (!WebRTCHandler.isSupported()) {
+      const error = new Error(
+        "WebRTC is not supported by this browser.",
+      );
+
+      resolvedOptions.onError?.(error);
+      throw error;
+    }
+
+    if (this.connections.has(url)) {
+      this.stopStream(url);
+    }
+
+    const peerConnection = new RTCPeerConnection({
+      iceServers: [
+        {
+          urls: "stun:stun.l.google.com:19302",
+        },
+        {
+          urls: "stun:stun1.l.google.com:19302",
+        },
+      ],
+    });
+
+    const connection: WebRTCConnection = {
+      peerConnection,
+      videoElement,
+      state: "connecting",
+      reconnectAttempts: 0,
+      options: resolvedOptions,
+      manuallyStopped: false,
+    };
+
+    this.connections.set(url, connection);
+
+    this.updateConnectionState(
+      url,
+      "connecting",
+      resolvedOptions,
+    );
+
+    peerConnection.onconnectionstatechange = () => {
+      const state = peerConnection.connectionState;
+
+      console.log("[WebRTC] Connection state:", state);
+
+      const mappedState =
+        this.mapRTCStateToState(state);
+
+      this.updateConnectionState(
+        url,
+        mappedState,
+        resolvedOptions,
+      );
+
+      if (state === "connected") {
+        const current = this.connections.get(url);
+
+        if (current) {
+          current.reconnectAttempts = 0;
+        }
+
+        console.log("[WebRTC] Connected successfully");
       }
 
-      const reconnectConfig = {
-        ...this.DEFAULT_RECONNECT_CONFIG,
-        ...resolvedOptions.reconnectConfig,
-      };
+      if (state === "failed") {
+        this.handleConnectionFailure(
+          url,
+          resolvedOptions,
+          resolvedOptions.reconnectConfig!,
+        );
+      }
+    };
 
-      // Create RTCPeerConnection
-      const peerConnection = new RTCPeerConnection({
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
-        ],
-      });
+    peerConnection.oniceconnectionstatechange = () => {
+      const state =
+        peerConnection.iceConnectionState;
 
-      // Track connection state
-      peerConnection.onconnectionstatechange = () => {
-        const state = this.mapRTCStateToState(peerConnection.connectionState);
-        this.updateConnectionState(url, state, resolvedOptions);
-      };
+      console.log("[WebRTC] ICE state:", state);
 
-      peerConnection.oniceconnectionstatechange = () => {
-        if (peerConnection.iceConnectionState === "failed") {
-          this.handleConnectionFailure(url, resolvedOptions, reconnectConfig);
+      if (state === "failed") {
+        this.handleConnectionFailure(
+          url,
+          resolvedOptions,
+          resolvedOptions.reconnectConfig!,
+        );
+      }
+    };
+
+    peerConnection.onicegatheringstatechange = () => {
+      console.log(
+        "[WebRTC] ICE gathering:",
+        peerConnection.iceGatheringState,
+      );
+    };
+
+    peerConnection.onsignalingstatechange = () => {
+      console.log(
+        "[WebRTC] Signaling state:",
+        peerConnection.signalingState,
+      );
+    };
+
+    peerConnection.ontrack = (event) => {
+      console.log(
+        "[WebRTC] Track received:",
+        event.track.kind,
+      );
+
+      if (event.track.kind !== "video") {
+        return;
+      }
+
+      let stream: MediaStream;
+
+      if (event.streams.length > 0) {
+        stream = event.streams[0];
+      } else {
+        stream = new MediaStream();
+        stream.addTrack(event.track);
+      }
+
+      videoElement.srcObject = stream;
+
+      videoElement.autoplay = true;
+      videoElement.muted = true;
+      videoElement.playsInline = true;
+
+      videoElement
+        .play()
+        .then(() => {
+          console.log("[WebRTC] Video playback started");
+        })
+        .catch((error) => {
+          console.error(
+            "[WebRTC] Video play failed:",
+            error,
+          );
+
+          const err =
+            error instanceof Error
+              ? error
+              : new Error("Video playback failed");
+
+          resolvedOptions.onError?.(err);
+        });
+    };
+
+    console.log(
+      "[WebRTC] Adding recvonly video transceiver",
+    );
+
+    peerConnection.addTransceiver("video", {
+      direction: "recvonly",
+    });
+
+    console.log("[WebRTC] Creating SDP offer");
+
+    const offer =
+      await peerConnection.createOffer();
+
+    await peerConnection.setLocalDescription(offer);
+
+    console.log(
+      "[WebRTC] Local description set",
+    );
+
+    await this.waitForIceGathering(
+      peerConnection,
+      10000,
+    );
+
+    console.log(
+      "[WebRTC] ICE gathering completed",
+    );
+
+    const localDescription =
+      peerConnection.localDescription;
+
+    if (!localDescription?.sdp) {
+      throw new Error(
+        "Local WebRTC SDP is empty.",
+      );
+    }
+
+    console.log(
+      "[WebRTC] Sending WHEP request:",
+      resolvedOptions.webrtcUrl,
+    );
+
+    let response: Response;
+
+    try {
+      response = await fetch(
+        resolvedOptions.webrtcUrl,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/sdp",
+            Accept: "application/sdp",
+          },
+
+          body: localDescription.sdp,
+        },
+      );
+    } catch (error) {
+      const err =
+        error instanceof Error
+          ? error
+          : new Error(
+            "Could not connect to WHEP server.",
+          );
+
+      console.error(
+        "[WebRTC] WHEP fetch failed:",
+        err,
+      );
+
+      throw err;
+    }
+
+    console.log(
+      "[WebRTC] WHEP response:",
+      response.status,
+      response.statusText,
+    );
+
+    if (!response.ok) {
+      let body = "";
+
+      try {
+        body = await response.text();
+      } catch {
+      }
+
+      console.error(
+        "[WebRTC] WHEP server error:",
+        response.status,
+        body,
+      );
+
+      throw new Error(
+        `WHEP server returned ${response.status} ${response.statusText}${body ? `: ${body}` : ""
+        }`,
+      );
+    }
+
+    const answerSdp =
+      await response.text();
+
+    if (!answerSdp) {
+      throw new Error(
+        "WHEP server returned an empty SDP answer.",
+      );
+    }
+
+    console.log(
+      "[WebRTC] SDP answer received",
+    );
+
+    await peerConnection.setRemoteDescription({
+      type: "answer",
+      sdp: answerSdp,
+    });
+
+    console.log(
+      "[WebRTC] Remote description set",
+    );
+
+    this.updateConnectionState(
+      url,
+      "connecting",
+      resolvedOptions,
+    );
+  }
+
+  private waitForIceGathering(
+    peerConnection: RTCPeerConnection,
+    timeoutMs: number,
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      if (
+        peerConnection.iceGatheringState ===
+        "complete"
+      ) {
+        resolve();
+        return;
+      }
+
+      let finished = false;
+
+      const checkState = () => {
+        if (
+          peerConnection.iceGatheringState ===
+          "complete"
+        ) {
+          finish();
         }
       };
 
-      // Handle incoming tracks
-      peerConnection.ontrack = (event) => {
-        if (event.track.kind === "video") {
-          videoElement.srcObject = event.streams[0];
-          videoElement.play().catch((err) => {
-            resolvedOptions.onError?.(new Error(`Video play failed: ${err.message}`));
-          });
-        }
-      };
-
-      // Create offer for WHEP
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-
-      // Wait for ICE gathering to complete
-      await new Promise<void>((resolve) => {
-        if (peerConnection.iceGatheringState === "complete") {
-          resolve();
+      const finish = () => {
+        if (finished) {
           return;
         }
 
-        const checkState = () => {
-          if (peerConnection.iceGatheringState === "complete") {
-            peerConnection.removeEventListener("icegatheringstatechange", checkState);
-            resolve();
-          }
-        };
+        finished = true;
 
-        peerConnection.addEventListener("icegatheringstatechange", checkState);
+        peerConnection.removeEventListener(
+          "icegatheringstatechange",
+          checkState,
+        );
 
-        // Timeout after 10 seconds
-        setTimeout(() => {
-          peerConnection.removeEventListener("icegatheringstatechange", checkState);
-          resolve();
-        }, 10000);
-      });
+        clearTimeout(timer);
 
-      // Send offer to WHEP endpoint
-      const response = await fetch(resolvedOptions.webrtcUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/sdp",
-        },
-        body: peerConnection.localDescription?.sdp,
-      });
+        resolve();
+      };
 
-      if (!response.ok) {
-        throw new Error(`WHEP server returned ${response.status}`);
-      }
-
-      const answerSdp = await response.text();
-
-      // Set remote description (answer from server)
-      await peerConnection.setRemoteDescription(
-        new RTCSessionDescription({
-          type: "answer",
-          sdp: answerSdp,
-        }),
+      peerConnection.addEventListener(
+        "icegatheringstatechange",
+        checkState,
       );
 
-      // Store connection
-      this.connections.set(url, {
-        peerConnection,
-        videoElement,
-        state: "connecting",
-        reconnectAttempts: 0,
-        options: resolvedOptions,
-      });
+      const timer = setTimeout(() => {
+        console.warn(
+          "[WebRTC] ICE gathering timeout",
+        );
 
-      this.updateConnectionState(url, "connecting", resolvedOptions);
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error("WebRTC connection failed");
-      resolvedOptions.onError?.(err);
-      this.updateConnectionState(url, "failed", resolvedOptions);
-      throw err;
-    }
+        finish();
+      }, timeoutMs);
+    });
   }
 
-  /**
-   * Stop WebRTC stream (alias for useCameraStream)
-   */
   stopWebRTCStream(url: string): void {
     this.stopStream(url);
   }
 
-  /**
-   * Stop WebRTC stream
-   */
   stopStream(url: string): void {
-    const connection = this.connections.get(url);
-    if (!connection) return;
+    const connection =
+      this.connections.get(url);
 
-    // Clear reconnect timer
-    if (connection.reconnectTimer) {
-      clearTimeout(connection.reconnectTimer);
+    if (!connection) {
+      return;
     }
 
-    // Close peer connection
-    connection.peerConnection.close();
+    console.log(
+      "[WebRTC] Stopping:",
+      url,
+    );
+
+    connection.manuallyStopped = true;
+
+    if (connection.reconnectTimer) {
+      clearTimeout(
+        connection.reconnectTimer,
+      );
+
+      connection.reconnectTimer = undefined;
+    }
+
+    const stream =
+      connection.videoElement.srcObject;
+
+    if (stream instanceof MediaStream) {
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
+    }
+
     connection.videoElement.srcObject = null;
 
-    // Remove from map
+    if (
+      connection.peerConnection.signalingState !==
+      "closed"
+    ) {
+      connection.peerConnection.close();
+    }
+
     this.connections.delete(url);
   }
 
-  /**
-   * Stop all WebRTC streams
-   */
   stopAllStreams(): void {
-    this.connections.forEach((_, url) => {
+    const urls = Array.from(
+      this.connections.keys(),
+    );
+
+    urls.forEach((url) => {
       this.stopStream(url);
     });
   }
 
-  /**
-   * Get connection state for a URL
-   */
-  getConnectionState(url: string): WebRTCConnectionState {
-    return this.connections.get(url)?.state || "idle";
+  getConnectionState(
+    url: string,
+  ): WebRTCConnectionState {
+    return (
+      this.connections.get(url)?.state ??
+      "idle"
+    );
   }
 
-  /**
-   * Reconnect to a WebRTC stream
-   */
   async reconnect(
     url: string,
     videoElement: HTMLVideoElement,
-    options: WebRTCOptions,
+    options?: WebRTCOptions,
   ): Promise<void> {
-    this.stopStream(url);
-    await this.startStream(url, videoElement, options);
+    const existing =
+      this.connections.get(url);
+
+    if (existing) {
+      existing.manuallyStopped = true;
+
+      if (existing.reconnectTimer) {
+        clearTimeout(
+          existing.reconnectTimer,
+        );
+      }
+
+      const stream =
+        existing.videoElement.srcObject;
+
+      if (stream instanceof MediaStream) {
+        stream.getTracks().forEach((track) => {
+          track.stop();
+        });
+      }
+
+      existing.videoElement.srcObject = null;
+
+      existing.peerConnection.close();
+
+      this.connections.delete(url);
+    }
+
+    await this.startWebRTCStream(
+      url,
+      videoElement,
+      options ?? {
+        webrtcUrl: url,
+      },
+    );
   }
 
-  /**
-   * Handle connection failure with reconnection logic
-   */
   private handleConnectionFailure(
     url: string,
     options: WebRTCOptions,
     reconnectConfig: ReconnectConfig,
   ): void {
-    const connection = this.connections.get(url);
-    if (!connection) return;
+    const connection =
+      this.connections.get(url);
 
-    connection.reconnectAttempts++;
-
-    if (connection.reconnectAttempts > reconnectConfig.maxAttempts) {
-      this.updateConnectionState(url, "failed", options);
-      options.onError?.(new Error("Max reconnection attemptsReached"));
+    if (!connection) {
       return;
     }
 
-    // Calculate delay with exponential backoff
-    const delay = reconnectConfig.delayMs * Math.pow(
-      reconnectConfig.backoffMultiplier,
-      connection.reconnectAttempts - 1,
+    if (connection.manuallyStopped) {
+      return;
+    }
+
+    if (connection.reconnectTimer) {
+      return;
+    }
+
+    connection.reconnectAttempts++;
+
+    console.warn(
+      "[WebRTC] Reconnect attempt:",
+      connection.reconnectAttempts,
+      "/",
+      reconnectConfig.maxAttempts,
     );
 
-    this.updateConnectionState(url, "connecting", options);
+    if (
+      connection.reconnectAttempts >
+      reconnectConfig.maxAttempts
+    ) {
+      this.updateConnectionState(
+        url,
+        "failed",
+        options,
+      );
 
-    // Schedule reconnection
-    connection.reconnectTimer = setTimeout(() => {
-      this.reconnect(url, connection.videoElement, options).catch((err) => {
-        options.onError?.(err);
-      });
-    }, delay);
+      options.onError?.(
+        new Error(
+          "Maximum WebRTC reconnection attempts reached.",
+        ),
+      );
+
+      return;
+    }
+
+    const delay =
+      reconnectConfig.delayMs *
+      Math.pow(
+        reconnectConfig.backoffMultiplier,
+        connection.reconnectAttempts - 1,
+      );
+
+    console.log(
+      `[WebRTC] Reconnecting in ${delay}ms`,
+    );
+
+    this.updateConnectionState(
+      url,
+      "connecting",
+      options,
+    );
+
+    const videoElement =
+      connection.videoElement;
+
+    connection.reconnectTimer =
+      setTimeout(async () => {
+        const current =
+          this.connections.get(url);
+
+        if (!current) {
+          return;
+        }
+
+        try {
+          current.peerConnection.close();
+        } catch {
+        }
+
+        this.connections.delete(url);
+
+        try {
+          await this.startWebRTCStream(
+            url,
+            videoElement,
+            options,
+          );
+        } catch (error) {
+          const err =
+            error instanceof Error
+              ? error
+              : new Error(
+                "WebRTC reconnect failed.",
+              );
+
+          console.error(
+            "[WebRTC] Reconnect failed:",
+            err,
+          );
+
+          options.onError?.(err);
+        }
+      }, delay);
   }
 
-  /**
-   * Update connection state and notify listeners
-   */
   private updateConnectionState(
     url: string,
     state: WebRTCConnectionState,
     options: WebRTCOptions,
   ): void {
-    const connection = this.connections.get(url);
+    const connection =
+      this.connections.get(url);
+
     if (connection) {
       connection.state = state;
     }
+
+    console.log(
+      `[WebRTC] State: ${state}`,
+    );
+
     options.onStateChange?.(state);
   }
 
-  /**
-   * Map RTC connection state to our state
-   */
   private mapRTCStateToState(
     rtcState: RTCPeerConnectionState,
   ): WebRTCConnectionState {
     switch (rtcState) {
-      case "connected":
-        return "connected";
+      case "new":
+        return "connecting";
+
       case "connecting":
         return "connecting";
+
+      case "connected":
+        return "connected";
+
       case "disconnected":
-      case "closed":
         return "disconnected";
+
       case "failed":
         return "failed";
+
+      case "closed":
+        return "disconnected";
+
       default:
         return "idle";
     }
   }
 
-  /**
-   * Check if WebRTC is supported
-   */
   static isSupported(): boolean {
-    return typeof RTCPeerConnection !== "undefined";
+    return (
+      typeof window !== "undefined" &&
+      typeof RTCPeerConnection !==
+      "undefined"
+    );
   }
 }
 

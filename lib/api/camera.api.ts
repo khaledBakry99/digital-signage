@@ -74,7 +74,25 @@ class CameraApi {
   }
 
   async create(data: CreateCameraInput): Promise<BackendCamera> {
-    return apiClient.post<BackendCamera>('/api/Cameras', data);
+    console.log('[CameraApi] ===== بدء طلب إنشاء كاميرا =====');
+    console.log('[CameraApi] نوع المصدر:', data.sourceType);
+    console.log('[CameraApi] نقطة النهاية (Endpoint): POST /api/Cameras');
+    console.log('[CameraApi] البيانات المرسلة:', JSON.stringify(data, null, 2));
+
+    // Use extended timeout for RTSP cameras (they need time to connect to MediaMTX)
+    const isNetworkCamera = data.sourceType !== 'USB';
+    if (isNetworkCamera) {
+      console.log('[CameraApi] ⏱️ استخدام مهلة ممتدة (120 ثانية) لكاميرا شبكية');
+    }
+
+    try {
+      const response = await apiClient.post<BackendCamera>('/api/Cameras', data, isNetworkCamera);
+      console.log('[CameraApi] ✓ نجح الطلب - الاستجابة:', JSON.stringify(response, null, 2));
+      return response;
+    } catch (error) {
+      console.error('[CameraApi] ✗ فشل الطلب:', error);
+      throw error;
+    }
   }
 
   async update(id: number, data: UpdateCameraInput): Promise<BackendCamera> {
