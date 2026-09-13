@@ -13,30 +13,36 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    
+
     # Container name for easy reference
     container_name: digital-signage-app
-    
+
     # Port mapping: expose port 3000 from container to host
     ports:
       - "3000:3000"
-    
+
     # Environment variables for the application
     environment:
       # Set Node environment to production for optimal performance
       NODE_ENV: production
+      # Docker configuration for accessing host services
+      NEXT_PUBLIC_API_BASE_URL: http://host.docker.internal:8080
       # Optional: Add custom API URLs, secrets, or other configuration here
       # API_URL: http://localhost:3000
       # NEXT_PUBLIC_API_URL: http://localhost:3000
-    
+
+      # Allow container to access host machine services
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     # Restart policy: automatically restart the container if it crashes
     # Options: no, always, on-failure, unless-stopped
     restart: unless-stopped
-    
+
     # Health check configuration
     healthcheck:
       # Command to check if the application is healthy
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      test: [ "CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" ]
       # How often to run the health check (in seconds)
       interval: 30s
       # Timeout for each health check (in seconds)
@@ -45,7 +51,7 @@ services:
       start_period: 40s
       # Number of consecutive failed checks before marking unhealthy
       retries: 3
-    
+
     # Optional: resource limits
     # Uncomment to limit CPU and memory usage
     # deploy:
@@ -56,7 +62,7 @@ services:
     #     reservations:
     #       cpus: '0.5'
     #       memory: 256M
-    
+
     # Optional: logging configuration
     logging:
       driver: "json-file"
