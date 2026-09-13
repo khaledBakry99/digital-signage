@@ -102,7 +102,10 @@ export function useCameraStream(camera: Camera | null): UseCameraStreamReturn {
           // Only replace if backend is NOT localhost (i.e., backend is remote)
           if (webrtcUrl.includes('localhost') || webrtcUrl.includes('127.0.0.1')) {
             const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://backend-42316129731.europe-west1.run.app';
-            const isBackendLocal = backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1');
+            const isBackendLocal = backendUrl.includes('localhost') 
+                    || backendUrl.includes('127.0.0.1')
+                    || backendUrl.includes('host.docker.internal');
+
             
             // Only replace localhost if backend is remote
             if (!isBackendLocal) {

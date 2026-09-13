@@ -13,14 +13,24 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    
+      args:
+        # Reads from a NEXT_PUBLIC_API_BASE_URL env var (shell or .env file)
+        # if set, otherwise falls back to http://localhost:8080.
+        # This MUST be a URL the BROWSER can reach, not host.docker.internal.
+        #
+        # Examples:
+        #   Local only:      NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+        #   From network:    NEXT_PUBLIC_API_BASE_URL=http://192.168.1.100:8080
+        #   Production:      NEXT_PUBLIC_API_BASE_URL=https://api.yourdomain.com
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
+
     # Container name for easy reference
     container_name: digital-signage-app
-    
+
     # Port mapping: expose port 3000 from container to host
     ports:
       - "3000:3000"
-    
+
     # Environment variables for the application
     environment:
       # Set Node environment to production for optimal performance
@@ -28,15 +38,19 @@ services:
       # Optional: Add custom API URLs, secrets, or other configuration here
       # API_URL: http://localhost:3000
       # NEXT_PUBLIC_API_URL: http://localhost:3000
-    
+
+      # Allow container to access host machine services
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     # Restart policy: automatically restart the container if it crashes
     # Options: no, always, on-failure, unless-stopped
     restart: unless-stopped
-    
+
     # Health check configuration
     healthcheck:
       # Command to check if the application is healthy
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      test: [ "CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" ]
       # How often to run the health check (in seconds)
       interval: 30s
       # Timeout for each health check (in seconds)
@@ -45,7 +59,7 @@ services:
       start_period: 40s
       # Number of consecutive failed checks before marking unhealthy
       retries: 3
-    
+
     # Optional: resource limits
     # Uncomment to limit CPU and memory usage
     # deploy:
@@ -56,7 +70,7 @@ services:
     #     reservations:
     #       cpus: '0.5'
     #       memory: 256M
-    
+
     # Optional: logging configuration
     logging:
       driver: "json-file"
@@ -83,17 +97,30 @@ services:
 # Usage Instructions:
 # ============================================
 #
-# Start the application:
-#   docker-compose up -d
+# Local use only (same machine as backend):
+#   docker-compose up -d --build
+#
+# From another device on the network (phone, another PC, etc.):
+#   NEXT_PUBLIC_API_BASE_URL=http://192.168.1.100:8080 docker-compose up -d --build
+#
+# Production (public domain):
+#   NEXT_PUBLIC_API_BASE_URL=https://api.yourdomain.com docker-compose up -d --build
+#
+# Or create a .env file next to this docker-compose.yml with:
+#   NEXT_PUBLIC_API_BASE_URL=http://192.168.1.100:8080
+# then simply run:
+#   docker-compose up -d --build
+#
+# NOTE: NEXT_PUBLIC_API_BASE_URL is baked into the browser bundle at BUILD
+# TIME. If you change it, you must rebuild with --build; a plain restart
+# ("docker-compose up -d" without --build, or "docker-compose restart")
+# will NOT pick up the new value.
 #
 # View logs:
 #   docker-compose logs -f
 #
 # Stop the application:
 #   docker-compose down
-#
-# Rebuild and start (if Dockerfile changed):
-#   docker-compose up -d --build
 #
 # View service status:
 #   docker-compose ps
