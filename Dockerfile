@@ -19,6 +19,11 @@ RUN npm ci
 # Copy the entire project source code
 COPY . .
 
+# Receive the backend URL from docker-compose (build.args) so it gets
+# baked into the browser bundle correctly during the build below.
+ARG NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+
 # Build the Next.js application
 # This creates the optimized production build in the .next directory
 RUN npm run build
