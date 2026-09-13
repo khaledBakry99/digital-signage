@@ -7,6 +7,7 @@ import { useSuperAdminDashboard } from "@/lib/hooks/useSuperAdminDashboard";
 import { useSuperAdminClients } from "@/lib/hooks/useSuperAdminClients";
 import { useSuperAdminUsers } from "@/lib/hooks/useSuperAdminUsers";
 import { getRoleLabel } from "@/lib/utils/roleLabels";
+import { useTheme } from "@/lib/context/ThemeContext";
 
 const metricColors = {
   clients: "#34d399",
@@ -76,6 +77,27 @@ function MetricCard({
   );
 }
 
+const LOCALIZED_ALERT_PATTERNS: Array<{ test: RegExp; transform: (matches: RegExpMatchArray) => string }> = [
+  {
+    test: /^(.*)\s+is\s+Offline\.?$/i,
+    transform: (matches) => `${matches[1].trim()} غير متصل.`,
+  },
+  {
+    test: /^(.*)\s+account\s+is\s+disabled\.?$/i,
+    transform: (matches) => `تم تعطيل حساب ${matches[1].trim()}.`,
+  },
+];
+
+function localizeAlert(alert: string): string {
+  for (const pattern of LOCALIZED_ALERT_PATTERNS) {
+    const match = alert.match(pattern.test);
+    if (match) {
+      return pattern.transform(match);
+    }
+  }
+  return alert;
+}
+
 function AlertsPanel({ alerts = [] }: { alerts?: string[] }) {
   if (!alerts.length) {
     return (
@@ -93,7 +115,7 @@ function AlertsPanel({ alerts = [] }: { alerts?: string[] }) {
           className="px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center gap-2 text-sm"
         >
           <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
-          <p className="flex-1 text-slate-200">{alert}</p>
+          <p className="flex-1 text-slate-200">{localizeAlert(alert)}</p>
         </div>
       ))}
     </div>
@@ -104,6 +126,7 @@ export default function SuperAdminDashboardPage() {
   const { stats, loading: statsLoading } = useSuperAdminDashboard();
   const { clients, loading: clientsLoading } = useSuperAdminClients();
   const { users, loading: usersLoading } = useSuperAdminUsers();
+  const { theme } = useTheme();
 
   const alerts = stats?.alerts ?? [];
   const totalClients = clients.length;
@@ -156,45 +179,73 @@ export default function SuperAdminDashboardPage() {
 
   return (
     <SuperAdminGuard>
-      <div className="p-8 space-y-8 min-h-screen bg-[#0a0e1a]">
+      <div className={`p-8 space-y-8 min-h-screen ${theme === "light" ? "bg-slate-50" : "bg-[#0a0e1a]"}`}>
         {/* Header Section */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-800/80 via-[#0f1419] to-slate-900/80 border border-white/10 p-6">
+        <div className={`relative overflow-hidden rounded-3xl border p-6 ${theme === "light"
+          ? "bg-gradient-to-br from-white via-slate-50 to-slate-100 border-slate-200"
+          : "bg-gradient-to-br from-slate-800/80 via-[#0f1419] to-slate-900/80 border-white/10"
+          }`}>
           {/* Decorative gradient orbs */}
-          <div className="absolute -top-20 -right-20 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl" />
+          <div className={`absolute -top-20 -right-20 w-64 h-64 rounded-full blur-3xl ${theme === "light" ? "bg-indigo-200/30" : "bg-violet-500/10"}`} />
+          <div className={`absolute -bottom-20 -left-20 w-48 h-48 rounded-full blur-3xl ${theme === "light" ? "bg-violet-200/30" : "bg-indigo-500/10"}`} />
 
           <div className="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
             {/* Left Side: Title & Description */}
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-white mb-2">لوحة تحكم النظام الشاملة</h1>
-              <p className="text-slate-400 text-sm leading-relaxed max-w-2xl">
+              <h1 className={`text-3xl font-bold mb-2 ${theme === "light" ? "text-slate-800" : "text-white"}`}>لوحة تحكم النظام الشاملة</h1>
+              <p className={`text-sm leading-relaxed max-w-2xl ${theme === "light" ? "text-slate-600" : "text-slate-400"}`}>
                 رؤية لحظية لحالة العملاء، الشاشات، والحملات مع تنبيهات ذكية تساعدك على اتخاذ قرارات أسرع.
               </p>
             </div>
 
             {/* Right Side: Quick Stats Card */}
             <div className="w-full lg:w-[260px]">
-              <div className="bg-slate-900/50 rounded-2xl border border-white/5 p-4">
+              <div className={`rounded-2xl border p-4 ${theme === "light"
+                ? "bg-white border-slate-200"
+                : "bg-slate-900/50 border-white/5"
+                }`}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className={`w-12 h-12 rounded-xl border flex items-center justify-center ${theme === "light"
+                    ? "bg-violet-100 border-violet-200"
+                    : "bg-violet-500/10 border-violet-500/20"
+                    }`}>
+                    <svg className={`w-6 h-6 ${theme === "light" ? "text-violet-600" : "text-violet-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400">النشاط العام</p>
-                    <p className="text-lg font-bold text-violet-400">{stats?.totalClients ?? 0} عميل</p>
+                    <p className={`text-xs ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>النشاط العام</p>
+                    {statsLoading || !stats ? (
+                      <div className={`w-16 h-6 rounded-lg skeleton-shimmer ${theme === "light" ? "bg-slate-200" : ""}`} />
+                    ) : (
+                      <p className={`text-lg font-bold ${theme === "light" ? "text-violet-600" : "text-violet-400"}`}>{stats?.totalClients ?? 0} عميل</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2 text-sm">
-                  <div className="flex-1 text-center py-2 px-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                    <span className="block text-lg font-bold text-emerald-400">{stats?.totalScreens ?? 0}</span>
-                    <span className="text-slate-400 text-xs">شاشة</span>
-                  </div>
-                  <div className="flex-1 text-center py-2 px-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <span className="block text-lg font-bold text-blue-400">{stats?.connectedScreens ?? 0}</span>
-                    <span className="text-slate-400 text-xs">متصلة</span>
-                  </div>
+                  {statsLoading || !stats ? (
+                    <>
+                      <div className={`flex-1 h-14 rounded-lg skeleton-shimmer ${theme === "light" ? "bg-slate-200" : ""}`} />
+                      <div className={`flex-1 h-14 rounded-lg skeleton-shimmer ${theme === "light" ? "bg-slate-200" : ""}`} />
+                    </>
+                  ) : (
+                    <>
+                      <div className={`flex-1 text-center py-2 px-2 rounded-lg border ${theme === "light"
+                        ? "bg-emerald-50 border-emerald-200"
+                        : "bg-emerald-500/10 border-emerald-500/20"
+                        }`}>
+                        <span className={`block text-lg font-bold ${theme === "light" ? "text-emerald-600" : "text-emerald-400"}`}>{stats?.totalScreens ?? 0}</span>
+                        <span className={`text-xs ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>شاشة</span>
+                      </div>
+                      <div className={`flex-1 text-center py-2 px-2 rounded-lg border ${theme === "light"
+                        ? "bg-blue-50 border-blue-200"
+                        : "bg-blue-500/10 border-blue-500/20"
+                        }`}>
+                        <span className={`block text-lg font-bold ${theme === "light" ? "text-blue-600" : "text-blue-400"}`}>{stats?.connectedScreens ?? 0}</span>
+                        <span className={`text-xs ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>متصلة</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -203,9 +254,13 @@ export default function SuperAdminDashboardPage() {
 
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative z-10">
           <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {statsLoading && !stats ? (
+            {statsLoading || !stats ? (
               Array.from({ length: 4 }).map((_, idx) => (
-                <SkeletonCard key={idx} className="rounded-2xl bg-slate-800/50 border border-white/5 p-5" lines={4} />
+                <div key={idx} className={`rounded-2xl border p-5 ${theme === "light" ? "bg-white border-slate-200" : "bg-slate-800/50 border-white/5"}`}>
+                  <div className={`w-12 h-12 rounded-lg skeleton-shimmer mb-3 ${theme === "light" ? "bg-slate-200" : ""}`} />
+                  <div className={`w-24 h-6 rounded-lg skeleton-shimmer mb-2 ${theme === "light" ? "bg-slate-200" : ""}`} />
+                  <div className={`w-32 h-4 rounded-lg skeleton-shimmer ${theme === "light" ? "bg-slate-200" : ""}`} />
+                </div>
               ))
             ) : (
               <>
@@ -337,17 +392,31 @@ export default function SuperAdminDashboardPage() {
               <div className="w-1 h-8 rounded-full bg-gradient-to-b from-emerald-500 to-teal-500" />
               <h2 className="text-lg font-bold text-white">مؤشرات موحدة</h2>
             </div>
-            <div className="space-y-3">
-              {insightItems.map((item) => (
-                <div key={item.label} className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50 border border-white/5">
-                  <div>
-                    <p className="text-xs text-slate-400">{item.label}</p>
-                    <p className="text-xs text-slate-500">{item.desc}</p>
+            {statsLoading || !stats ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, idx) => (
+                  <div key={idx} className={`flex items-center justify-between p-3 rounded-xl border ${theme === "light" ? "bg-white border-slate-200" : "bg-slate-800/50 border-white/5"}`}>
+                    <div className="flex-1">
+                      <div className={`w-20 h-3 rounded-lg skeleton-shimmer mb-2 ${theme === "light" ? "bg-slate-200" : ""}`} />
+                      <div className={`w-24 h-3 rounded-lg skeleton-shimmer ${theme === "light" ? "bg-slate-200" : ""}`} />
+                    </div>
+                    <div className={`w-12 h-6 rounded-lg skeleton-shimmer ${theme === "light" ? "bg-slate-200" : ""}`} />
                   </div>
-                  <p className="text-xl font-bold" style={{ color: item.color }}>{item.value}</p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {insightItems.map((item) => (
+                  <div key={item.label} className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50 border border-white/5">
+                    <div>
+                      <p className="text-xs text-slate-400">{item.label}</p>
+                      <p className="text-xs text-slate-500">{item.desc}</p>
+                    </div>
+                    <p className="text-xl font-bold" style={{ color: item.color }}>{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -424,12 +493,7 @@ export default function SuperAdminDashboardPage() {
           </div>
         </section>
 
-        {isBusy && (
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-900/90 backdrop-blur-sm border border-white/10 rounded-full text-sm flex items-center gap-2 text-slate-300 shadow-2xl">
-            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-            يتم تحديث البيانات...
-          </div>
-        )}
+
       </div>
     </SuperAdminGuard>
   );

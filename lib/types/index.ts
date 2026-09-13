@@ -1,33 +1,33 @@
-// نماذج البيانات الأساسية للنظام
+// Core data models for the system
 
 export interface Advertisement {
   id: string; // UUID
-  name: string; // اسم الإعلان
-  type: "image" | "video"; // نوع الإعلان
-  fileUrl: string; // رابط الملف المحلي
-  fileName: string; // اسم الملف الأصلي
-  fileSize: number; // حجم الملف بالبايت
-  screenId: number; // رقم الشاشة (1-5)
-  duration?: number; // مدة العرض للصور (ثواني)
-  createdAt: Date; // تاريخ الإنشاء
-  updatedAt: Date; // تاريخ آخر تحديث
+  name: string; // Ad name
+  type: "image" | "video"; // Ad type
+  fileUrl: string; // Local file URL
+  fileName: string; // Original file name
+  fileSize: number; // File size in bytes
+  screenId: number; // Screen number (1-5)
+  duration?: number; // Display duration for images (seconds)
+  createdAt: Date; // Creation date
+  updatedAt: Date; // Last update date
 }
 
 export interface Screen {
   id: number; // 1-5
-  name: string; // "شاشة 1", "شاشة 2", ...
-  currentAdId: string | null; // معرف الإعلان الحالي
-  cameraId: string | null; // معرف الكاميرا المرتبطة
-  status: "active" | "idle"; // حالة الشاشة
-  lastUpdate: Date; // آخر تحديث
+  name: string; // "Screen 1", "Screen 2", ...
+  currentAdId: string | null; // Current ad ID
+  cameraId: string | null; // Linked camera ID
+  status: "active" | "idle"; // Screen status
+  lastUpdate: Date; // Last update
 }
 
 export interface Screenshot {
   id: string; // UUID
-  screenId: number; // رقم الشاشة (1-5)
-  imageUrl: string; // رابط الصورة المحلي
-  imageSize: number; // حجم الصورة بالبايت
-  timestamp: Date; // وقت الالتقاط
+  screenId: number; // Screen number (1-5)
+  imageUrl: string; // Local image URL
+  imageSize: number; // Image size in bytes
+  timestamp: Date; // Capture time
 }
 
 export interface AppConfig {
@@ -44,7 +44,7 @@ export interface Change {
   timestamp: Date;
 }
 
-// أنواع التخزين
+// Storage types
 export interface AdvertisementsStore {
   [id: string]: Advertisement;
 }
@@ -53,7 +53,7 @@ export interface ScreensStore {
   [id: number]: Screen;
 }
 
-// صيغ الملفات المدعومة
+// Supported file formats
 export const SUPPORTED_IMAGE_FORMATS = [
   "image/jpeg",
   "image/png",

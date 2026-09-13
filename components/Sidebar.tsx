@@ -2,10 +2,10 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useMemo, useEffect } from "react";
-import { useAdvertisements } from "@/lib/hooks/useAdvertisements";
-import { useCameras } from "@/lib/cameras/hooks/useCameras";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { getRoleLabel } from "@/lib/utils/roleLabels";
+import { useTheme } from "@/lib/context/ThemeContext";
+import { dashboardApi, MediaStats, CamerasStats } from "@/lib/api/dashboard.api";
 
 // Professional Icons
 const DashboardIcon = () => (
@@ -16,11 +16,6 @@ const DashboardIcon = () => (
 const AdsIcon = () => (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-  </svg>
-);
-const PlusIcon = () => (
-  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
   </svg>
 );
 const CampaignIcon = () => (
@@ -48,7 +43,6 @@ const ManageIcon = () => (
 const adNavItems = [
   { href: "/", label: "لوحة التحكم", shortLabel: "الرئيسية", icon: DashboardIcon },
   { href: "/ads", label: "الإعلانات", shortLabel: "إعلانات", icon: AdsIcon },
-  { href: "/ads/new", label: "إضافة إعلان", shortLabel: "إضافة", icon: PlusIcon },
   { href: "/campaigns", label: "الحملات الإعلانية", shortLabel: "حملات", icon: CampaignIcon },
   { href: "/screens", label: "شاشات الإعلانات", shortLabel: "شاشات", icon: ScreensIcon },
   { href: "/screens/manage", label: "إدارة الشاشات", shortLabel: "إدارة", icon: ManageIcon },
@@ -61,10 +55,34 @@ const cameraNavItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { advertisements } = useAdvertisements();
-  const { cameras } = useCameras();
-  const { user, logout } = useAuth();
+  const { clientId, user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [mediaStats, setMediaStats] = useState<MediaStats | null>(null);
+  const [camerasStats, setCamerasStats] = useState<CamerasStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!clientId) return;
+
+    const fetchStats = async () => {
+      try {
+        setStatsLoading(true);
+        const [mediaData, camerasData] = await Promise.all([
+          dashboardApi.getMediaStats(clientId),
+          dashboardApi.getCamerasStats(clientId),
+        ]);
+        setMediaStats(mediaData);
+        setCamerasStats(camerasData);
+      } catch (err) {
+        console.error("Error fetching sidebar stats:", err);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [clientId]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -76,18 +94,18 @@ export default function Sidebar() {
 
   const quickStats = useMemo(() => [
     {
-      label: isCollapsed ? "إ" : "إعلانات",
+      label: isCollapsed ? "إ" : "إعلان",
       fullLabel: "إعلانات",
-      value: advertisements.length,
+      value: mediaStats?.totalMedia ?? 0,
       color: "#818cf8",
     },
     {
       label: isCollapsed ? "ك" : "كاميرات",
       fullLabel: "كاميرات",
-      value: cameras.length,
+      value: camerasStats?.totalCameras ?? 0,
       color: "#34d399",
     },
-  ], [advertisements.length, cameras.length, isCollapsed]);
+  ], [mediaStats?.totalMedia, camerasStats?.totalCameras, isCollapsed]);
 
   const handleLogout = () => {
     logout();
@@ -107,8 +125,8 @@ export default function Sidebar() {
       className={`fixed top-0 right-0 h-screen flex flex-col z-40 transition-all duration-300 ease-out will-change-transform ${isCollapsed ? "translate-x-0" : ""}`}
       style={{
         width: isCollapsed ? "80px" : "280px",
-        background: "linear-gradient(180deg, #0a0e1a 0%, #0f1419 50%, #0a0e1a 100%)",
-        borderLeft: "1px solid rgba(255, 255, 255, 0.08)",
+        background: "var(--sidebar-bg)",
+        borderLeft: "1px solid var(--border)",
         boxShadow: isCollapsed
           ? "-2px 0 16px rgba(0, 0, 0, 0.3)"
           : "-4px 0 32px rgba(0, 0, 0, 0.4)",
@@ -133,30 +151,20 @@ export default function Sidebar() {
       {/* Header */}
       <div className={`p-5 border-b border-white/5 ${isCollapsed ? "text-center px-3" : ""}`}>
         {!isCollapsed ? (
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
-                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#0a0e1a]" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Digital Signage</h2>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">نظام الشاشات</p>
-            </div>
+          <div className="flex items-center justify-center">
+            <img
+              src="/logo-midume.png"
+              alt="Firasa Logo"
+              className="h-12 w-auto object-contain"
+            />
           </div>
         ) : (
           <div className="flex flex-col items-center">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#0a0e1a]" />
-            </div>
+            <img
+              src="/logo-small.png"
+              alt="Firasa Logo"
+              className="h-10 w-auto object-contain"
+            />
           </div>
         )}
       </div>
@@ -164,30 +172,72 @@ export default function Sidebar() {
       {/* Quick Stats */}
       <div className={`p-4 border-b border-white/5 ${isCollapsed ? "px-2" : ""}`}>
         <div className={`flex gap-2 items-stretch ${isCollapsed ? "flex-col" : ""}`}>
-          {quickStats.map((stat) => (
-            <div
-              key={stat.fullLabel}
-              className={`group relative rounded-xl transition-all duration-300 hover:scale-105 cursor-default ${isCollapsed ? "w-full px-2 py-3 text-center" : "flex-1 px-3 py-3"
-                }`}
-              style={{
-                background: `linear-gradient(135deg, ${stat.color}12, ${stat.color}05)`,
-                border: `1px solid ${stat.color}25`,
-              }}
-              title={`${stat.fullLabel}: ${stat.value}`}
-            >
+          {statsLoading ? (
+            // Skeleton loading state
+            <>
               <div
-                className={`flex items-center ${isCollapsed ? "flex-col gap-1 justify-center" : "gap-2 justify-between"
+                className={`group relative rounded-xl ${isCollapsed ? "w-full px-2 py-3 text-center" : "flex-1 px-3 py-3"
                   }`}
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                }}
               >
-                <span className="text-lg font-bold leading-none" style={{ color: stat.color }}>
-                  {stat.value}
-                </span>
-                {!isCollapsed && (
-                  <span className="text-[10px] text-slate-400 leading-none">{stat.label}</span>
-                )}
+                <div
+                  className={`flex items-center ${isCollapsed ? "flex-col gap-1 justify-center" : "gap-2 justify-between"
+                    }`}
+                >
+                  <div className="w-6 h-6 bg-white/10 rounded animate-pulse" />
+                  {!isCollapsed && (
+                    <div className="w-8 h-2 bg-white/10 rounded animate-pulse" />
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+              <div
+                className={`group relative rounded-xl ${isCollapsed ? "w-full px-2 py-3 text-center" : "flex-1 px-3 py-3"
+                  }`}
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                }}
+              >
+                <div
+                  className={`flex items-center ${isCollapsed ? "flex-col gap-1 justify-center" : "gap-2 justify-between"
+                    }`}
+                >
+                  <div className="w-6 h-6 bg-white/10 rounded animate-pulse" />
+                  {!isCollapsed && (
+                    <div className="w-8 h-2 bg-white/10 rounded animate-pulse" />
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            quickStats.map((stat) => (
+              <div
+                key={stat.fullLabel}
+                className={`group relative rounded-xl transition-all duration-300 hover:scale-105 cursor-default ${isCollapsed ? "w-full px-2 py-3 text-center" : "flex-1 px-3 py-3"
+                  }`}
+                style={{
+                  background: `linear-gradient(135deg, ${stat.color}12, ${stat.color}05)`,
+                  border: `1px solid ${stat.color}25`,
+                }}
+                title={`${stat.fullLabel}: ${stat.value}`}
+              >
+                <div
+                  className={`flex items-center ${isCollapsed ? "flex-col gap-1 justify-center" : "gap-2 justify-between"
+                    }`}
+                >
+                  <span className="text-lg font-bold leading-none" style={{ color: stat.color }}>
+                    {stat.value}
+                  </span>
+                  {!isCollapsed && (
+                    <span className="text-[10px] text-slate-400 leading-none">{stat.label}</span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -302,21 +352,86 @@ export default function Sidebar() {
             );
           })}
         </div>
+
+        {/* Theme Toggle Section */}
+        <div className="mt-5 px-2 pb-4">
+          {!isCollapsed && (
+            <div className="flex items-center justify-start gap-2 mb-2 text-right">
+              <div className="w-1 h-4 rounded-full bg-gradient-to-b from-amber-400 to-orange-500" />
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                مظهر النظام
+              </p>
+            </div>
+          )}
+          <button
+            onClick={toggleTheme}
+            className={`
+              group relative w-full rounded-xl transition-all duration-500 ease-out border
+              ${theme === "light"
+                ? "bg-gradient-to-r from-[#dde7ff]/95 via-[#edf3ff]/95 to-[#f7fbff]/95 text-slate-700 border-white/60 shadow-[0_18px_50px_rgba(135,144,184,0.22)]"
+                : "bg-white/5 text-slate-200 border-white/10"
+              }
+              ${isCollapsed ? "flex items-center justify-center p-3" : "flex items-center justify-between px-4 py-3 gap-3 text-right"}
+            `}
+            aria-label="تبديل المظهر"
+          >
+            <span className={`
+              relative z-10 transition-all duration-500
+              ${theme === "light" ? "text-amber-500" : "text-indigo-200"}
+            `}>
+              {theme === "light" ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.95 16.95l.707.707M7.05 7.05l.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </span>
+            {!isCollapsed && (
+              <div className="flex-1 flex items-center justify-between gap-4">
+                <div className="text-right leading-tight">
+                  <span className="block text-sm font-semibold">
+                    {theme === "light" ? "الوضع الفاتح" : "الوضع الداكن"}
+                  </span>
+                  <span className={`text-[11px] ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
+                    {theme === "light" ? "Switch to Dark" : "Switch to Light"}
+                  </span>
+                </div>
+                <div className={`relative w-12 h-5 rounded-full overflow-hidden transition-colors duration-300 ${theme === "light" ? "bg-gradient-to-r from-amber-300/80 to-amber-400/80" : "bg-slate-600"}`}>
+                  <div className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300 ${theme === "light" ? "right-1" : "left-1"}`} />
+                </div>
+              </div>
+            )}
+          </button>
+        </div>
       </nav>
 
       {/* User Info & Logout */}
       <div className={`p-4 border-t border-white/5 ${isCollapsed ? "px-2" : ""}`}>
         {!isCollapsed ? (
           <>
-            <div className="flex items-center gap-3 mb-3 p-2 rounded-xl bg-slate-800/50 border border-white/5">
+            <div
+              className="flex items-center gap-3 mb-3 p-2 rounded-xl"
+              style={{
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)"
+              }}
+            >
               <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500/20 to-violet-500/20 border border-indigo-500/20 flex items-center justify-center shrink-0">
                 <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">{user?.fullName || "مستخدم"}</p>
-                <p className="text-[10px] text-slate-400 truncate">{getRoleLabel(user?.role)}</p>
+                <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                  {user?.fullName || "مستخدم"}
+                </p>
+                <p className="text-[11px] truncate" style={{ color: "var(--text-secondary)" }}>
+                  {getRoleLabel(user?.role)}
+                </p>
               </div>
             </div>
             <button

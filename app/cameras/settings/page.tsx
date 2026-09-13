@@ -30,7 +30,6 @@ export default function CameraSettingsPage() {
       const savedSettings = await cameraStorage.getSettings();
       setSettings(savedSettings);
     } catch (error) {
-      console.error("Failed to load settings:", error);
     } finally {
       setLoading(false);
     }
@@ -196,11 +195,10 @@ export default function CameraSettingsPage() {
           {/* Message */}
           {message && (
             <div
-              className={`mt-6 p-4 rounded-lg ${
-                message.type === "success"
+              className={`mt-6 p-4 rounded-lg ${message.type === "success"
                   ? "bg-green-900 text-green-200"
                   : "bg-red-900 text-red-200"
-              }`}
+                }`}
             >
               {message.text}
             </div>

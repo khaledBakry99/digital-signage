@@ -8,14 +8,14 @@ export class AuthApi {
       API_ENDPOINTS.AUTH.LOGIN,
       credentials
     );
-    
+
     if (response.accessToken) {
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('expiresAtUtc', response.expiresAtUtc);
       localStorage.setItem('user', JSON.stringify(response.user));
       window.dispatchEvent(new CustomEvent('auth:token-updated'));
     }
-    
+
     return response;
   }
 
@@ -38,7 +38,7 @@ export class AuthApi {
     const accessToken = localStorage.getItem('accessToken');
     const expiresAtUtc = localStorage.getItem('expiresAtUtc');
     const userStr = localStorage.getItem('user');
-    
+
     let user: User | null = null;
     if (userStr) {
       try {
@@ -47,14 +47,14 @@ export class AuthApi {
         user = null;
       }
     }
-    
+
     return { accessToken, expiresAtUtc, user };
   }
 
   isTokenExpired(): boolean {
     const expiresAtUtc = localStorage.getItem('expiresAtUtc');
     if (!expiresAtUtc) return true;
-    
+
     const expiryDate = new Date(expiresAtUtc);
     return expiryDate <= new Date();
   }

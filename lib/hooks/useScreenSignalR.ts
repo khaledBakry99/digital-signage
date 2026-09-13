@@ -9,6 +9,7 @@ interface ScreenMediaUpdatedEvent {
   usedFallback: boolean;
   message: string;
   updatedAtUtc: string;
+  personCount?: number; // Number of people detected at time of detection
 }
 
 interface ScreenMediaRefreshEvent {
@@ -19,11 +20,11 @@ interface ScreenMediaRefreshEvent {
 }
 
 /**
- * Hook للاستماع لأحداث SignalR الخاصة بالشاشات
- * 
- * @param screenId - رقم الشاشة
- * @param onMediaUpdated - callback عند تحديث الوسائط
- * @param onRefreshRequested - callback عند طلب تحديث
+ * Hook to listen to SignalR events for screens
+ *
+ * @param screenId - Screen ID
+ * @param onMediaUpdated - callback when media is updated
+ * @param onRefreshRequested - callback when refresh is requested
  */
 export function useScreenSignalR(
   screenId: number,
@@ -41,12 +42,10 @@ export function useScreenSignalR(
       const connection = connectionRef.current;
 
       if (!connection) {
-        console.warn("⚠️ Cannot join screen group without SignalR connection");
         return;
       }
 
       if (connection.state !== HubConnectionState.Connected) {
-        console.warn("⚠️ SignalR not connected yet, delaying JoinScreen", { screenId, state: connection.state, reason });
         return;
       }
 
@@ -62,10 +61,8 @@ export function useScreenSignalR(
         .invoke("JoinScreen", screenId)
         .then(() => {
           joinedRef.current = true;
-          console.log(`✅ Joined screen group: ${screenId} (${reason})`);
         })
         .catch((err) => {
-          console.error(`❌ Failed to join screen group ${screenId}:`, err);
           throw err;
         })
         .finally(() => {
@@ -83,28 +80,26 @@ export function useScreenSignalR(
 
     const handleScreenMediaUpdated = (event: ScreenMediaUpdatedEvent) => {
       if (event.screenId === screenId && onMediaUpdated) {
-        console.log("📺 ScreenMediaUpdated:", event);
         onMediaUpdated(event);
       }
     };
 
     const handleScreenMediaRefreshRequested = (event: ScreenMediaRefreshEvent) => {
       if (event.screenId === screenId && onRefreshRequested) {
-        console.log("🔄 ScreenMediaRefreshRequested:", event);
         onRefreshRequested(event);
       }
     };
 
     async function setupConnection() {
       try {
-        // الحصول على token من localStorage
+        // Get token from localStorage
         const token = localStorage.getItem("accessToken");
         if (!token) {
           setError("No access token found");
           return;
         }
 
-        // الاتصال بـ SignalR
+        // Connect to SignalR
         const connection = await signalRService.connect(token);
         connectionRef.current = connection;
 
@@ -113,11 +108,10 @@ export function useScreenSignalR(
         if (!connection) {
           const msg = "SignalR connection is null";
           setError(msg);
-          console.error("❌ SignalR setup error:", msg);
           return;
         }
 
-        // الاستماع للأحداث
+        // Listen for events
         connection.off("ScreenMediaUpdated", handleScreenMediaUpdated);
         connection.off("ScreenMediaRefreshRequested", handleScreenMediaRefreshRequested);
         connection.on("ScreenMediaUpdated", handleScreenMediaUpdated);
@@ -131,7 +125,6 @@ export function useScreenSignalR(
         if (mounted) {
           const errorMessage = err instanceof Error ? err.message : "SignalR connection failed";
           setError(errorMessage);
-          console.error("❌ SignalR setup error:", errorMessage);
         }
       }
     }

@@ -5,6 +5,7 @@ import type { Camera } from "@/lib/types/camera";
 import { useCameraStream } from "@/lib/cameras/hooks/useCameraStream";
 import { useReconnect } from "@/lib/cameras/hooks/useReconnect";
 import { cameraScreenshotService } from "@/lib/services/cameraScreenshotService";
+import { cameraApi } from "@/lib/api";
 
 interface CameraPlayerProps {
   camera: Camera;
@@ -14,7 +15,6 @@ interface CameraPlayerProps {
 export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const { isPlaying, isConnecting, error, startStream, stopStream, reconnect } =
     useCameraStream(camera);
@@ -59,7 +59,7 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
         }
       });
 
-      // ✅ بدء ObjectDetector وإرسال اللقطة فقط عند تغير عدد البشر
+      // Start ObjectDetector and send screenshot only when person count changes
       let stopCapture: (() => void) | null = null;
       if (
         element instanceof HTMLVideoElement &&
@@ -72,14 +72,13 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
             true,
           );
         } catch (error) {
-          console.error(`❌ فشل بدء ObjectDetector للكاميرا ${camera.id}:`, error);
         }
       }
 
       return () => {
         stopStream();
 
-        // ✅ إيقاف التقاط اللقطات
+        // Stop screenshot capture
         if (stopCapture) {
           stopCapture();
         }
@@ -104,18 +103,43 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
     }
   }, [camera, autoStart, startStream, stopStream, startMonitoring, reconnect]);
 
-  const handleFullscreen = () => {
-    const element = videoRef.current || imgRef.current;
-    if (!element) return;
+  /**
+   * HEARTBEAT controls camera status
+   * + Updates localStorage for other pages (same device)
+   * + Updates server directly (different devices)
+   */
+  useEffect(() => {
+    if (!autoStart) return;
 
-    if (!isFullscreen) {
-      element.requestFullscreen?.();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.();
-      setIsFullscreen(false);
-    }
-  };
+    const cameraId = Number(camera.id);
+    if (!Number.isFinite(cameraId) || cameraId <= 0) return;
+
+
+    // Send heartbeat immediately when tab opens
+    const sendHeartbeat = async () => {
+      try {
+        await cameraApi.sendHeartbeat(cameraId);
+
+        // Update localStorage for other pages (same device)
+        if (typeof window !== "undefined") {
+          const timestamp = Date.now().toString();
+          localStorage.setItem(`camera-heartbeat-${cameraId}`, timestamp);
+        }
+      } catch (err) {
+      }
+    };
+
+    sendHeartbeat();
+
+    const heartbeatInterval = setInterval(() => {
+      sendHeartbeat();
+    }, 40000); // 40 seconds
+
+    return () => {
+      clearInterval(heartbeatInterval);
+    };
+  }, [camera.id, autoStart]);
+
 
   const handleManualReconnect = async () => {
     const element =
@@ -126,6 +150,11 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
     if (element) {
       await reconnect(element);
     }
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
   };
 
   const showVideo =
@@ -141,6 +170,7 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
           autoPlay
           playsInline
           muted
+          onDoubleClick={handleDoubleClick}
         />
       )}
 
@@ -150,15 +180,16 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
           ref={imgRef}
           className="w-full h-full object-contain"
           alt={camera.name}
+          onDoubleClick={handleDoubleClick}
         />
       )}
 
       {/* Loading Overlay */}
       {isConnecting && (
         <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
-          <div className="text-center text-white">
+          <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-            <p>جاري الاتصال بالكاميرا...</p>
+            <p style={{ color: '#ffffff' }}>جاري الاتصال بالكاميرا...</p>
           </div>
         </div>
       )}
@@ -204,57 +235,6 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
           </div>
         </div>
       )}
-
-      {/* Controls */}
-      {isPlaying && !error && (
-        <div className="absolute bottom-4 right-4 flex gap-2">
-          <button
-            onClick={handleFullscreen}
-            className="bg-black bg-opacity-50 text-white p-3 rounded-lg hover:bg-opacity-70 transition-colors"
-            title="ملء الشاشة"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-              />
-            </svg>
-          </button>
-
-          <button
-            onClick={handleManualReconnect}
-            className="bg-black bg-opacity-50 text-white p-3 rounded-lg hover:bg-opacity-70 transition-colors"
-            title="إعادة الاتصال"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {/* Camera Info */}
-      <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
-        <p className="font-semibold">{camera.name}</p>
-        <p className="text-xs text-gray-300">{camera.settings.resolution}</p>
-      </div>
     </div>
   );
 }

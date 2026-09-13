@@ -6,6 +6,7 @@ import {
   ChangeEvent,
   FormEvent,
 } from "react";
+import { useTheme } from "@/lib/context/ThemeContext";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
 
 interface AdFormProps {
@@ -14,6 +15,7 @@ interface AdFormProps {
     file: File;
     description?: string;
     type: 'Image' | 'Video';
+    durationSeconds?: number;
   }) => Promise<void>;
   initialData?: MediaAsset;
   submitLabel?: string;
@@ -31,13 +33,28 @@ export default function AdForm({
   const [fileType, setFileType] = useState<'Image' | 'Video' | null>(
     initialData?.type || null,
   );
+  const [durationSeconds, setDurationSeconds] = useState<number>(10);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({}); // Track field-specific errors
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
+  const durationInputRef = useRef<HTMLInputElement>(null);
+  
+  const { theme } = useTheme();
+  const isLightTheme = theme === "light";
+
+  // Character limits
+  const NAME_MAX_LENGTH = 40;
+  const DESCRIPTION_MAX_LENGTH = 100;
 
   const handleFileChange = (selectedFile: File) => {
     setError(null);
+    setFieldErrors(prev => ({ ...prev, file: "" }));
+    
     const fn = selectedFile.name.toLowerCase();
     const isImage =
       selectedFile.type.startsWith("image/") ||
@@ -59,21 +76,46 @@ export default function AdForm({
     setPreview(URL.createObjectURL(selectedFile));
   };
 
+  // Scroll to field and highlight it
+  const scrollToField = (ref: React.RefObject<HTMLElement | null>, fieldName: string) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    ref.current?.focus();
+    setFieldErrors(prev => ({ ...prev, [fieldName]: "هذا الحقل مطلوب" }));
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
+
+    // Validate all required fields
     if (!name.trim()) {
-      setError("الرجاء إدخال اسم الإعلان");
+      scrollToField(nameInputRef, 'name');
       return;
     }
+    
+    if (!description.trim()) {
+      scrollToField(descriptionInputRef, 'description');
+      return;
+    }
+    
     if (!file && !initialData) {
-      setError("الرجاء اختيار ملف");
+      setFieldErrors(prev => ({ ...prev, file: "الرجاء اختيار ملف" }));
+      fileInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+    
     if (!fileType) {
       setError("الرجاء اختيار نوع الملف");
       return;
     }
+
+    // Validate duration for images
+    if (fileType === 'Image' && (!durationSeconds || durationSeconds < 1)) {
+      scrollToField(durationInputRef, 'duration');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       await onSubmit({
@@ -81,6 +123,7 @@ export default function AdForm({
         file: file!,
         description: description.trim() || undefined,
         type: fileType,
+        durationSeconds: fileType === 'Image' ? durationSeconds : undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "حدث خطأ أثناء الحفظ");
@@ -90,7 +133,7 @@ export default function AdForm({
   };
 
   const labelStyle = {
-    color: "var(--text-secondary)",
+    color: isLightTheme ? "#475569" : "var(--text-secondary)",
     fontSize: "13px",
     fontWeight: "600",
     marginBottom: "8px",
@@ -103,31 +146,141 @@ export default function AdForm({
       <div>
         <label style={labelStyle}>اسم الإعلان</label>
         <input
-          className="input-dark"
+          ref={nameInputRef}
+          className={`input-dark ${fieldErrors.name ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+          style={isLightTheme ? {
+            backgroundColor: "#ffffff",
+            border: fieldErrors.name ? "1px solid #ef4444" : "1px solid #e2e8f0",
+            color: "#0f172a",
+          } : undefined}
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value.length <= NAME_MAX_LENGTH) {
+              setName(value);
+              setFieldErrors(prev => ({ ...prev, name: "" }));
+            }
+          }}
           placeholder="مثال: عرض الصيف"
           required
+          maxLength={NAME_MAX_LENGTH}
         />
+        {/* Character counter */}
+        <div className={`text-xs mt-1 text-left ${name.length >= NAME_MAX_LENGTH ? 'text-red-500 font-semibold' : isLightTheme ? 'text-slate-400' : 'text-slate-500'}`}>
+          {name.length} / {NAME_MAX_LENGTH}
+        </div>
+        {fieldErrors.name && (
+          <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.name}</p>
+        )}
       </div>
 
       {/* Description */}
       <div>
         <label style={labelStyle}>الوصف</label>
         <textarea
-          className="input-dark"
+          ref={descriptionInputRef}
+          className={`input-dark ${fieldErrors.description ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+          style={isLightTheme ? {
+            backgroundColor: "#ffffff",
+            border: fieldErrors.description ? "1px solid #ef4444" : "1px solid #e2e8f0",
+            color: "#0f172a",
+          } : undefined}
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value.length <= DESCRIPTION_MAX_LENGTH) {
+              setDescription(value);
+              setFieldErrors(prev => ({ ...prev, description: "" }));
+            }
+          }}
           rows={3}
           placeholder="وصف الإعلان..."
+          required
+          maxLength={DESCRIPTION_MAX_LENGTH}
         />
+        {/* Character counter */}
+        <div className={`text-xs mt-1 text-left ${description.length >= DESCRIPTION_MAX_LENGTH ? 'text-red-500 font-semibold' : isLightTheme ? 'text-slate-400' : 'text-slate-500'}`}>
+          {description.length} / {DESCRIPTION_MAX_LENGTH}
+        </div>
+        {fieldErrors.description && (
+          <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.description}</p>
+        )}
       </div>
+
+      {/* Duration for Images Only */}
+      {fileType === 'Image' && file && (
+        <div>
+          <label style={labelStyle}>مدة عرض الصورة (بالثواني)</label>
+          <div className="grid grid-cols-5 gap-3">
+            {/* Input field first */}
+            <input
+              ref={durationInputRef}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              className={`input-dark text-center ${fieldErrors.duration ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+              style={isLightTheme ? {
+                backgroundColor: "#ffffff",
+                border: fieldErrors.duration ? "1px solid #ef4444" : "1px solid #e2e8f0",
+                color: "#0f172a",
+              } : undefined}
+              value={durationSeconds}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9]/g, '');
+                const numValue = parseInt(value) || 1;
+                setDurationSeconds(Math.max(1, numValue));
+                setFieldErrors(prev => ({ ...prev, duration: "" }));
+              }}
+              onBlur={(e) => {
+                if (!e.target.value || parseInt(e.target.value) < 1) {
+                  setDurationSeconds(10);
+                }
+              }}
+              placeholder="01"
+              dir="ltr"
+              lang="en"
+              required
+            />
+            {/* Preset buttons */}
+            {[10, 20, 30, 60].map((seconds) => (
+              <button
+                key={seconds}
+                type="button"
+                onClick={() => {
+                  setDurationSeconds(seconds);
+                  setFieldErrors(prev => ({ ...prev, duration: "" }));
+                }}
+                className={`py-3 px-4 rounded-xl text-sm font-semibold transition-all border-2 ${
+                  durationSeconds === seconds
+                    ? "border-indigo-500 bg-indigo-500/20 text-indigo-400"
+                    : isLightTheme
+                      ? "border-slate-200 bg-white text-slate-600 hover:border-indigo-500/30"
+                      : "border-transparent hover:border-indigo-500/30"
+                }`}
+                style={{
+                  background: durationSeconds === seconds ? undefined : isLightTheme ? "#ffffff" : "var(--bg-secondary)",
+                  color: durationSeconds === seconds ? undefined : isLightTheme ? "#475569" : "var(--text-secondary)",
+                  direction: "ltr",
+                }}
+              >
+                <span style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>{seconds}</span>
+              </button>
+            ))}
+          </div>
+          {fieldErrors.duration && (
+            <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.duration}</p>
+          )}
+        </div>
+      )}
 
       {/* Drop zone */}
       <div>
         <label style={labelStyle}>الملف</label>
         <div
-          className={`drop-zone cursor-pointer ${isDragging ? "dragging" : ""}`}
+          className={`drop-zone cursor-pointer ${isDragging ? "dragging" : ""} ${fieldErrors.file ? 'ring-2 ring-red-500' : ''}`}
+          style={isLightTheme && fieldErrors.file ? {
+            border: "2px dashed #ef4444",
+          } : undefined}
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragging(true);
@@ -157,13 +310,13 @@ export default function AdForm({
             <div
               className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center"
               style={{
-                background: "rgba(99,102,241,0.1)",
-                border: "1px solid rgba(99,102,241,0.2)",
+                background: isLightTheme ? "rgba(99,102,241,0.1)" : "rgba(99,102,241,0.1)",
+                border: isLightTheme ? "1px solid rgba(99,102,241,0.3)" : "1px solid rgba(99,102,241,0.2)",
               }}
             >
               <svg
                 className="w-7 h-7"
-                style={{ color: "#818cf8" }}
+                style={{ color: isLightTheme ? "#6366f1" : "#818cf8" }}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -176,14 +329,17 @@ export default function AdForm({
                 />
               </svg>
             </div>
-            <p className="font-medium" style={{ color: "var(--text-primary)" }}>
+            <p className="font-medium" style={{ color: isLightTheme ? "#0f172a" : "var(--text-primary)" }}>
               {file ? file.name : "اسحب الملف هنا أو انقر للاختيار"}
             </p>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            <p className="text-xs" style={{ color: isLightTheme ? "#64748b" : "var(--text-muted)" }}>
               JPG · PNG · GIF · WebP · MP4 · WebM · MOV — حتى 100MB
             </p>
           </div>
         </div>
+        {fieldErrors.file && (
+          <p className="text-red-500 text-xs mt-2 animate-fade-in">{fieldErrors.file}</p>
+        )}
       </div>
 
       {/* Preview */}
@@ -193,8 +349,8 @@ export default function AdForm({
           <div
             className="rounded-2xl overflow-hidden"
             style={{
-              background: "var(--bg-secondary)",
-              border: "1px solid var(--border)",
+              background: isLightTheme ? "#f8fafc" : "var(--bg-secondary)",
+              border: isLightTheme ? "1px solid #e2e8f0" : "1px solid var(--border)",
             }}
           >
             {fileType === 'Image' ? (
@@ -216,9 +372,9 @@ export default function AdForm({
         <div
           className="p-4 rounded-xl text-sm animate-fade-in"
           style={{
-            background: "rgba(239,68,68,0.1)",
-            border: "1px solid rgba(239,68,68,0.2)",
-            color: "#f87171",
+            background: isLightTheme ? "rgba(254,226,226,0.5)" : "rgba(239,68,68,0.1)",
+            border: isLightTheme ? "1px solid #fecaca" : "1px solid rgba(239,68,68,0.2)",
+            color: isLightTheme ? "#dc2626" : "#f87171",
           }}
         >
           {error}

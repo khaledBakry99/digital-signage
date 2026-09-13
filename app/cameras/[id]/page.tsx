@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { CameraPlayer } from "@/components/cameras/CameraPlayer";
 import { cameraApi } from "@/lib/api";
-import type { Camera, CameraType } from "@/lib/types/camera";
+import type { Camera } from "@/lib/types/camera";
+import { mapBackendToFrontendCamera } from "@/lib/cameras/hooks/useCameras";
 
 export default function CameraViewPage() {
   const params = useParams();
@@ -26,24 +27,8 @@ export default function CameraViewPage() {
           return;
         }
 
-        // Map backend camera to UI shape
-        const cameraData: Camera = {
-          id: String(backendCamera.id),
-          name: backendCamera.name,
-          location: backendCamera.location,
-          type: deriveTypeFromSource(backendCamera.cameraDeviceName),
-          source: backendCamera.cameraDeviceName,
-          status:
-            backendCamera.state === "Active" ? "connected" : "disconnected",
-          timeToScreenshot: backendCamera.timeToScreenshot,
-          settings: {
-            resolution: "1080p",
-            frameRate: 30,
-            quality: "high",
-          },
-          createdAt: new Date(backendCamera.createdAtUtc),
-          updatedAt: new Date(backendCamera.createdAtUtc),
-        };
+        // Map backend camera to UI shape using the updated mapper
+        const cameraData = mapBackendToFrontendCamera(backendCamera);
 
         setCamera(cameraData);
       } catch (err) {
@@ -58,24 +43,19 @@ export default function CameraViewPage() {
     loadCamera();
   }, [params.id]);
 
-  // Helper function to derive camera type from source
-  function deriveTypeFromSource(source: string): CameraType {
-    const s = (source || "").toLowerCase();
-    if (s.startsWith("rtsp:")) return "rtsp";
-    if (s.endsWith(".m3u8") || s.includes("m3u8") || s.includes("/hls"))
-      return "hls";
-    if (s.startsWith("http:") || s.startsWith("https:")) return "http";
-    return "local";
-  }
+  /**
+   * Server determines status from last heartbeat:
+   * - If heartbeat stops for 60+ seconds = INACTIVE
+   * - If heartbeat continues = ACTIVE
+   */
+  useEffect(() => {
+    return () => {
+    };
+  }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-white text-lg">جاري التحميل...</p>
-        </div>
-      </div>
+      <div className="fixed inset-0 bg-black" />
     );
   }
 
@@ -110,29 +90,8 @@ export default function CameraViewPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-gray-900">
+    <div className="fixed inset-0 bg-black">
       <CameraPlayer camera={camera} autoStart={true} />
-
-      {/* Back Button */}
-      <button
-        onClick={() => router.push("/cameras")}
-        className="fixed top-4 right-4 bg-black bg-opacity-50 text-white p-3 rounded-lg hover:bg-opacity-70 transition-colors z-50"
-        title="العودة"
-      >
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M10 19l-7-7m0 0l7-7m-7 7h18"
-          />
-        </svg>
-      </button>
     </div>
   );
 }

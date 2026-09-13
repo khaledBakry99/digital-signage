@@ -5,16 +5,51 @@ export type CameraStatus = "connected" | "disconnected" | "connecting";
 export type StreamQuality = "low" | "medium" | "high";
 export type Resolution = "720p" | "1080p" | "4k";
 
+/**
+ * Camera Playback Information
+ * Separates source (RTSP URL) from playback (WebRTC/HLS URL)
+ * Browser only receives playback URLs, never raw RTSP credentials
+ */
+export interface CameraPlayback {
+  webrtcUrl?: string; // WebRTC/WHEP endpoint for RTSP cameras (e.g., https://stream-server/.../whep)
+  hlsUrl?: string; // HLS fallback URL (e.g., https://stream-server/.../playlist.m3u8)
+  streamPath?: string; // MediaMTX stream identifier (e.g., "camera-15")
+}
+
+/**
+ * RTSP Camera Configuration
+ * Stores RTSP connection details separately from playback
+ * Password is backend-only and never returned to frontend
+ */
+export interface RtspConfig {
+  rtspUrl: string; // Full RTSP URL (e.g., rtsp://user:pass@192.168.1.10:554/stream)
+  // Alternative: separate fields (if backend prefers)
+  // host?: string;
+  // port?: number;
+  // path?: string;
+  // username?: string;
+  // password?: string; // Backend-only, never returned to frontend
+}
+
 export interface Camera {
   id: string; // UUID
-  name: string; // اسم الكاميرا
-  location: string; // موقع الكاميرا
-  type: CameraType; // نوع المصدر
-  source: string; // deviceId للمحلية أو URL للشبكية
-  status: CameraStatus; // حالة الاتصال
-  thumbnail?: string; // معاينة صغيرة
-  timeToScreenshot?: number; // فاصل التقاط الصور بالثواني
+  name: string; // Camera name
+  location: string; // Camera location
+  type: CameraType; // Source type
+  source: string; // deviceId for local or URL for network (legacy, for compatibility)
+
+  // NEW: Separate source and playback
+  sourceType?: string; // Explicit source type from backend (can be 'USB', 'RTSP', 'HLS', 'HTTP', etc.)
+  playback?: CameraPlayback; // Playback URLs (WebRTC/HLS)
+  rtspConfig?: RtspConfig; // RTSP configuration (if type is RTSP)
+
+  cameraDeviceName?: string; // Device name from API (legacy)
+  cameraDeviceRealName?: string; // Real device name (e.g., "Logitech C920")
+  status: CameraStatus; // Connection status
+  thumbnail?: string; // Thumbnail preview
+  timeToScreenshot?: number; // Screenshot interval in seconds
   settings: CameraStreamSettings;
+  createdAtUtc?: string; // Creation date from API
   createdAt: Date;
   updatedAt: Date;
 }

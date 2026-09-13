@@ -28,21 +28,21 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
 function translateErrorMessage(msg: string): string {
   if (!msg) return msg;
   let translated = msg;
-  
+
   Object.entries(ERROR_TRANSLATIONS).forEach(([eng, arb]) => {
     const escapedEng = eng.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(escapedEng, 'gi');
     translated = translated.replace(regex, arb);
   });
-  
+
   return translated;
 }
 
 export function extractApiError(err: any, defaultMsg: string = 'حدث خطأ في الاتصال'): string {
   if (!err) return defaultMsg;
-  
+
   let rawMessage = defaultMsg;
-  
+
   if (err.detail) {
     rawMessage = err.detail;
   } else if (err.errors && typeof err.errors === 'object') {
@@ -60,7 +60,7 @@ export function extractApiError(err: any, defaultMsg: string = 'حدث خطأ ف
   } else {
     rawMessage = err.message || (err instanceof Error ? err.message : defaultMsg);
   }
-  
+
   return translateErrorMessage(rawMessage);
 }
 
@@ -83,11 +83,17 @@ export class ApiClient {
       return;
     }
 
+    // Only dispatch session-expired event if user was actually authenticated
+    // (i.e., had a token). This prevents showing the toast on login errors.
+    const hadToken = localStorage.getItem('accessToken');
+
     localStorage.removeItem('accessToken');
     localStorage.removeItem('expiresAtUtc');
     localStorage.removeItem('user');
 
-    window.dispatchEvent(new CustomEvent('auth:session-expired'));
+    if (hadToken) {
+      window.dispatchEvent(new CustomEvent('auth:session-expired'));
+    }
   }
 
   // Dynamic timeout setter based on camera screenshot interval
@@ -118,18 +124,25 @@ export class ApiClient {
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    
+    const fullUrl = `${this.baseURL}${endpoint}`;
+    console.log('[ApiClient] 🌐 إرسال طلب HTTP إلى:', fullUrl);
+    console.log('[ApiClient] ⏱️ المهلة المحددة:', this.timeout, 'ميلي ثانية');
 
     try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
+      const response = await fetch(fullUrl, {
         ...options,
         headers,
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
+      console.log('[ApiClient] 📥 تم استلام استجابة - الحالة:', response.status, response.statusText);
 
       if (!response.ok) {
         const responseText = await response.text().catch(() => '');
+        console.error('[ApiClient] ❌ استجابة خطأ من الخادم:', responseText);
+        
         let errorData: any = {};
         try {
           errorData = JSON.parse(responseText);
@@ -156,26 +169,41 @@ export class ApiClient {
       return {} as T;
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
+          console.error('[ApiClient] ⏱️ انتهت مهلة الطلب بعد', this.timeout, 'ميلي ثانية');
           throw {
-            message: 'انتهت مهلة الطلب',
+            message: 'انتهت مهلة الطلب - الخادم لم يستجب',
             status: 408,
           } as ApiError;
         }
+        console.error('[ApiClient] ❌ خطأ في الطلب:', error.message);
         throw {
           message: error.message || 'حدث خطأ في الاتصال',
         } as ApiError;
       }
-      
+
       throw error;
     }
   }
 
   async get<T>(endpoint: string, params?: Record<string, unknown>): Promise<T> {
     const url = params ? this.buildQueryString(endpoint, params) : endpoint;
-    return this.request<T>(url, { method: 'GET' });
+    console.log('[ApiClient] ===== طلب GET =====');
+    console.log('[ApiClient] نقطة النهاية:', url);
+    if (params) {
+      console.log('[ApiClient] المعاملات:', JSON.stringify(params, null, 2));
+    }
+    
+    try {
+      const result = await this.request<T>(url, { method: 'GET' });
+      console.log('[ApiClient] ✓ استجابة ناجحة - عدد العناصر:', Array.isArray(result) ? result.length : 'كائن واحد');
+      return result;
+    } catch (error) {
+      console.error('[ApiClient] ✗ فشل الطلب:', error);
+      throw error;
+    }
   }
 
   private buildQueryString(endpoint: string, params: Record<string, unknown>): string {
@@ -188,11 +216,33 @@ export class ApiClient {
     return `${endpoint}?${query.toString()}`;
   }
 
-  async post<T>(endpoint: string, data?: unknown): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
-    });
+  async post<T>(endpoint: string, data?: unknown, useExtendedTimeout: boolean = false): Promise<T> {
+    console.log('[ApiClient] ===== طلب POST =====');
+    console.log('[ApiClient] نقطة النهاية:', endpoint);
+    console.log('[ApiClient] البيانات المرسلة:', JSON.stringify(data, null, 2));
+    
+    // Temporarily increase timeout for specific operations
+    const originalTimeout = this.timeout;
+    if (useExtendedTimeout) {
+      this.timeout = 120000; // 2 minutes for camera operations
+      console.log('[ApiClient] ⏱️ استخدام مهلة ممتدة: 120 ثانية');
+    }
+    
+    try {
+      const result = await this.request<T>(endpoint, {
+        method: 'POST',
+        body: data ? JSON.stringify(data) : undefined,
+      });
+      
+      console.log('[ApiClient] ✓ استجابة ناجحة:', JSON.stringify(result, null, 2));
+      return result;
+    } catch (error) {
+      console.error('[ApiClient] ✗ فشل الطلب:', error);
+      throw error;
+    } finally {
+      // Restore original timeout
+      this.timeout = originalTimeout;
+    }
   }
 
   async put<T>(endpoint: string, data?: unknown): Promise<T> {
@@ -214,6 +264,14 @@ export class ApiClient {
   }
 
   async postFormData<T>(endpoint: string, formData: FormData): Promise<T> {
+    return this.formDataRequest<T>(endpoint, 'POST', formData);
+  }
+
+  async putFormData<T>(endpoint: string, formData: FormData): Promise<T> {
+    return this.formDataRequest<T>(endpoint, 'PUT', formData);
+  }
+
+  private async formDataRequest<T>(endpoint: string, method: 'POST' | 'PUT', formData: FormData): Promise<T> {
     const token = this.getAuthToken();
     const headers: Record<string, string> = {
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
@@ -224,7 +282,7 @@ export class ApiClient {
 
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
-        method: 'POST',
+        method,
         headers,
         body: formData,
         signal: controller.signal,
@@ -260,7 +318,7 @@ export class ApiClient {
       return {} as T;
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           throw {
@@ -272,7 +330,7 @@ export class ApiClient {
           message: error.message || 'حدث خطأ في الاتصال',
         } as ApiError;
       }
-      
+
       throw error;
     }
   }

@@ -20,23 +20,27 @@ export class CameraScreenshotService {
     onSuccess?: (result: any) => void,
     onError?: (error: Error) => void,
   ): Promise<void> {
+    const startTime = new Date();
+    console.log('🎬 [SCREENSHOT TAKEN]', {
+      cameraId,
+      time: startTime.toISOString(),
+      timeLocal: startTime.toLocaleTimeString('ar-SA')
+    });
+
     try {
       // Ensure the video is ready and playing
       if (!videoElement || videoElement.paused || videoElement.ended) {
-        console.warn(`⏸️ الكاميرا ${cameraId}: الفيديو متوقف، تخطي اللقطة`);
-        return; // تخطي بدون رمي خطأ
+        return; // Skip without throwing error
       }
 
       // Ensure the video has buffered data
       if (videoElement.readyState < 2) {
-        console.warn(`⏳ الكاميرا ${cameraId}: الفيديو غير جاهز بعد (readyState: ${videoElement.readyState})`);
-        return; // تخطي بدون رمي خطأ
+        return; // Skip without throwing error
       }
 
       // Ensure the video has valid dimensions
       if (videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
-        console.warn(`📐 الكاميرا ${cameraId}: أبعاد الفيديو غير صالحة (${videoElement.videoWidth}x${videoElement.videoHeight})`);
-        return; // تخطي بدون رمي خطأ
+        return; // Skip without throwing error
       }
 
       // Prepare an offscreen canvas sized to the video frame
@@ -47,7 +51,7 @@ export class CameraScreenshotService {
       // Draw the current frame onto the canvas
       const ctx = canvas.getContext("2d");
       if (!ctx) {
-        throw new Error("فشل إنشاء Canvas context");
+        throw new Error("Failed to create Canvas context");
       }
 
       ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
@@ -59,7 +63,7 @@ export class CameraScreenshotService {
             if (b) {
               resolve(b);
             } else {
-              reject(new Error("فشل تحويل اللقطة إلى صورة"));
+              reject(new Error("Failed to convert screenshot to image"));
             }
           },
           "image/jpeg",
@@ -67,36 +71,47 @@ export class CameraScreenshotService {
         );
       });
 
+      console.log('💾 [SCREENSHOT SAVED]', {
+        cameraId,
+        dataSize: Math.round(blob.size / 1024) + ' KB',
+        time: new Date().toISOString(),
+        timeLocal: new Date().toLocaleTimeString('ar-SA')
+      });
+
       // Wrap the blob in a File for upload
       const file = new File([blob], `camera-${cameraId}-screenshot.jpg`, {
         type: "image/jpeg",
       });
 
+      console.log('🚀 [SENDING TO AI]', {
+        cameraId,
+        fileSize: Math.round(file.size / 1024) + ' KB',
+        time: new Date().toISOString(),
+        timeLocal: new Date().toLocaleTimeString('ar-SA')
+      });
+
       // Send the image to the AI service
-      console.log(`جاري إرسال لقطة الكاميرا ${cameraId} للـ AI...`);
       const result = await genderAiApi.detectGender(cameraId, file);
+
+      console.log('✅ [AI RESPONSE RECEIVED]', {
+        cameraId,
+        time: new Date().toISOString(),
+        timeLocal: new Date().toLocaleTimeString('ar-SA')
+      });
 
       // Invoke success callback if provided
       if (onSuccess) {
         onSuccess(result);
       }
 
-      console.log(`تم إرسال لقطة الكاميرا ${cameraId} للـ AI بنجاح:`, result);
     } catch (error: any) {
       // Detect the specific 400 error when AI is disabled on the linked screen
       const errorMessage = error?.message || JSON.stringify(error);
       if (errorMessage.includes("AI enabled") || errorMessage.includes("aiEnabled")) {
-        console.warn(`⚠️ الكاميرا ${cameraId}: الشاشة المربوطة لا تدعم AI، تخطي الإرسال`);
-        return; // تخطي بدون رمي خطأ
+        return; // Skip without throwing error
       }
 
       // Log detailed diagnostics for other errors
-      console.error(`فشل إرسال لقطة الكاميرا ${cameraId}:`, {
-        error,
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        details: JSON.stringify(error, null, 2),
-      });
 
       const err = error instanceof Error ? error : new Error(String(error));
 
@@ -143,7 +158,16 @@ export class CameraScreenshotService {
         ) {
           const previousCount = lastStablePersonCount;
           lastStablePersonCount = currentPersonCount;
-          console.log(`👥 تغير عدد البشر في الكاميرا ${cameraId}: ${previousCount} -> ${currentPersonCount}`);
+
+          const changeTime = new Date();
+          console.log('👥 [PERSON COUNT CHANGED]', {
+            cameraId,
+            previousCount,
+            currentCount: currentPersonCount,
+            stableFrames: candidateStableFrames,
+            time: changeTime.toISOString(),
+            timeLocal: changeTime.toLocaleTimeString('ar-SA')
+          });
 
           const event = new CustomEvent("person-count-changed", {
             detail: {
@@ -156,15 +180,18 @@ export class CameraScreenshotService {
           window.dispatchEvent(event);
 
           if (currentPersonCount > 0 && sendToAi) {
+            const captureTime = new Date();
+            console.log('📸 [SCREENSHOT CAPTURE START]', {
+              cameraId,
+              time: captureTime.toISOString(),
+              timeLocal: captureTime.toLocaleTimeString('ar-SA')
+            });
             await this.captureAndSendToAi(videoElement, cameraId);
           } else if (currentPersonCount > 0) {
-            console.log(`👥 الكاميرا ${cameraId}: تم كشف بشر، لكن صفحة المعاينة لا ترسل لقطات للـ AI`);
           } else {
-            console.log(`🚶 الكاميرا ${cameraId}: لا يوجد بشر، لن يتم إرسال لقطة للـ AI`);
           }
         }
       } catch (error) {
-        console.error("خطأ في كشف البشر عبر ObjectDetector:", error);
       } finally {
         analyzing = false;
         if (!stopped) {
@@ -174,14 +201,12 @@ export class CameraScreenshotService {
     };
 
     animationFrame = window.requestAnimationFrame(detect);
-    console.log(`✅ تم بدء ObjectDetector للكاميرا ${cameraId} بدون مؤقت`);
 
     return () => {
       stopped = true;
       if (animationFrame) {
         window.cancelAnimationFrame(animationFrame);
       }
-      console.log(`تم إيقاف ObjectDetector للكاميرا ${cameraId}`);
     };
   }
 }

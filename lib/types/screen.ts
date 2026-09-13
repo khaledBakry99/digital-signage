@@ -1,4 +1,4 @@
-// Types لـ Screens
+// Screen Types
 
 export type ConnectionStatus = 'Online' | 'Offline' | 'Unknown';
 export type OperationalStatus = 'Draft' | 'Active' | 'Inactive';
@@ -21,13 +21,13 @@ export interface Screen {
   currentCampaignId?: number;
   campaignIds: number[];
   currentMediaAssetId?: number;
-  // حقول الإعلانات من الحملة
+  // Campaign ad fields
   boysKidsMediaAssetId?: number;
   girlsKidsMediaAssetId?: number;
   menMediaAssetId?: number;
   womenMediaAssetId?: number;
   defaultMediaAssetId?: number;
-  // حقول الإعلانات الحالية المعروضة
+  // Currently displayed ad fields
   currentBoysKidsMediaAssetId?: number;
   currentGirlsKidsMediaAssetId?: number;
   currentMenMediaAssetId?: number;
@@ -67,17 +67,35 @@ export interface ScreenCurrentMedia {
   screenId: number;
   currentCampaignId?: number;
   currentMediaAssetId?: number;
+  currentMediaAssetDuration?: number | null;
+  currentMediaAssetName?: string;
+  currentMediaAssetType?: string;
   url?: string;
   currentBoysKidsMediaAssetId?: number;
   currentBoysKidsMediaUrl?: string;
+  currentBoysKidsMediaDuration?: number | null;
+  currentBoysKidsMediaAssetName?: string;
+  currentBoysKidsMediaAssetType?: string;
   currentGirlsKidsMediaAssetId?: number;
   currentGirlsKidsMediaUrl?: string;
+  currentGirlsKidsMediaDuration?: number | null;
+  currentGirlsKidsMediaAssetName?: string;
+  currentGirlsKidsMediaAssetType?: string;
   currentMenMediaAssetId?: number;
   currentMenMediaUrl?: string;
+  currentMenMediaDuration?: number | null;
+  currentMenMediaAssetName?: string;
+  currentMenMediaAssetType?: string;
   currentWomenMediaAssetId?: number;
   currentWomenMediaUrl?: string;
+  currentWomenMediaDuration?: number | null;
+  currentWomenMediaAssetName?: string;
+  currentWomenMediaAssetType?: string;
   currentDefaultMediaAssetId?: number;
   currentDefaultMediaUrl?: string;
+  currentDefaultMediaDuration?: number | null;
+  currentDefaultMediaAssetName?: string;
+  currentDefaultMediaAssetType?: string;
 }
 
 // Screen Active Campaign

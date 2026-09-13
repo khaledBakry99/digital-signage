@@ -68,8 +68,12 @@ export default function SessionExpiryToast() {
         }}
       >
         <div
-          className="rounded-3xl bg-slate-900/80 text-white p-6"
-          style={{ backdropFilter: "blur(20px)" }}
+          className="rounded-3xl p-6"
+          style={{
+            background: "var(--bg-card)",
+            color: "var(--text-primary)",
+            backdropFilter: "blur(20px)"
+          }}
           role="alert"
           aria-live="assertive"
         >
@@ -90,30 +94,46 @@ export default function SessionExpiryToast() {
                   <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
                 </svg>
               </div>
-              <div className="px-3 py-1 rounded-full bg-white/10 text-xs tracking-wide font-semibold">
+              <div
+                className="px-3 py-1 rounded-full text-xs tracking-wide font-semibold"
+                style={{ background: "var(--glass-bg)", color: "var(--text-primary)" }}
+              >
                 {secondsLeft} ثانية
               </div>
             </div>
             <div className="flex-1">
               <p className="text-xl font-black mb-2 tracking-tight">انتهت صلاحية جلسة العمل</p>
-              <p className="text-sm text-white/80 leading-relaxed">
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 لحماية بياناتك قمنا بإنهاء الجلسة الحالية. سيتم تحويلك إلى صفحة تسجيل الدخول
                 خلال ثوانٍ قليلة لإعادة التوثيق.
               </p>
               <div className="mt-5">
-                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-2 rounded-full overflow-hidden"
+                  style={{ background: "var(--glass-bg)" }}
+                >
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-rose-400 via-orange-400 to-amber-300 transition-[width] duration-100"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
                 <div className="mt-4 flex items-center justify-end gap-3 flex-wrap">
-                  <span className="text-xs text-white/60">
+                  <span
+                    className="text-xs"
+                    style={{ color: "var(--text-muted)" }}
+                  >
                     سيتم التحويل تلقائياً بعد انتهاء العداد
                   </span>
                   <button
                     onClick={navigateToLogin}
-                    className="px-5 py-2 rounded-2xl text-sm font-semibold bg-white text-rose-600 shadow-lg shadow-white/20 hover:-translate-y-[1px] transition"
+                    className="px-5 py-2 rounded-2xl text-sm font-semibold shadow-lg hover:-translate-y-[1px] transition"
+                    style={{
+                      background: "var(--bg-primary)",
+                      color: "var(--danger)"
+                    }}
                   >
                     الذهاب الآن
                   </button>

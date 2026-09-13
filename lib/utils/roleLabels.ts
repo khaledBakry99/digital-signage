@@ -5,8 +5,8 @@ type AnyRole = UserRole | SystemUserRole;
 
 const ROLE_LABELS: Record<AnyRole, string> = {
   SuperAdmin: 'مدير النظام',
-  ClientAdmin: 'مسؤول العميل',
-  Operator: 'مشغل',
+  ClientAdmin: 'مدير المنصة',
+  Operator: 'مشغل العرض',
   Analyst: 'محلل البيانات',
 };
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
+import { API_CONFIG } from "@/lib/api/config";
 
 interface ScreenPlayerProps {
   advertisement: MediaAsset | null;
@@ -17,7 +18,7 @@ function resolveMediaUrl(url: string): string {
 
   // If it's relative, prefix with the backend host
   if (url.startsWith("/")) {
-    return `https://backend-42316129731.europe-west1.run.app${url}`;
+    return `${API_CONFIG.BASE_URL}${url}`;
   }
 
   // Return URL as-is from backend
@@ -31,8 +32,8 @@ export default function ScreenPlayer({
   shouldLoop = false,
   onPlaybackError,
 }: ScreenPlayerProps) {
-  const [currentTime, setCurrentTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [remainingTime, setRemainingTime] = useState<number>(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const imageTimerRef = useRef<NodeJS.Timeout | null>(null);
   const videoRetryRef = useRef(0);
@@ -45,6 +46,19 @@ export default function ScreenPlayer({
   const videoAnchorMediaAtRef = useRef<number>(0);
 
   const resolvedUrl = advertisement ? resolveMediaUrl(advertisement.url) : "";
+
+  console.log('🎬 SCREEN PLAYER RECEIVED:', {
+    screenId,
+    advertisement: advertisement ? {
+      id: advertisement.id,
+      name: advertisement.name,
+      type: advertisement.type,
+      url: advertisement.url,
+      durationSeconds: advertisement.durationSeconds,
+    } : null,
+    resolvedUrl,
+    shouldLoop,
+  });
 
   const isVideo = advertisement?.type?.toLowerCase() === "video" || (advertisement?.url ? /\.(mp4|webm|ogg)$/i.test(advertisement.url) : false);
   const inferredVideoType = (() => {
@@ -208,15 +222,14 @@ export default function ScreenPlayer({
   useEffect(() => {
     if (isVideo && videoRef.current && resolvedUrl) {
       const videoElement = videoRef.current;
-      videoElement.muted = false;
-      videoElement.volume = 1;
+      videoElement.muted = true;
+      videoElement.volume = 0;
       videoElement.currentTime = 0;
 
       tryPlay(videoElement).catch((err) => {
         if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
           return;
         }
-        console.error("فشل تشغيل الفيديو:", err);
         if (videoRetryRef.current < 1) {
           videoRetryRef.current += 1;
           try {
@@ -238,6 +251,34 @@ export default function ScreenPlayer({
     }
   }, [advertisement, resolvedUrl, isVideo, onPlaybackError]);
 
+  // Video countdown timer
+  useEffect(() => {
+    if (isVideo && videoRef.current) {
+      const videoElement = videoRef.current;
+
+      const updateTimer = () => {
+        if (videoElement.duration && !isNaN(videoElement.duration)) {
+          const remaining = Math.max(0, videoElement.duration - videoElement.currentTime);
+          setRemainingTime(Math.ceil(remaining));
+          console.log(`⏱️ VIDEO TIMER: ${Math.ceil(remaining)}s remaining (current: ${videoElement.currentTime.toFixed(1)}s, duration: ${videoElement.duration.toFixed(1)}s)`);
+        }
+      };
+
+      const timerInterval = setInterval(updateTimer, 100);
+
+      videoElement.addEventListener('timeupdate', updateTimer);
+      videoElement.addEventListener('loadedmetadata', updateTimer);
+
+      return () => {
+        clearInterval(timerInterval);
+        videoElement.removeEventListener('timeupdate', updateTimer);
+        videoElement.removeEventListener('loadedmetadata', updateTimer);
+      };
+    } else {
+      setRemainingTime(0);
+    }
+  }, [isVideo]);
+
   useEffect(() => {
     if (!shouldLoop) return;
     const videoElement = videoRef.current;
@@ -249,42 +290,46 @@ export default function ScreenPlayer({
         if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
           return;
         }
-        console.error("فشل تشغيل الفيديو:", err);
         scheduleError("فشل تشغيل الفيديو من الخادم");
         onPlaybackError?.(err);
       });
     }
   }, [resolvedUrl, shouldLoop, onPlaybackError]);
 
-  // Image countdown timer
+  // Image countdown timer - use ref instead of state to avoid re-renders
   useEffect(() => {
     const isImage = advertisement?.type?.toLowerCase() === "image";
-    const duration = advertisement?.durationSeconds || 10; // default 10s if not provided
+    const duration = advertisement?.durationSeconds || 10;
 
     if (isImage) {
-      setCurrentTime(0);
       imageStartedAtRef.current = Date.now();
+      setRemainingTime(duration);
+
       imageTimerRef.current = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (imageEndedRef.current) {
-            return prev;
+        if (imageEndedRef.current) {
+          return;
+        }
+        const elapsed = Math.floor((Date.now() - imageStartedAtRef.current) / 1000);
+        const remaining = Math.max(0, duration - elapsed);
+        setRemainingTime(remaining);
+
+        console.log(`⏱️ IMAGE TIMER: ${remaining}s remaining (elapsed: ${elapsed}s, duration: ${duration}s)`);
+
+        if (elapsed >= duration) {
+          // Image duration ended, trigger callback
+          if (onEnded) {
+            imageEndedRef.current = true;
+            clearImageTimer();
+            onEnded();
           }
-          if (prev >= duration) {
-            // Image duration ended, trigger callback
-            if (onEnded) {
-              imageEndedRef.current = true;
-              clearImageTimer();
-              onEnded();
-            }
-            return 0;
-          }
-          return prev + 1;
-        });
+        }
       }, 1000);
 
       return () => {
         clearImageTimer();
       };
+    } else {
+      setRemainingTime(0);
     }
   }, [advertisement, onEnded]);
 
@@ -326,8 +371,24 @@ export default function ScreenPlayer({
           src={resolvedUrl}
           alt={advertisement.name}
           className="w-full h-full object-contain"
-          onError={() => setError("فشل تحميل الصورة من الخادم")}
+          onError={() => {
+            console.error('❌ IMAGE LOAD ERROR:', {
+              screenId,
+              advertisementId: advertisement?.id,
+              advertisementName: advertisement?.name,
+              advertisementType: advertisement?.type,
+              resolvedUrl,
+              originalUrl: advertisement?.url,
+            });
+            setError("فشل تحميل الصورة من الخادم");
+          }}
         />
+        {/* Countdown timer overlay */}
+        {remainingTime > 0 && (
+          <div className="absolute bottom-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-xl font-bold">
+            {remainingTime}s
+          </div>
+        )}
       </div>
     );
   }
@@ -342,6 +403,7 @@ export default function ScreenPlayer({
         autoPlay
         loop={shouldLoop}
         playsInline
+        muted
         preload="auto"
         onLoadedMetadata={() => {
           const v = videoRef.current;
@@ -365,7 +427,6 @@ export default function ScreenPlayer({
         }}
         onError={() => {
           const err = videoRef.current?.error;
-          console.error("Video element error:", err);
           if (videoRetryRef.current < 1 && videoRef.current) {
             videoRetryRef.current += 1;
             try {
@@ -393,6 +454,12 @@ export default function ScreenPlayer({
       >
         <source src={resolvedUrl} type={inferredVideoType} />
       </video>
+      {/* Countdown timer overlay */}
+      {remainingTime > 0 && (
+        <div className="absolute bottom-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-xl font-bold">
+          {remainingTime}s
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-// Types لـ GenderAi
+// Gender AI Types
 
 export type Gender = 'Male' | 'Female' | 'Unknown';
 export type AgeGroup = 'Child' | 'Teen' | 'Adult' | 'Senior' | 'Unknown';

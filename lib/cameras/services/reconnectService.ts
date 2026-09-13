@@ -39,9 +39,6 @@ class ReconnectService {
         const isConnected = await this.checkConnection(camera);
 
         if (!isConnected) {
-          console.log(
-            `Camera ${camera.name} disconnected, attempting reconnect...`,
-          );
           const reconnected = await this.attemptReconnect(camera, finalConfig);
 
           if (reconnected) {
@@ -50,7 +47,6 @@ class ReconnectService {
           }
         }
       } catch (error) {
-        console.error("Monitoring error:", error);
       }
     }, finalConfig.delayMs);
 
@@ -86,9 +82,6 @@ class ReconnectService {
       attempt++;
       this.reconnectAttempts.set(camera.id, attempt);
 
-      console.log(
-        `Reconnect attempt ${attempt}/${finalConfig.maxAttempts} for camera ${camera.name}`,
-      );
 
       try {
         // Wait before attempting
@@ -98,21 +91,16 @@ class ReconnectService {
         const connected = await this.checkConnection(camera);
 
         if (connected) {
-          console.log(`Successfully reconnected to camera ${camera.name}`);
           this.reconnectAttempts.delete(camera.id);
           return true;
         }
       } catch (error) {
-        console.error(`Reconnect attempt ${attempt} failed:`, error);
       }
 
       // Increase delay with backoff
       delay *= finalConfig.backoffMultiplier;
     }
 
-    console.error(
-      `Failed to reconnect to camera ${camera.name} after ${finalConfig.maxAttempts} attempts`,
-    );
     this.reconnectAttempts.delete(camera.id);
     return false;
   }
@@ -132,7 +120,6 @@ class ReconnectService {
         return await networkCameraHandler.checkConnection(camera.source);
       }
     } catch (error) {
-      console.error("Connection check failed:", error);
       return false;
     }
   }

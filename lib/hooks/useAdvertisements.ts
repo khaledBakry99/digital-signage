@@ -12,14 +12,17 @@ export interface UseAdvertisementsReturn {
     file: File;
     description?: string;
     type: 'Image' | 'Video';
+    durationSeconds?: number;
   }) => Promise<MediaAsset | null>;
   updateAdvertisement: (
     id: number,
-    data: Partial<{
+    data: {
       name: string;
       description?: string;
-      type?: 'Image' | 'Video';
-    }>,
+      isFallback?: boolean;
+      file?: File;
+      durationSeconds?: number;
+    },
   ) => Promise<MediaAsset | null>;
   deleteAdvertisement: (id: number) => Promise<boolean>;
   getAdvertisementsByScreen: (screenId: number) => MediaAsset[];
@@ -27,7 +30,7 @@ export interface UseAdvertisementsReturn {
 }
 
 /**
- * Custom Hook لإدارة الإعلانات
+ * Custom Hook for managing advertisements
  */
 export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   const [advertisements, setAdvertisements] = useState<MediaAsset[]>([]);
@@ -35,7 +38,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * تحميل جميع الإعلانات
+   * Load all advertisements
    */
   const loadAdvertisements = useCallback(async () => {
     try {
@@ -51,7 +54,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   }, [clientId]);
 
   /**
-   * إنشاء إعلان جديد
+   * Create new advertisement
    */
   const createAdvertisement = useCallback(
     async (data: {
@@ -59,6 +62,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
       file: File;
       description?: string;
       type: 'Image' | 'Video';
+      durationSeconds?: number;
     }): Promise<MediaAsset | null> => {
       try {
         setError(null);
@@ -72,6 +76,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
           description: data.description,
           type: data.type,
           file: data.file,
+          durationSeconds: data.durationSeconds,
         };
         const ad = await mediaAssetApi.create(mediaAssetData);
         await loadAdvertisements();
@@ -85,20 +90,41 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   );
 
   /**
-   * تحديث إعلان موجود
+   * Update existing advertisement
    */
   const updateAdvertisement = useCallback(
     async (
       id: number,
-      data: Partial<{
+      data: {
         name: string;
         description?: string;
-        type?: 'Image' | 'Video';
-      }>,
+        isFallback?: boolean;
+        file?: File;
+        durationSeconds?: number;
+      },
     ): Promise<MediaAsset | null> => {
       try {
         setError(null);
-        const ad = await mediaAssetApi.update(id, data);
+        
+        // If file is provided, use updateWithFile endpoint
+        if (data.file) {
+          const ad = await mediaAssetApi.updateWithFile(id, {
+            name: data.name,
+            description: data.description,
+            file: data.file,
+            durationSeconds: data.durationSeconds,
+          });
+          await loadAdvertisements();
+          return ad;
+        }
+        
+        // Otherwise, use regular update endpoint
+        const ad = await mediaAssetApi.update(id, {
+          name: data.name,
+          description: data.description,
+          isFallback: data.isFallback,
+          durationSeconds: data.durationSeconds,
+        });
         await loadAdvertisements();
         return ad;
       } catch (err) {
@@ -110,7 +136,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   );
 
   /**
-   * حذف إعلان
+   * Delete advertisement
    */
   const deleteAdvertisement = useCallback(
     async (id: number): Promise<boolean> => {
@@ -128,7 +154,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   );
 
   /**
-   * الحصول على إعلانات شاشة معينة
+   * Get advertisements for specific screen
    */
   const getAdvertisementsByScreen = useCallback(
     (screenId: number): MediaAsset[] => {
@@ -138,13 +164,13 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
   );
 
   /**
-   * إعادة تحميل الإعلانات
+   * Reload advertisements
    */
   const refresh = useCallback(async () => {
     await loadAdvertisements();
   }, [loadAdvertisements]);
 
-  // تحميل الإعلانات عند التحميل الأول
+  // Load advertisements on first mount
   useEffect(() => {
     loadAdvertisements();
   }, [loadAdvertisements]);

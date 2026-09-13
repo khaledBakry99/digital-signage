@@ -20,7 +20,7 @@ export { genderAiApi } from './genderAi.api';
 
 // Dashboard API
 export { dashboardApi } from './dashboard.api';
-export type { ClientDashboardStats } from './dashboard.api';
+export type { ClientDashboardStats, Subscription } from './dashboard.api';
 
 // Super Admin APIs
 export { superAdminDashboardApi } from './superAdminDashboard.api';

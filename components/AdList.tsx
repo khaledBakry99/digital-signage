@@ -1,6 +1,105 @@
 "use client";
 
+import { useState } from "react";
+import { useTheme } from "@/lib/context/ThemeContext";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
+
+interface MediaThumbnailProps {
+  asset: MediaAsset;
+  onPreview: () => void;
+  isLightTheme: boolean;
+}
+
+function MediaThumbnail({ asset, onPreview, isLightTheme }: MediaThumbnailProps) {
+  const [loaded, setLoaded] = useState(false);
+
+  if (!asset.url) {
+    return (
+      <div
+        className={`w-20 h-20 rounded-[20px] flex items-center justify-center border border-dashed ${isLightTheme
+          ? "bg-white/80 text-slate-400 border-slate-200"
+          : "bg-white/5 text-white/20 border-white/10"
+          }`}
+      >
+        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </div>
+    );
+  }
+
+  const isImage = asset.type === "Image";
+
+  return (
+    <button
+      type="button"
+      onClick={onPreview}
+      className={`relative group w-20 h-20 overflow-hidden rounded-[20px] border transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${isLightTheme
+        ? "focus-visible:ring-indigo-200 focus-visible:ring-offset-white shadow-[0_15px_45px_rgba(15,23,42,0.1)] bg-white/85"
+        : "focus-visible:ring-offset-[#0f172a] shadow-lg"
+        } ${isLightTheme
+          ? "border-slate-200"
+          : isImage
+            ? "border-white/10 bg-white/5"
+            : "border-fuchsia-500/30 bg-fuchsia-500/5"
+        }`}
+      title={isImage ? "عرض الصورة بالحجم الكامل" : "عرض الفيديو"}
+    >
+      {isImage ? (
+        <img
+          src={asset.url}
+          alt={asset.name}
+          className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${loaded ? "opacity-100" : "opacity-0"
+            }`}
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+        />
+      ) : (
+        <video
+          src={asset.url}
+          muted
+          playsInline
+          preload="metadata"
+          className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${loaded ? "opacity-100" : "opacity-0"
+            }`}
+          onLoadedData={() => setLoaded(true)}
+        />
+      )}
+
+      {!loaded && (
+        <div
+          className={`absolute inset-0 flex flex-col items-center justify-center gap-1 text-[8px] font-black tracking-widest uppercase ${isLightTheme ? "text-slate-400 bg-white/70" : "text-white/60 bg-slate-900/80"
+            }`}
+        >
+          LOAD
+          <span className="block w-6 h-0.5 bg-white/20 animate-pulse" />
+        </div>
+      )}
+
+      <div
+        className={`absolute inset-0 rounded-[18px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-md flex items-center justify-center pointer-events-none ${isLightTheme ? "bg-white/70" : "bg-black/50"
+          }`}
+      >
+        <div
+          className={`w-8 h-8 rounded-full border flex items-center justify-center backdrop-blur-md ${isLightTheme ? "bg-white text-slate-700 border-white/60" : "bg-white/20 text-white border-white/30"
+            }`}
+        >
+          {isImage ? (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
 
 interface AdListProps {
   advertisements: MediaAsset[];
@@ -13,6 +112,27 @@ export default function AdList({
   onEdit,
   onDelete,
 }: AdListProps) {
+  const { theme } = useTheme();
+  const isLightTheme = theme === "light";
+
+  const headerRowClass = isLightTheme
+    ? "border-b border-[rgba(149,156,202,0.35)] bg-gradient-to-r from-[#dfe8ff]/95 via-[#edf2ff]/95 to-[#f4f8ff]/95 shadow-[0_18px_45px_rgba(99,102,241,0.08)]"
+    : "border-b border-white/5 bg-white/5 shadow-sm";
+
+  const bodyDividerClass = isLightTheme
+    ? "divide-y divide-white/60"
+    : "divide-y divide-white/[0.03]";
+
+  const rowClass = isLightTheme
+    ? "group transition-colors duration-300 bg-white/80 even:bg-[#f2f6ff]/80 hover:bg-[#e6f0ff]/90"
+    : "group transition-colors duration-300 hover:bg-white/[0.02]";
+
+  const openMediaPreview = (ad: MediaAsset) => {
+    if (!ad?.id) return;
+    const targetUrl = `/media-assets/${ad.id}`;
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
+  };
+
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString("ar-SA", {
       year: "numeric",
@@ -28,148 +148,140 @@ export default function AdList({
 
   if (advertisements.length === 0) {
     return (
-      <div className="p-16 text-center">
+      <div
+        className={`p-20 text-center flex flex-col items-center justify-center gap-6 ${isLightTheme ? "bg-white/60 rounded-[32px] border border-white/70" : ""
+          }`}
+      >
         <div
-          className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-          style={{
-            background: "var(--bg-secondary)",
-            border: "1px solid var(--border)",
-          }}
+          className={`w-24 h-24 rounded-[32px] flex items-center justify-center text-white/10 shadow-inner border ${isLightTheme ? "bg-white text-indigo-200 border-white/70" : "bg-white/5 border-white/10"
+            }`}
         >
-          <svg
-            className="w-8 h-8"
-            style={{ color: "var(--text-muted)" }}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-            />
+          <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
           </svg>
         </div>
-        <p
-          className="font-semibold mb-1"
-          style={{ color: "var(--text-primary)" }}
-        >
-          لا توجد إعلانات
-        </p>
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-          ابدأ بإضافة إعلان جديد
-        </p>
+        <div>
+          <h3 className={`text-xl font-bold mb-2 ${isLightTheme ? "text-slate-900" : "text-white"}`}>
+            لا توجد وسائط متوفرة
+          </h3>
+          <p
+            className={`${isLightTheme ? "text-slate-500" : "text-white/40"
+              } text-sm max-w-xs mx-auto leading-relaxed`}
+          >
+            لم يتم رفع أي صور أو فيديوهات بعد. ابدأ بإضافة أول إعلان لمكتبتك.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="overflow-x-auto">
-      <table className="table-dark">
+      <table className="w-full border-collapse">
         <thead>
-          <tr>
-            <th>الإعلان</th>
-            <th>الوصف</th>
-            <th>الصورة</th>
-            <th>الحجم</th>
-            <th>النوع</th>
-            <th>التاريخ</th>
-            <th>إجراءات</th>
+          <tr className={headerRowClass}>
+            {["الإعلان", "الوصف", "المعاينة", "الحجم", "النوع", "التاريخ", "إجراءات"].map((heading, idx) => (
+              <th
+                key={heading}
+                className={`${idx === 0 || idx === 1 || idx === 5
+                  ? "text-right pr-12"
+                  : idx === 6
+                    ? "text-left pl-12"
+                    : "text-center"
+                  } px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] ${isLightTheme ? "text-[#6d6fb4]" : "text-white/40"
+                  }`}
+              >
+                {heading}
+              </th>
+            ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className={bodyDividerClass}>
           {advertisements.map((ad, i) => (
             <tr
               key={ad.id}
-              className="animate-fade-in"
-              style={{ animationDelay: `${i * 30}ms` }}
+              className={rowClass}
             >
-              <td>
-                <p
-                  className="font-semibold text-sm"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {ad.name}
-                </p>
+              <td className="px-6 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <p
+                    className={`font-bold transition-colors ${isLightTheme ? "text-slate-900 group-hover:text-indigo-500" : "text-white group-hover:text-indigo-300"
+                      }`}
+                  >
+                    {ad.name}
+                  </p>
+                </div>
               </td>
-              <td>
+              <td className="px-6 py-4">
                 <p
-                  className="text-sm"
-                  style={{ color: "var(--text-muted)" }}
+                  className={`text-xs max-w-[280px] line-clamp-2 leading-relaxed ${isLightTheme ? "text-slate-500" : "text-white/50"
+                    }`}
                 >
                   {ad.description || "—"}
                 </p>
               </td>
-              <td>
-                {ad.url && ad.type === "Image" ? (
-                  <img
-                    src={ad.url}
-                    alt={ad.name}
-                    className="w-16 h-16 object-cover rounded-lg"
-                    style={{
-                      border: "1px solid var(--border)",
-                    }}
-                  />
-                ) : ad.type === "Video" ? (
-                  <div
-                    className="w-16 h-16 rounded-lg flex items-center justify-center"
-                    style={{
-                      background: "rgba(168,85,247,0.15)",
-                      border: "1px solid rgba(168,85,247,0.25)",
-                    }}
-                  >
-                    <svg
-                      className="w-6 h-6"
-                      style={{ color: "#c084fc" }}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.8}
-                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </div>
-                ) : (
-                  <span style={{ color: "var(--text-muted)" }}>—</span>
-                )}
+              <td className="px-6 py-4 text-center">
+                <MediaThumbnail asset={ad} onPreview={() => openMediaPreview(ad)} isLightTheme={isLightTheme} />
               </td>
-              <td style={{ color: "var(--text-muted)", fontSize: "13px" }}>
-                {formatSize(ad.fileSizeMb)}
-              </td>
-              <td>
+              <td className="px-6 py-4 text-center">
                 <span
-                  className={`badge ${ad.type === "Image" ? "badge-blue" : "badge-purple"}`}
+                  className={`text-xs font-medium tabular-nums ${isLightTheme ? "text-slate-500" : "text-white/40"
+                    }`}
                 >
-                  {ad.type === "Image" ? "صورة" : "فيديو"}
+                  {formatSize(ad.fileSizeMb)}
                 </span>
               </td>
-              <td style={{ color: "var(--text-muted)", fontSize: "13px" }}>
-                {formatDate(ad.createdAtUtc)}
+              <td className="px-6 py-4 text-center">
+                <span
+                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm border ${ad.type === "Image"
+                    ? isLightTheme
+                      ? "bg-blue-50 text-blue-600 border-blue-100"
+                      : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                    : isLightTheme
+                      ? "bg-fuchsia-50 text-fuchsia-600 border-fuchsia-100"
+                      : "bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20"
+                    }`}
+                >
+                  {ad.type === "Image" ? "Image" : "Video"}
+                </span>
               </td>
-              <td>
-                <div className="flex items-center gap-2">
+              <td className="px-6 py-4">
+                <span
+                  className={`text-xs font-medium ${isLightTheme ? "text-slate-500" : "text-white/40"
+                    }`}
+                >
+                  {formatDate(ad.createdAtUtc)}
+                </span>
+              </td>
+              <td className="px-6 py-4">
+                <div
+                  className={`flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity duration-300 ${isLightTheme ? "text-slate-600" : "text-white"
+                    }`}
+                >
                   <button
                     onClick={() => onEdit(ad)}
-                    className="cursor-pointer px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-slate-100 font-medium text-xs transition-all duration-200 active:scale-[0.97] select-none inline-flex items-center gap-1.5"
+                    className={`cursor-pointer p-2.5 rounded-xl border transition-all active:scale-90 ${isLightTheme
+                      ? "bg-white text-slate-600 border-slate-200 hover:border-indigo-200 hover:text-indigo-500"
+                      : "bg-white/5 hover:bg-white/10 border-white/10 text-white"
+                      }`}
+                    title="تعديل الإعلان"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
-                    تعديل
                   </button>
                   <button
                     onClick={() => onDelete(ad)}
-                    className="cursor-pointer px-3.5 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 font-medium text-xs transition-all duration-200 active:scale-[0.97] select-none inline-flex items-center gap-1.5"
+                    className={`cursor-pointer p-2.5 rounded-xl transition-all active:scale-90 border ${isLightTheme
+                      ? "bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100"
+                      : "bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/20 text-rose-400"
+                      }`}
+                    title="حذف الإعلان"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    حذف
                   </button>
                 </div>
               </td>

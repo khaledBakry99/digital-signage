@@ -1,22 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
-import { useScreens } from "@/lib/hooks/useScreens";
+import { useScreensWithHeartbeat } from "@/lib/hooks/useScreensWithHeartbeat";
 import { useCameras } from "@/lib/cameras/hooks/useCameras";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useSubscription } from "@/lib/hooks/useSubscription";
+import { useTheme } from "@/lib/context/ThemeContext";
 import { extractApiError } from "@/lib/api/client";
-import type { Screen, ConnectionStatus, OperationalStatus } from "@/lib/types/screen";
+import type { Screen } from "@/lib/types/screen";
 import DeleteScreenModal from "@/components/DeleteScreenModal";
 
 export default function ManageScreensPage() {
   const { clientId } = useAuth();
-  const { screens, loading, error: screensError, createScreen, updateScreen, deleteScreen, refresh } = useScreens(clientId);
+  const { screens, loading, error: screensError, createScreen, updateScreen, deleteScreen, refresh } = useScreensWithHeartbeat(clientId);
   const { cameras } = useCameras();
+  const { maxScreens } = useSubscription(clientId);
+  const { theme } = useTheme();
+  const isLightTheme = theme === "light";
+
+  const isAtMaxScreens = maxScreens > 0 && screens.length >= maxScreens;
 
   const [showForm, setShowForm] = useState(false);
   const [editingScreen, setEditingScreen] = useState<Screen | null>(null);
-  
+
   // Form fields
   const [formName, setFormName] = useState("");
   const [formExternalId, setFormExternalId] = useState("");
@@ -25,8 +32,16 @@ export default function ManageScreensPage() {
   const [formCameraEnabled, setFormCameraEnabled] = useState(false);
   const [formAiEnabled, setFormAiEnabled] = useState(false);
   const [formCameraId, setFormCameraId] = useState<string>("");
-  const [formConnectionStatus, setFormConnectionStatus] = useState<ConnectionStatus>("Offline");
-  const [formOperationalStatus, setFormOperationalStatus] = useState<OperationalStatus>("Draft");
+  
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({}); // Track field-specific errors
+  
+  const formNameRef = useRef<HTMLInputElement>(null);
+  const formExternalIdRef = useRef<HTMLInputElement>(null);
+  const formLocationNameRef = useRef<HTMLInputElement>(null);
+  const formCityRef = useRef<HTMLInputElement>(null);
+  
+  // Character limits
+  const FIELD_MAX_LENGTH = 40;
 
   // Delete modal state
   const [screenToDelete, setScreenToDelete] = useState<Screen | null>(null);
@@ -34,6 +49,45 @@ export default function ManageScreensPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const heroContainerClass = isLightTheme
+    ? "relative mb-8 overflow-hidden rounded-[32px] border border-white/60 shadow-[0_35px_95px_rgba(15,23,42,0.12)]"
+    : "relative mb-8 overflow-hidden rounded-[32px] border border-white/5 shadow-[0_35px_95px_rgba(2,6,23,0.65)]";
+
+  const heroContainerStyle = isLightTheme
+    ? {
+      background: "linear-gradient(135deg, rgba(249,252,255,0.95), rgba(222,231,255,0.9))",
+      backdropFilter: "blur(30px)",
+    }
+    : {
+      background: "linear-gradient(135deg, rgba(21,27,51,0.85), rgba(15,18,34,0.95))",
+    };
+
+  const statsCardClass = isLightTheme
+    ? "relative overflow-hidden rounded-[24px] border border-white/50 p-5 backdrop-blur-2xl shadow-[0_25px_70px_rgba(15,23,42,0.08)]"
+    : "relative overflow-hidden rounded-[24px] border border-white/10 p-5 bg-white/5 backdrop-blur-sm";
+
+  const activeCount = screens.filter((screen) => screen.connectionStatus === "Online").length;
+  const stats = [
+    {
+      label: "إجمالي الشاشات",
+      value: screens.length,
+      accent: "#818cf8",
+      tint: "linear-gradient(135deg, rgba(216,226,255,0.92), rgba(237,247,255,0.85))",
+    },
+    {
+      label: "نشطة",
+      value: activeCount,
+      accent: "#34d399",
+      tint: "linear-gradient(135deg, rgba(209,250,229,0.92), rgba(224,242,254,0.85))",
+    },
+    {
+      label: "خاملة",
+      value: screens.length - activeCount,
+      accent: "#94a3b8",
+      tint: "linear-gradient(135deg, rgba(226,232,240,0.92), rgba(241,245,249,0.9))",
+    },
+  ];
 
   const openAddForm = () => {
     setEditingScreen(null);
@@ -45,6 +99,7 @@ export default function ManageScreensPage() {
     setFormAiEnabled(false);
     setFormCameraId("");
     setError(null);
+    setFieldErrors({});
     setShowForm(true);
   };
 
@@ -57,16 +112,40 @@ export default function ManageScreensPage() {
     setFormCameraEnabled(screen.cameraEnabled);
     setFormAiEnabled(screen.aiEnabled);
     setFormCameraId(screen.cameraId?.toString() || "");
-    setFormConnectionStatus(screen.connectionStatus);
-    setFormOperationalStatus(screen.operationalStatus);
     setError(null);
+    setFieldErrors({});
     setShowForm(true);
+  };
+
+  // Scroll to field and highlight it
+  const scrollToField = (ref: React.RefObject<HTMLElement | null>, fieldName: string) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    ref.current?.focus();
+    setFieldErrors(prev => ({ ...prev, [fieldName]: "هذا الحقل مطلوب" }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFieldErrors({});
+    
+    // Validate required fields
     if (!formName.trim()) {
-      setError("اسم الشاشة مطلوب");
+      scrollToField(formNameRef, 'name');
+      return;
+    }
+    
+    if (!formExternalId.trim()) {
+      scrollToField(formExternalIdRef, 'externalId');
+      return;
+    }
+    
+    if (!formLocationName.trim()) {
+      scrollToField(formLocationNameRef, 'locationName');
+      return;
+    }
+    
+    if (!formCity.trim()) {
+      scrollToField(formCityRef, 'city');
       return;
     }
 
@@ -84,8 +163,6 @@ export default function ManageScreensPage() {
           cameraEnabled: formCameraEnabled,
           aiEnabled: formAiEnabled,
           cameraId: formCameraEnabled && formCameraId ? Number(formCameraId) : undefined,
-          connectionStatus: formConnectionStatus,
-          operationalStatus: formOperationalStatus,
         });
         if (!success) {
           throw new Error("فشل تحديث الشاشة على الخادم");
@@ -143,39 +220,86 @@ export default function ManageScreensPage() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8 animate-fade-in">
-        <div>
-          <h1 className="text-3xl font-bold mb-1">
-            <span className="gradient-text">إدارة الشاشات</span>
-          </h1>
-          <p style={{ color: "var(--text-muted)" }}>
-            إضافة وتعديل وحذف الشاشات وربطها بكاميرات المراقبة
-          </p>
-        </div>
-        <button
-          onClick={openAddForm}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold cursor-pointer select-none active:scale-95 transition-transform duration-100"
-          style={{
-            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-            color: "white",
-          }}
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+      <div className={heroContainerClass} style={heroContainerStyle}>
+        <div
+          className="absolute inset-0 opacity-30"
+          style={
+            isLightTheme
+              ? { background: "radial-gradient(circle at top left, rgba(255,255,255,0.65), transparent 55%)" }
+              : { background: "radial-gradient(circle at top left, rgba(99,102,241,0.25), transparent 50%)" }
+          }
+        />
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 lg:p-8">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">
+              <span className="gradient-text-modern">إدارة الشاشات</span>
+            </h1>
+            <p className={`text-lg ${isLightTheme ? "text-slate-600" : "text-white/70"}`}>
+              إضافة وتعديل وحذف الشاشات وربطها بكاميرات المراقبة
+            </p>
+          </div>
+          <button
+            onClick={openAddForm}
+            disabled={isAtMaxScreens}
+            className={`btn-primary cursor-pointer active:scale-95 transition-transform ${isAtMaxScreens ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={isAtMaxScreens ? `وصلت للحد الأقصى من الشاشات (${screens.length}/${maxScreens})` : undefined}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          إضافة شاشة
-        </button>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span>إضافة شاشة</span>
+          </button>
+        </div>
+
+        <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 p-6 pt-0">
+          {loading ? (
+            // Skeleton for stats cards
+            <>
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className={statsCardClass}
+                  style={
+                    isLightTheme
+                      ? { background: "linear-gradient(135deg, rgba(226,232,240,0.92), rgba(241,245,249,0.9))" }
+                      : undefined
+                  }
+                >
+                  <div className="animate-pulse">
+                    <div
+                      className={`h-3 w-20 rounded mb-3 ${
+                        isLightTheme ? "bg-slate-300/60" : "bg-white/10"
+                      }`}
+                    />
+                    <div
+                      className={`h-8 w-12 rounded ${
+                        isLightTheme ? "bg-slate-300/60" : "bg-white/10"
+                      }`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            // Actual stats cards
+            <>
+              {stats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className={statsCardClass}
+                  style={isLightTheme ? { background: stat.tint } : undefined}
+                >
+                  <p className={`${isLightTheme ? "text-slate-500" : "text-white/60"} text-xs font-semibold mb-2`}>
+                    {stat.label}
+                  </p>
+                  <p className="text-3xl font-black" style={{ color: stat.accent }}>
+                    {stat.value}
+                  </p>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
       </div>
 
       {screensError && (
@@ -188,6 +312,40 @@ export default function ManageScreensPage() {
           }}
         >
           {screensError}
+        </div>
+      )}
+
+      {isAtMaxScreens && (
+        <div
+          className="mb-6 p-4 rounded-xl animate-fade-in text-sm"
+          style={{
+            background: isLightTheme
+              ? "rgba(245, 158, 11, 0.1)"
+              : "rgba(245, 158, 11, 0.15)",
+            border: isLightTheme
+              ? "1px solid rgba(245, 158, 11, 0.3)"
+              : "1px solid rgba(245, 158, 11, 0.4)",
+            color: isLightTheme ? "#d97706" : "#fbbf24",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <div>
+              <p className="font-semibold mb-1">
+                وصلت للحد الأقصى من الشاشات ({screens.length}/{maxScreens})
+              </p>
+              <p className="text-xs opacity-80">
+                يمكنك تعديل أو حذف شاشة موجودة لإضافة شاشة جديدة، أو ترقية اشتراكك للحصول على مساحة إضافية.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -231,14 +389,30 @@ export default function ManageScreensPage() {
                     اسم الشاشة *
                   </label>
                   <input
+                    ref={formNameRef}
                     type="text"
                     value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value.length <= FIELD_MAX_LENGTH) {
+                        setFormName(value);
+                        setFieldErrors(prev => ({ ...prev, name: "" }));
+                      }
+                    }}
                     placeholder="مثال: شاشة المدخل"
-                    className={`${inputClass} cursor-text`}
-                    style={inputStyle}
+                    className={`${inputClass} cursor-text ${fieldErrors.name ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+                    style={isLightTheme && fieldErrors.name ? {
+                      ...inputStyle,
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #ef4444",
+                      color: "#0f172a",
+                    } : inputStyle}
                     required
+                    maxLength={FIELD_MAX_LENGTH}
                   />
+                  {fieldErrors.name && (
+                    <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.name}</p>
+                  )}
                 </div>
 
                 <div>
@@ -246,16 +420,33 @@ export default function ManageScreensPage() {
                     className="block text-sm font-medium mb-1.5"
                     style={{ color: "var(--text-muted)" }}
                   >
-                    المعرّف الخارجي (External ID)
+                    المعرّف الخارجي (External ID) *
                   </label>
                   <input
+                    ref={formExternalIdRef}
                     type="text"
                     value={formExternalId}
-                    onChange={(e) => setFormExternalId(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value.length <= FIELD_MAX_LENGTH) {
+                        setFormExternalId(value);
+                        setFieldErrors(prev => ({ ...prev, externalId: "" }));
+                      }
+                    }}
                     placeholder="مثال: SCR-101"
-                    className={`${inputClass} cursor-text`}
-                    style={inputStyle}
+                    className={`${inputClass} cursor-text ${fieldErrors.externalId ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+                    style={isLightTheme && fieldErrors.externalId ? {
+                      ...inputStyle,
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #ef4444",
+                      color: "#0f172a",
+                    } : inputStyle}
+                    required
+                    maxLength={FIELD_MAX_LENGTH}
                   />
+                  {fieldErrors.externalId && (
+                    <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.externalId}</p>
+                  )}
                 </div>
               </div>
 
@@ -265,16 +456,33 @@ export default function ManageScreensPage() {
                     className="block text-sm font-medium mb-1.5"
                     style={{ color: "var(--text-muted)" }}
                   >
-                    الموقع / صالة العرض
+                    الموقع / صالة العرض *
                   </label>
                   <input
+                    ref={formLocationNameRef}
                     type="text"
                     value={formLocationName}
-                    onChange={(e) => setFormLocationName(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value.length <= FIELD_MAX_LENGTH) {
+                        setFormLocationName(value);
+                        setFieldErrors(prev => ({ ...prev, locationName: "" }));
+                      }
+                    }}
                     placeholder="مثال: البوابة الرئيسية"
-                    className={`${inputClass} cursor-text`}
-                    style={inputStyle}
+                    className={`${inputClass} cursor-text ${fieldErrors.locationName ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+                    style={isLightTheme && fieldErrors.locationName ? {
+                      ...inputStyle,
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #ef4444",
+                      color: "#0f172a",
+                    } : inputStyle}
+                    required
+                    maxLength={FIELD_MAX_LENGTH}
                   />
+                  {fieldErrors.locationName && (
+                    <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.locationName}</p>
+                  )}
                 </div>
 
                 <div>
@@ -282,58 +490,35 @@ export default function ManageScreensPage() {
                     className="block text-sm font-medium mb-1.5"
                     style={{ color: "var(--text-muted)" }}
                   >
-                    المدينة
+                    المدينة *
                   </label>
                   <input
+                    ref={formCityRef}
                     type="text"
                     value={formCity}
-                    onChange={(e) => setFormCity(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value.length <= FIELD_MAX_LENGTH) {
+                        setFormCity(value);
+                        setFieldErrors(prev => ({ ...prev, city: "" }));
+                      }
+                    }}
                     placeholder="مثال: الرياض"
-                    className={`${inputClass} cursor-text`}
-                    style={inputStyle}
+                    className={`${inputClass} cursor-text ${fieldErrors.city ? 'ring-2 ring-red-500 border-red-500' : ''}`}
+                    style={isLightTheme && fieldErrors.city ? {
+                      ...inputStyle,
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #ef4444",
+                      color: "#0f172a",
+                    } : inputStyle}
+                    required
+                    maxLength={FIELD_MAX_LENGTH}
                   />
+                  {fieldErrors.city && (
+                    <p className="text-red-500 text-xs mt-1 animate-fade-in">{fieldErrors.city}</p>
+                  )}
                 </div>
               </div>
-
-              {editingScreen && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
-                  <div>
-                    <label
-                      className="block text-xs font-semibold mb-1.5 text-indigo-300"
-                    >
-                      حالة الاتصال
-                    </label>
-                    <select
-                      value={formConnectionStatus}
-                      onChange={(e) => setFormConnectionStatus(e.target.value as ConnectionStatus)}
-                      className={`${inputClass} cursor-pointer`}
-                      style={inputStyle}
-                    >
-                      <option className="cursor-pointer" value="Online">متصلة (Online)</option>
-                      <option className="cursor-pointer" value="Offline">غير متصلة (Offline)</option>
-                      <option className="cursor-pointer" value="Unknown">غير معروفة (Unknown)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
-                      className="block text-xs font-semibold mb-1.5 text-indigo-300"
-                    >
-                      الحالة التشغيلية
-                    </label>
-                    <select
-                      value={formOperationalStatus}
-                      onChange={(e) => setFormOperationalStatus(e.target.value as OperationalStatus)}
-                      className={`${inputClass} cursor-pointer`}
-                      style={inputStyle}
-                    >
-                      <option className="cursor-pointer" value="Draft">مسودة (Draft)</option>
-                      <option className="cursor-pointer" value="Active">نشطة تشغيلياً (Active)</option>
-                      <option className="cursor-pointer" value="Inactive">غير نشطة (Inactive)</option>
-                    </select>
-                  </div>
-                </div>
-              )}
 
               {/* Toggles */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
@@ -497,29 +682,13 @@ export default function ManageScreensPage() {
                 style={{ animationDelay: `${i * 50}ms` }}
               >
                 <div className="flex items-center gap-4 min-w-0 flex-1">
-                  {/* Screen ID */}
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg shrink-0 transition-colors"
-                    style={{
-                      background: isOnline ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.03)",
-                      color: isOnline ? "#34d399" : "var(--text-muted)",
-                      border: `1px solid ${isOnline ? "rgba(16,185,129,0.25)" : "var(--border)"}`,
-                    }}
-                  >
-                    {screen.id}
-                  </div>
-
-                  {/* Info */}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-slate-100 truncate text-base">{screen.name}</p>
-                      {screen.externalId && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white/5 text-slate-400 border border-white/5">
-                          {screen.externalId}
-                        </span>
-                      )}
-                    </div>
-                    
+                    <p
+                      className={`font-bold truncate text-base ${isLightTheme ? "text-slate-800" : "text-slate-100"}`}
+                    >
+                      {screen.name}
+                    </p>
+
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs text-slate-400">
                       {screen.locationName && (
                         <span className="flex items-center gap-1.5">
@@ -530,7 +699,7 @@ export default function ManageScreensPage() {
                           {screen.locationName} {screen.city && `، ${screen.city}`}
                         </span>
                       )}
-                      
+
                       {screen.cameraEnabled && (
                         <span className="flex items-center gap-1 text-indigo-400">
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

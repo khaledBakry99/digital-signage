@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useSuperAdminDashboard } from "@/lib/hooks/useSuperAdminDashboard";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { getRoleLabel } from "@/lib/utils/roleLabels";
+import { useTheme } from "@/lib/context/ThemeContext";
 
 // Professional Icons
 const DashboardIcon = () => (
@@ -51,6 +52,7 @@ export default function SuperAdminSidebar() {
   const router = useRouter();
   const { stats } = useSuperAdminDashboard();
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const quickStats = useMemo(() => [
@@ -94,11 +96,11 @@ export default function SuperAdminSidebar() {
         className={`sticky top-0 self-start h-screen flex flex-col z-40 transition-all duration-500 ease-out ${isCollapsed ? "translate-x-0" : ""}`}
         style={{
           width: isCollapsed ? "80px" : "280px",
-          background: "linear-gradient(180deg, #0a0e1a 0%, #0f1419 50%, #0a0e1a 100%)",
-          borderLeft: "1px solid rgba(255, 255, 255, 0.08)",
+          background: "var(--sidebar-bg)",
+          borderLeft: "1px solid var(--border)",
           boxShadow: isCollapsed
-            ? "-2px 0 16px rgba(0, 0, 0, 0.3)"
-            : "-4px 0 32px rgba(0, 0, 0, 0.4)",
+            ? "-2px 0 16px rgba(15, 23, 42, 0.08)"
+            : "-4px 0 32px rgba(15, 23, 42, 0.12)",
         }}
       >
         {/* Toggle Button */}
@@ -120,24 +122,20 @@ export default function SuperAdminSidebar() {
         {/* Header Section */}
         <div className={`p-5 border-b border-white/5 ${isCollapsed ? "text-center" : ""}`}>
           {!isCollapsed ? (
-            <>
-              <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 border border-indigo-500/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-indigo-400/80">Smart HQ</p>
-                  <h2 className="text-lg font-bold text-white">Super Admin</h2>
-                </div>
-              </div>
-            </>
+            <div className="flex items-center justify-center">
+              <img
+                src="/logo-midume.png"
+                alt="Firasa Logo"
+                className="h-12 w-auto object-contain"
+              />
+            </div>
           ) : (
-            <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 border border-indigo-500/20 flex items-center justify-center">
-              <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+            <div className="flex flex-col items-center">
+              <img
+                src="/logo-small.png"
+                alt="Firasa Logo"
+                className="h-10 w-auto object-contain"
+              />
             </div>
           )}
         </div>
@@ -212,6 +210,60 @@ export default function SuperAdminSidebar() {
               </button>
             );
           })}
+
+          {/* Theme Toggle Section */}
+          <div className="mt-5 px-2 pb-4">
+            {!isCollapsed && (
+              <div className="flex items-center justify-start gap-2 mb-2 -mr-2 text-right">
+                <div className="w-1 h-4 rounded-full bg-gradient-to-b from-amber-400 to-orange-500" />
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  مظهر النظام
+                </p>
+              </div>
+            )}
+            <button
+              onClick={toggleTheme}
+              className={`
+                group relative w-full rounded-xl transition-all duration-500 ease-out border
+                ${theme === "light"
+                  ? "bg-gradient-to-r from-[#dde7ff]/95 via-[#edf3ff]/95 to-[#f7fbff]/95 text-slate-700 border-white/60 shadow-[0_18px_50px_rgba(135,144,184,0.22)]"
+                  : "bg-white/5 text-slate-200 border-white/10"
+                }
+                ${isCollapsed ? "flex items-center justify-center p-3" : "flex items-center justify-between px-4 py-3 gap-3 text-right"}
+              `}
+              aria-label="تبديل المظهر"
+            >
+              <span className={`
+                relative z-10 transition-all duration-500
+                ${theme === "light" ? "text-amber-500" : "text-indigo-200"}
+              `}>
+                {theme === "light" ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.95 16.95l.707.707M7.05 7.05l.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </span>
+              {!isCollapsed && (
+                <div className="flex-1 flex items-center justify-between gap-4">
+                  <div className="text-right leading-tight">
+                    <span className="block text-sm font-semibold">
+                      {theme === "light" ? "الوضع الفاتح" : "الوضع الداكن"}
+                    </span>
+                    <span className={`text-[11px] ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
+                      {theme === "light" ? "Switch to Dark" : "Switch to Light"}
+                    </span>
+                  </div>
+                  <div className={`relative w-12 h-5 rounded-full overflow-hidden transition-colors duration-300 ${theme === "light" ? "bg-gradient-to-r from-amber-300/80 to-amber-400/80" : "bg-slate-600"}`}>
+                    <div className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300 ${theme === "light" ? "right-1" : "left-1"}`} />
+                  </div>
+                </div>
+              )}
+            </button>
+          </div>
         </nav>
 
         {/* User Section */}

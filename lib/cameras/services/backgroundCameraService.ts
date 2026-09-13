@@ -14,52 +14,6 @@ import type { Camera } from "@/lib/types/camera";
  * Manages cameras running in the background for continuous screenshot capture
  */
 
-// ============================================
-// 📋 LOGGING FUNCTIONS
-// ============================================
-const bgLogStyles = {
-  init: 'background: #3B82F6; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-  start: 'background: #10B981; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-  stop: 'background: #EF4444; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-  pause: 'background: #F59E0B; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-  resume: 'background: #8B5CF6; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-};
-
-function logInit(msg: string) {
-  console.log(`%c🚀 INIT%c ${msg}`, bgLogStyles.init, 'color: inherit; font-weight: normal;');
-}
-
-function logStart(cameraName: string, type: string, source: string) {
-  console.log(
-    `%c▶️  START%c [${cameraName}] type: ${type} | source: ${source}`,
-    bgLogStyles.start,
-    'color: inherit; font-weight: normal;'
-  );
-}
-
-function logStop(cameraName: string) {
-  console.log(
-    `%c⏹️  STOP%c [${cameraName}] camera stopped`,
-    bgLogStyles.stop,
-    'color: inherit; font-weight: normal;'
-  );
-}
-
-function logPause(cameraName: string) {
-  console.log(
-    `%c⏸️  PAUSE%c [${cameraName}] paused (camera open in tab)`,
-    bgLogStyles.pause,
-    'color: inherit; font-weight: normal;'
-  );
-}
-
-function logResume(cameraName: string) {
-  console.log(
-    `%c▶️  RESUME%c [${cameraName}] resumed`,
-    bgLogStyles.resume,
-    'color: inherit; font-weight: normal;'
-  );
-}
 
 class BackgroundCameraService {
   private activeElements: Map<string, HTMLVideoElement | HTMLImageElement> =
@@ -72,7 +26,6 @@ class BackgroundCameraService {
   initialize(): void {
     if (typeof window === "undefined") return;
 
-    logInit("🎥 Background camera service starting");
 
     // Create hidden container for video elements
     if (!this.container) {
@@ -85,8 +38,7 @@ class BackgroundCameraService {
       this.container.style.overflow = "hidden";
       this.container.style.pointerEvents = "none";
       document.body.appendChild(this.container);
-      
-      logInit("✅ Hidden camera container created");
+
     }
 
     // Listen for camera open/close events from tabs
@@ -126,7 +78,6 @@ class BackgroundCameraService {
       if (typeof window !== 'undefined') {
         const token = localStorage.getItem('accessToken');
         if (!token) {
-          logInit("⏭️  Waiting for user authentication before starting cameras");
           return;
         }
       }
@@ -136,7 +87,6 @@ class BackgroundCameraService {
         .filter((bc) => bc.state === "Active")
         .map(mapBackendToFrontendCamera);
 
-      logInit(`📊 Found ${cameras.length} active cameras`);
 
       // Start cameras one by one with delay to avoid overwhelming the network
       for (let i = 0; i < cameras.length; i++) {
@@ -150,11 +100,8 @@ class BackgroundCameraService {
         await this.startCamera(camera);
       }
 
-      logInit(`✅ All cameras started (${cameras.length} cameras)`);
     } catch (error) {
       const errorMessage = extractApiError(error, "Failed to start cameras");
-      console.error("Failed to start all cameras:", errorMessage);
-      logInit(`❌ Error fetching cameras: ${errorMessage}`);
     }
   }
 
@@ -164,7 +111,6 @@ class BackgroundCameraService {
   async startCamera(camera: Camera): Promise<void> {
     try {
       if (!this.container) {
-        console.error("Container not initialized");
         return;
       }
 
@@ -219,12 +165,7 @@ class BackgroundCameraService {
 
       screenshotService.startCapture(camera.id, camera.name, element, intervalMs);
 
-      // ============================================
-      // ▶️ LOG START
-      // ============================================
-      logStart(camera.name, camera.type, camera.source);
     } catch (error) {
-      console.error(`Failed to start camera ${camera.name}:`, error);
     }
   }
 
@@ -256,10 +197,6 @@ class BackgroundCameraService {
 
       this.activeElements.delete(cameraId);
 
-      // ============================================
-      // ⏹️ LOG STOP
-      // ============================================
-      logStop(cameraId);
     }
   }
 
@@ -298,18 +235,15 @@ class BackgroundCameraService {
    * Pause a camera (when opened in a tab)
    */
   pauseCamera(cameraId: string): void {
-    logPause(cameraId);
   }
 
   /**
    * Resume a camera (when tab is closed)
    */
   async resumeCamera(cameraId: string): Promise<void> {
-    logResume(cameraId);
 
     // Check if container is initialized
     if (!this.container) {
-      console.log("Container not initialized yet, skipping resume");
       return;
     }
 
@@ -326,7 +260,6 @@ class BackgroundCameraService {
       }
     } catch (error) {
       const errorMessage = extractApiError(error, "Failed to resume camera");
-      console.error(`Failed to resume camera ${cameraId}:`, errorMessage);
     }
   }
 

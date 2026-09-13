@@ -8,8 +8,8 @@ import {
 import { API_CONFIG } from "../api/config";
 
 /**
- * SignalR Service - إدارة الاتصال الفوري بالسيرفر
- * للحصول على تحديثات مباشرة للشاشات والكاميرات
+ * SignalR Service - Manages real-time server connection
+ * For getting live updates for screens and cameras
  */
 export class SignalRService {
   private connection: HubConnection | null = null;
@@ -35,31 +35,26 @@ export class SignalRService {
     conn.serverTimeoutInMilliseconds = 5 * 60 * 1000;
 
     conn.onreconnecting((error) => {
-      console.log("🔄 SignalR reconnecting...", error?.message);
       this.reconnectAttempts++;
       this.reconnectingListeners.forEach((listener) => {
         try {
           listener(error ?? undefined);
         } catch (listenerError) {
-          console.error("⚠️ SignalR reconnecting listener failed", listenerError);
         }
       });
     });
 
     conn.onreconnected((connectionId) => {
-      console.log("✅ SignalR reconnected:", connectionId);
       this.reconnectAttempts = 0;
       this.reconnectedListeners.forEach((listener) => {
         try {
           listener(connectionId);
         } catch (listenerError) {
-          console.error("⚠️ SignalR reconnected listener failed", listenerError);
         }
       });
     });
 
     conn.onclose((error) => {
-      console.log("❌ SignalR connection closed:", error?.message);
       this.connection = null;
     });
 
@@ -67,7 +62,7 @@ export class SignalRService {
   }
 
   /**
-   * إنشاء اتصال SignalR
+   * Create SignalR connection
    */
   async connect(token: string): Promise<HubConnection> {
     if (this.connectPromise) {
@@ -78,7 +73,7 @@ export class SignalRService {
       return this.connection;
     }
 
-    // إيقاف الاتصال السابق إن وجد
+    // Stop previous connection if exists
     if (this.connection) {
       if (this.connection.state !== HubConnectionState.Disconnected) {
         await this.connection.stop();
@@ -95,11 +90,9 @@ export class SignalRService {
         try {
           this.connecting = true;
           await this.connection.start();
-          console.log("🚀 SignalR connected successfully");
           return this.connection;
         } catch (error) {
           lastError = error;
-          console.error(`❌ Failed to connect SignalR (attempt ${attempt}/${maxAttempts}):`, error);
           try {
             await this.connection.stop();
           } catch {
@@ -127,7 +120,7 @@ export class SignalRService {
   }
 
   /**
-   * قطع الاتصال
+   * Disconnect
    */
   async disconnect(): Promise<void> {
     if (this.connection) {
@@ -137,14 +130,14 @@ export class SignalRService {
   }
 
   /**
-   * الحصول على الاتصال الحالي
+   * Get current connection
    */
   getConnection(): HubConnection | null {
     return this.connection;
   }
 
   /**
-   * هل متصل؟
+   * Is connected?
    */
   isConnected(): boolean {
     return this.connection?.state === HubConnectionState.Connected;

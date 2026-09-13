@@ -5,7 +5,7 @@
 import { genderAiApi } from "@/lib/api/genderAi.api";
 import { mediapipeService } from "@/lib/services/mediapipeService";
 
-// تحويل رابط dataURL المرمز بـ Base64 إلى كائن File لإرساله عبر الـ API
+// Convert Base64-encoded dataURL to File object for sending via API
 function dataURLtoFile(dataurl: string, filename: string): File {
   const arr = dataurl.split(",");
   const mime = arr[0].match(/:(.*?);/)?.[1] || "image/jpeg";
@@ -18,81 +18,6 @@ function dataURLtoFile(dataurl: string, filename: string): File {
   return new File([u8arr], filename, { type: mime });
 }
 
-// ============================================
-// 📋 LOGGING FUNCTIONS
-// ============================================
-const logStyles = {
-  camera: 'background: #4F46E5; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-  capture: 'background: #06B6D4; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-  send: 'background: #F59E0B; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-  ai: 'background: #8B5CF6; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-  screen: 'background: #10B981; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-  error: 'background: #EF4444; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-};
-
-function logCamera(cameraId: string, cameraName: string, msg: string) {
-  console.log(
-    `%c🎥 CAMERA%c [${cameraName}#${cameraId}] ${msg}`,
-    logStyles.camera,
-    'color: inherit; font-weight: normal;'
-  );
-}
-
-function logCapture(cameraName: string, timestamp: string) {
-  console.log(
-    `%c📸 CAPTURE%c [${cameraName}] صورة ملتقطة في ${timestamp}`,
-    logStyles.capture,
-    'color: inherit; font-weight: normal;'
-  );
-}
-
-function logSend(cameraName: string, fileName: string) {
-  console.log(
-    `%c📤 SEND%c [${cameraName}] إرسال إلى AI: ${fileName}`,
-    logStyles.send,
-    'color: inherit; font-weight: normal;'
-  );
-}
-
-function logAI(cameraName: string, aiResponse: any) {
-  const detected = aiResponse?.detectedGender || 'غير محدد';
-  const screens = aiResponse?.screensToUpdate?.length || 0;
-  console.log(
-    `%c🤖 AI DETECTION%c [${cameraName}] الفئة المكتشفة: %c${detected}%c | عدد الشاشات: %c${screens}`,
-    logStyles.ai,
-    'color: inherit; font-weight: normal;',
-    'background: #7C3AED; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
-    'color: inherit; font-weight: normal;',
-    'background: #3B82F6; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;'
-  );
-  console.log('%cAI Response Details:', 'font-weight: bold; color: #8B5CF6;', aiResponse);
-}
-
-function logScreen(cameraName: string, screenUpdates: any) {
-  if (screenUpdates?.screensToUpdate && Array.isArray(screenUpdates.screensToUpdate)) {
-    screenUpdates.screensToUpdate.forEach((screen: any, idx: number) => {
-      console.log(
-        `%c📺 SCREEN UPDATE%c [${idx + 1}/${screenUpdates.screensToUpdate.length}] الشاشة #${screen.id}`,
-        logStyles.screen,
-        'color: inherit; font-weight: normal;'
-      );
-      console.log(`   - اسم الشاشة: %c${screen.name}`, 'color: #10B981; font-weight: bold;');
-      console.log(`   - الإعلان الجديد: %c${screen.mediaAssetName || 'افتراضي'}`, 'color: #34D399;');
-      console.log(`   - ID الإعلان: %c${screen.mediaAssetId}`, 'color: #6EE7B7;');
-      if (screen.mediaAssetUrl) {
-        console.log(`   - رابط الإعلان: %c${screen.mediaAssetUrl}`, 'color: #6EE7B7; font-size: 11px;');
-      }
-    });
-  }
-}
-
-function logError(cameraName: string, error: string) {
-  console.error(
-    `%c❌ ERROR%c [${cameraName}] ${error}`,
-    logStyles.error,
-    'color: inherit; font-weight: normal;'
-  );
-}
 
 export interface CameraScreenshot {
   cameraId: string;
@@ -146,7 +71,6 @@ class ScreenshotService {
 
     const frame = window.requestAnimationFrame(detect);
     this.animationFrames.set(cameraId, frame);
-    logCamera(cameraId, cameraName, "ObjectDetector يعمل بدون مؤقت، وسيتم أخذ اللقطة عند تغير عدد البشر فقط");
   }
 
   /**
@@ -195,7 +119,13 @@ class ScreenshotService {
       if (nextStableFrames < requiredFrames || currentCount === lastStableCount) return;
 
       this.lastStablePersonCounts.set(cameraId, currentCount);
-      console.log(`👥 ObjectDetector [${cameraName}] تغير عدد البشر: ${lastStableCount} -> ${currentCount}`);
+
+      console.log('👥 PERSON COUNT CHANGED:', {
+        cameraId: Number(cameraId),
+        previousCount: lastStableCount,
+        currentCount: currentCount,
+        timestamp: new Date()
+      });
 
       const event = new CustomEvent("person-count-changed", {
         detail: {
@@ -207,8 +137,27 @@ class ScreenshotService {
       });
       window.dispatchEvent(event);
 
+      if (typeof BroadcastChannel !== "undefined") {
+        // Use camera-specific channel to ensure isolation
+        const channel = new BroadcastChannel(`person-count-changed-camera-${cameraId}`);
+
+        console.log("📡 BROADCAST PERSON COUNT:", {
+          channel: `person-count-changed-camera-${cameraId}`,
+          currentCount,
+        });
+
+        channel.postMessage({
+          type: "person-count-changed",
+          cameraId: Number(cameraId),
+          previousCount: lastStableCount,
+          currentCount,
+          timestamp: new Date().toISOString(),
+        });
+
+        channel.close();
+      }
+
       if (currentCount === 0) {
-        console.log(`🚶 ObjectDetector [${cameraName}] لا يوجد بشر، لن يتم إرسال لقطة للـ AI`);
         return;
       }
 
@@ -216,7 +165,6 @@ class ScreenshotService {
       const cooldownUntil = this.cooldownUntil.get(cameraId) ?? 0;
       if (cooldownUntil > now) {
         const remaining = Math.max(0, cooldownUntil - now);
-        console.log(`🛑 Skipping capture for ${cameraName} (cooldown ${(remaining / 1000).toFixed(1)}s remaining)`);
         return;
       }
 
@@ -227,16 +175,12 @@ class ScreenshotService {
         : this.MIN_CAPTURE_INTERVAL_MS;
 
       if (now - lastCapture < dynamicInterval) {
-        console.log(
-          `⏳ Skipping capture for ${cameraName} (state=${screenState}, ${(dynamicInterval - (now - lastCapture)).toFixed(0)}ms remaining)`,
-        );
         return;
       }
 
       this.lastCaptureAt.set(cameraId, now);
       this.captureScreenshot(cameraId, cameraName, element);
     } catch (error) {
-      logError(cameraName, `خطأ ObjectDetector: ${String(error)}`);
     } finally {
       this.analyzingCameras.delete(cameraId);
     }
@@ -255,7 +199,6 @@ class ScreenshotService {
       const ctx = canvas.getContext("2d");
 
       if (!ctx) {
-        logError(cameraName, "Failed to get canvas context");
         return;
       }
 
@@ -285,45 +228,32 @@ class ScreenshotService {
       // Store screenshot in memory (for live viewing in dashboard if needed)
       this.addScreenshot(cameraId, screenshot);
 
-      // ============================================
-      // 📸 LOG CAPTURE
-      // ============================================
-      const timestamp = new Date().toLocaleString('ar-SA');
-      logCapture(cameraName, timestamp);
 
       // Send directly to the AI backend API instead of saving locally!
       try {
         const numericId = Number(cameraId);
         if (!Number.isFinite(numericId) || numericId <= 0) {
-          logError(cameraName, `معرف كاميرا غير صحيح: ${cameraId}`);
           return;
         }
 
         const fileName = `camera-${cameraId}-${Date.now()}.jpg`;
 
-        // ============================================
-        // 📤 LOG SEND TO AI
-        // ============================================
-        logSend(cameraName, fileName);
 
         const file = dataURLtoFile(dataUrl, fileName);
         genderAiApi
           .analyze({ cameraId: numericId, image: file })
           .then((response) => {
-            // ============================================
-            // 🤖 LOG AI DETECTION
-            // ============================================
-            logAI(cameraName, response);
 
-            // ============================================
-            // 📺 LOG SCREEN UPDATES
-            // ============================================
-            logScreen(cameraName, response);
-
-            // ============================================
-            // 🎯 DISPATCH AI DETECTION EVENT
-            // ============================================
             if (response?.audience) {
+              console.log('🤖 AI DETECTION DETAILS:', {
+                cameraId: numericId,
+                audience: response.audience,
+                selectedSlot: response.selectedSlot,
+                gender: response.gender,
+                ageGroup: response.ageGroup,
+                timestamp: new Date()
+              });
+
               const event = new CustomEvent('ai-detection', {
                 detail: {
                   audience: response.audience,
@@ -331,50 +261,26 @@ class ScreenshotService {
                   cameraId: numericId,
                   gender: response.gender,
                   ageGroup: response.ageGroup,
+                  peopleCount: response.peopleCount,
                   timestamp: new Date()
                 }
               });
               window.dispatchEvent(event);
-              console.log('🎯 AI Detection Event dispatched:', response.audience);
             }
 
-            // ============================================
-            // 📊 SUMMARY LOG
-            // ============================================
-            console.log(
-              '%c═════════════════════════════════════════',
-              'color: #10B981; font-weight: bold;'
-            );
-            console.log(
-              '%c✅ عملية شاملة مكتملة بنجاح',
-              'background: #10B981; color: white; padding: 4px 8px; border-radius: 3px; font-weight: bold; font-size: 14px;'
-            );
-            console.log(
-              '%c═════════════════════════════════════════',
-              'color: #10B981; font-weight: bold;'
-            );
           })
           .catch((err) => {
             const msg = (err && (err.message || err.detail)) ? `${err.message}${err.detail ? ' - ' + err.detail : ''}` : JSON.stringify(err || {});
 
-            // ============================================
-            // ❌ LOG ERROR
-            // ============================================
-            logError(cameraName, msg);
 
             if (this.shouldThrottleAfterError(err)) {
               const resumeAt = Date.now() + this.ERROR_COOLDOWN_MS;
               this.cooldownUntil.set(cameraId, resumeAt);
-              console.warn(
-                `⏱️ Camera ${cameraName} entering cooldown for ${(this.ERROR_COOLDOWN_MS / 1000).toFixed(0)}s due to AI rate limit / network issue`,
-              );
             }
           });
       } catch (fileErr) {
-        logError(cameraName, `خطأ في تحويل الصورة: ${String(fileErr)}`);
       }
     } catch (error) {
-      logError(cameraName, `خطأ عام: ${String(error)}`);
     }
   }
 
@@ -434,7 +340,6 @@ class ScreenshotService {
         this.screenshots.set(cameraId, screenshots);
       }
     } catch (error) {
-      console.error("Failed to load screenshots from storage:", error);
     }
   }
 
@@ -482,7 +387,7 @@ class ScreenshotService {
   private getScreenState(cameraId: string): "DETECTING" | "PLAYING" {
     if (typeof window === "undefined") return "DETECTING";
     const key = `screen_state_${cameraId}`;
-    const value = window.sessionStorage.getItem(key);
+    const value = window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key);
     return value === "PLAYING" ? "PLAYING" : "DETECTING";
   }
 

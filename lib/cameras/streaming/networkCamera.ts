@@ -28,14 +28,9 @@ class NetworkCameraHandler {
           break;
 
         case "rtsp":
-          // RTSP typically needs to be converted to HLS on the server side
-          // For now, we'll try to use it as HLS
-          if (element instanceof HTMLVideoElement) {
-            await hlsHandler.startHLSStream(url, element);
-          } else {
-            throw new Error("RTSP requires a video element");
-          }
-          break;
+          // RTSP should use WebRTC via useCameraStream hook
+          // This handler should NOT be called for RTSP directly
+          throw new Error("RTSP cameras must use WebRTC handler. Call useCameraStream hook instead.");
 
         case "http":
           // HTTP can be either MJPEG or HLS, try to detect
@@ -60,7 +55,6 @@ class NetworkCameraHandler {
           throw new Error(ERROR_MESSAGES.UNSUPPORTED_FORMAT);
       }
     } catch (error) {
-      console.error("Failed to start network stream:", error);
       throw error;
     }
   }
@@ -83,7 +77,6 @@ class NetworkCameraHandler {
           break;
       }
     } catch (error) {
-      console.error("Failed to stop network stream:", error);
     }
   }
 
@@ -107,7 +100,6 @@ class NetworkCameraHandler {
 
       return response.ok || response.type === "opaque";
     } catch (error) {
-      console.error("Connection check failed:", error);
       return false;
     }
   }
