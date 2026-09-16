@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTheme } from "@/lib/context/ThemeContext";
 import { cameraApi } from "@/lib/api/camera.api";
 import { useFloatingCamera } from "@/lib/context/FloatingCameraContext";
+import { mapBackendToFrontendCamera } from "@/lib/cameras/hooks/useCameras";
 import MirrorPlayer from "@/components/MirrorPlayer";
 import type { Screen } from "@/lib/types/screen";
-import type { Camera } from "@/lib/types/camera";
 
 /**
  * Helper: Register open screen tab
@@ -195,33 +195,9 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
     }
 
     try {
+      // Fetch backend camera and use shared mapping function for consistent data
       const backendCamera = await cameraApi.getById(cameraId);
-      const source = backendCamera.cameraDeviceName;
-      let cameraType: "local" | "rtsp" | "http" | "hls" = "local";
-      if (source.startsWith("rtsp://")) {
-        cameraType = "rtsp";
-      } else if (source.includes(".m3u8") || source.includes("/hls")) {
-        cameraType = "hls";
-      } else if (source.startsWith("http://") || source.startsWith("https://")) {
-        cameraType = "http";
-      }
-
-      const camera: Camera = {
-        id: String(backendCamera.id),
-        name: backendCamera.name,
-        location: backendCamera.location,
-        source: source,
-        type: cameraType,
-        status: backendCamera.state === 'Active' ? 'connected' : 'disconnected',
-        timeToScreenshot: backendCamera.timeToScreenshot,
-        settings: {
-          resolution: "1080p",
-          frameRate: 30,
-          quality: "medium",
-        },
-        createdAt: new Date(backendCamera.createdAtUtc),
-        updatedAt: new Date(),
-      };
+      const camera = mapBackendToFrontendCamera(backendCamera);
       openFloatingCamera(camera);
     } catch (err) {
       console.error("Failed to load camera:", err);
