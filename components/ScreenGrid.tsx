@@ -5,6 +5,7 @@ import { useTheme } from "@/lib/context/ThemeContext";
 import { cameraApi } from "@/lib/api/camera.api";
 import { useFloatingCamera } from "@/lib/context/FloatingCameraContext";
 import { mapBackendToFrontendCamera } from "@/lib/cameras/hooks/useCameras";
+import { getCurrentDisplay } from "@/lib/browser/windowManagement";
 import MirrorPlayer from "@/components/MirrorPlayer";
 import type { Screen } from "@/lib/types/screen";
 
@@ -58,8 +59,6 @@ interface ScreenGridProps {
 export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenTabs = new Set() }: ScreenGridProps) {
   const { openFloatingCamera, closeFloatingCamera, isCameraFloating } = useFloatingCamera();
   const [openScreenTabs, setOpenScreenTabs] = useState<Set<number>>(initialOpenScreenTabs);
-  const [openWindows, setOpenWindows] = useState<Map<number, Window>>(new Map());
-  const [screenHeartbeats, setScreenHeartbeats] = useState<{ [screenId: number]: number }>({});
   const [openingScreenIds, setOpeningScreenIds] = useState<Set<number>>(new Set());
 
   // Track opened screen tabs via localStorage
@@ -107,8 +106,6 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
         }
       }
 
-      setScreenHeartbeats(heartbeats);
-
       // Remove stale entries from openScreenTabs
       setOpenScreenTabs((prev) => {
         const updated = new Set<number>();
@@ -138,15 +135,16 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
     // Mark screen as opening
     setOpeningScreenIds(prev => new Set(prev).add(screenId));
 
-    const width = window.screen.width * 0.8;
-    const height = window.screen.height * 0.8;
-    const left = (window.screen.width - width) / 2;
-    const top = (window.screen.height - height) / 2;
+    const currentDisplay = getCurrentDisplay();
+    const width = Math.round(currentDisplay.width * 0.8);
+    const height = Math.round(currentDisplay.height * 0.8);
+    const left = currentDisplay.left + Math.round((currentDisplay.width - width) / 2);
+    const top = currentDisplay.top + Math.round((currentDisplay.height - height) / 2);
 
     const newWindow = window.open(
-      `/screens/${screenId}`,
+      `/screens/${screenId}?selectDisplay=1`,
       "_blank",
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+      `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
     );
     if (!newWindow) {
       setOpeningScreenIds(prev => {
@@ -159,18 +157,10 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
 
     registerOpenScreenTab(screenId);
 
-    // Track window to detect quick closure
-    setOpenWindows((prev) => new Map(prev).set(screenId, newWindow));
-
     // Check if window is closed every second
     const checkClosed = setInterval(() => {
       if (newWindow.closed) {
         clearInterval(checkClosed);
-        setOpenWindows((prev) => {
-          const updated = new Map(prev);
-          updated.delete(screenId);
-          return updated;
-        });
         unregisterOpenScreenTab(screenId);
         setOpeningScreenIds(prev => {
           const updated = new Set(prev);
@@ -247,6 +237,7 @@ function ScreenCard({
   const isCameraFloatingState = !!screen.cameraId && isCameraFloating(screen.cameraId);
   const isScreenOpen = openScreenTabs.has(screen.id);
   const isScreenOpening = openingScreenIds.has(screen.id);
+  const isOpenButtonDisabled = isScreenOpen || isScreenOpening;
 
   return (
     <div
@@ -308,21 +299,21 @@ function ScreenCard({
       <div className="flex gap-2">
         <button
           onClick={(e) => onOpenScreen(screen.id, e)}
-          disabled={isScreenOpen || isScreenOpening}
-          className={`flex-1 py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100 cursor-pointer active:scale-95 ${(isScreenOpen || isScreenOpening) ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
+          disabled={isOpenButtonDisabled}
+          className={`flex-1 py-2.5 rounded-xl text-center text-sm font-semibold transition-all group-hover:opacity-100 cursor-pointer active:scale-95 ${isOpenButtonDisabled ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""
             }`}
           style={{
-            background: (isScreenOpen || isScreenOpening)
+            background: isOpenButtonDisabled
               ? "rgba(100,116,139,0.15)"
               : "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))",
-            border: (isScreenOpen || isScreenOpening)
+            border: isOpenButtonDisabled
               ? "1px solid rgba(100,116,139,0.2)"
               : "1px solid rgba(99,102,241,0.2)",
-            color: (isScreenOpen || isScreenOpening) ? "#94a3b8" : "#818cf8",
-            boxShadow: (isScreenOpen || isScreenOpening) ? "none" : "0 0 0 0 rgba(129, 140, 248, 0)",
+            color: isOpenButtonDisabled ? "#94a3b8" : "#818cf8",
+            boxShadow: isOpenButtonDisabled ? "none" : "0 0 0 0 rgba(129, 140, 248, 0)",
           }}
           onMouseEnter={(e) => {
-            if (!(isScreenOpen || isScreenOpening)) {
+            if (!isOpenButtonDisabled) {
               e.currentTarget.style.boxShadow = "0 0 15px 3px rgba(129, 140, 248, 0.2)";
             }
           }}
@@ -330,7 +321,7 @@ function ScreenCard({
             e.currentTarget.style.boxShadow = "none";
           }}
           title={
-            (isScreenOpen || isScreenOpening)
+            isOpenButtonDisabled
               ? "الشاشة مفتوحة بالفعل"
               : "فتح الشاشة في نافذة جديد"
           }

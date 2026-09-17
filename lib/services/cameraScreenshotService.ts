@@ -1,5 +1,6 @@
 import { genderAiApi } from "@/lib/api/genderAi.api";
 import { mediapipeService } from "@/lib/services/mediapipeService";
+import type { GenderAiResponse } from "@/lib/types/genderAi";
 
 /**
  * Capture camera frames and send them to the AI endpoint.
@@ -17,7 +18,7 @@ export class CameraScreenshotService {
   async captureAndSendToAi(
     videoElement: HTMLVideoElement,
     cameraId: number,
-    onSuccess?: (result: any) => void,
+    onSuccess?: (result: GenderAiResponse) => void,
     onError?: (error: Error) => void,
   ): Promise<void> {
     const startTime = new Date();
@@ -104,9 +105,10 @@ export class CameraScreenshotService {
         onSuccess(result);
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Detect the specific 400 error when AI is disabled on the linked screen
-      const errorMessage = error?.message || JSON.stringify(error);
+      const errorMessage =
+        error instanceof Error ? error.message : JSON.stringify(error);
       if (errorMessage.includes("AI enabled") || errorMessage.includes("aiEnabled")) {
         return; // Skip without throwing error
       }
@@ -179,6 +181,18 @@ export class CameraScreenshotService {
           });
           window.dispatchEvent(event);
 
+          if (typeof BroadcastChannel !== "undefined") {
+            const channel = new BroadcastChannel(`person-count-changed-camera-${cameraId}`);
+            channel.postMessage({
+              type: "person-count-changed",
+              cameraId,
+              previousCount,
+              currentCount: currentPersonCount,
+              timestamp: new Date().toISOString(),
+            });
+            channel.close();
+          }
+
           if (currentPersonCount > 0 && sendToAi) {
             const captureTime = new Date();
             console.log('📸 [SCREENSHOT CAPTURE START]', {
@@ -191,7 +205,7 @@ export class CameraScreenshotService {
           } else {
           }
         }
-      } catch (error) {
+      } catch {
       } finally {
         analyzing = false;
         if (!stopped) {

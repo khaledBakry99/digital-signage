@@ -1,9 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import ScreenPlayer from "@/components/ScreenPlayer";
+import ScreenDisplayPicker from "@/components/ScreenDisplayPicker";
 import { screenApi } from "@/lib/api/screen.api";
+import {
+  getAvailableDisplays,
+  getCurrentDisplay,
+  type DisplayTarget,
+} from "@/lib/browser/windowManagement";
 import { useScreenSignalR } from "@/lib/hooks/useScreenSignalR";
 import { screenSyncService } from "@/lib/services/screenSyncService";
 import type { MediaAsset, MediaType } from "@/lib/types/mediaAsset";
@@ -67,7 +73,9 @@ const createMediaAssetFromSlot = (
 
 export default function ScreenPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const screenId = Number(params.id);
+  const shouldSelectDisplay = searchParams.get("selectDisplay") === "1";
 
   // State management
   const [advertisement, setAdvertisement] = useState<MediaAsset | null>(null);
@@ -76,6 +84,10 @@ export default function ScreenPage() {
   const [signalRConnected, setSignalRConnected] = useState(false);
   const [isPlayingTargetedAd, setIsPlayingTargetedAd] = useState(false);
   const [initialAdLoaded, setInitialAdLoaded] = useState(false);
+  const [availableDisplays, setAvailableDisplays] = useState<DisplayTarget[]>([]);
+  const [displaysLoading, setDisplaysLoading] = useState(shouldSelectDisplay);
+  const [displayPickerError, setDisplayPickerError] = useState<string | null>(null);
+  const [displaySelected, setDisplaySelected] = useState(false);
 
   // State machine
   const [screenState, setScreenState] = useState<ScreenState>("DETECTING");
@@ -664,15 +676,82 @@ export default function ScreenPage() {
     };
   }, []);
 
-  const handleClick = async () => {
+  useEffect(() => {
+    if (!shouldSelectDisplay) return;
+
+    let active = true;
+
+    getAvailableDisplays()
+      .then((displays) => {
+        if (!active) return;
+        setAvailableDisplays(displays.length > 0 ? displays : [getCurrentDisplay()]);
+        setDisplaysLoading(false);
+      })
+      .catch((error) => {
+        console.error("Failed to get connected displays:", error);
+        if (!active) return;
+        setAvailableDisplays([getCurrentDisplay()]);
+        setDisplayPickerError("تعذر الوصول إلى الشاشات المتصلة. سيتم استخدام الشاشة الحالية.");
+        setDisplaysLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [shouldSelectDisplay]);
+
+  const enterFullscreen = useCallback(async () => {
+    if (document.fullscreenElement) {
+      return;
+    }
+
     try {
       if (document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
+        await document.documentElement.requestFullscreen({ navigationUI: "hide" });
       }
     } catch {
-      // Ignore
+      // The popup already fills the selected display when browser fullscreen is restricted.
     }
-  };
+  }, []);
+
+  const selectDisplayAndEnterFullscreen = useCallback(async (display: DisplayTarget) => {
+    try {
+      window.moveTo(display.left, display.top);
+      window.resizeTo(display.width, display.height);
+
+      const options: FullscreenOptions = { navigationUI: "hide" };
+      if (display.nativeScreen) {
+        options.screen = display.nativeScreen;
+      }
+
+      await document.documentElement.requestFullscreen(options);
+
+      try {
+        const stored = localStorage.getItem("screenDisplayAssignments");
+        const assignments = stored ? JSON.parse(stored) as Record<number, string> : {};
+        assignments[screenId] = display.id;
+        localStorage.setItem("screenDisplayAssignments", JSON.stringify(assignments));
+      } catch {
+        // Fullscreen works even when storage is unavailable.
+      }
+
+      setDisplaySelected(true);
+      setDisplayPickerError(null);
+    } catch (error) {
+      console.error("Failed to enter fullscreen on the selected display:", error);
+      setDisplayPickerError("لم يسمح المتصفح بملء الشاشة. استخدم Chrome أو Edge واسمح بإدارة النوافذ.");
+    }
+  }, [screenId]);
+
+  useEffect(() => {
+    const shouldStartFullscreen = new URLSearchParams(window.location.search).get("fullscreen") === "1";
+    if (!shouldStartFullscreen) return;
+
+    const fullscreenRequest = window.setTimeout(() => {
+      void enterFullscreen();
+    }, 0);
+    return () => window.clearTimeout(fullscreenRequest);
+  }, [enterFullscreen]);
 
   const lastPlaybackErrorAtRef = useRef(0);
   const handlePlaybackError = useCallback((err: unknown) => {
@@ -714,17 +793,29 @@ export default function ScreenPage() {
     isVideoMediaAsset(advertisement)
   );
 
+  const displayPicker = shouldSelectDisplay && !displaySelected ? (
+    <ScreenDisplayPicker
+      displays={availableDisplays}
+      loading={displaysLoading}
+      error={displayPickerError}
+      onSelect={(display) => {
+        void selectDisplayAndEnterFullscreen(display);
+      }}
+    />
+  ) : null;
+
   if (loading) {
     return (
-      <div className="w-full h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
+      <div className="relative flex h-screen w-full flex-col items-center justify-center gap-4 bg-slate-950">
         <div className="w-12 h-12 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
         <div className="text-indigo-200 text-xl font-medium">جاري تحميل الشاشة </div>
+        {displayPicker}
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} onClick={handleClick} className="w-full h-screen relative overflow-hidden select-none">
+    <div ref={containerRef} onClick={enterFullscreen} className="w-full h-screen relative overflow-hidden select-none">
       <ScreenPlayer
         key={`${advertisement?.id ?? "none"}-${playerNonce}`}
         advertisement={advertisement}
@@ -733,6 +824,7 @@ export default function ScreenPage() {
         shouldLoop={shouldLoopFallbackAd}
         onPlaybackError={handlePlaybackError}
       />
+      {displayPicker}
     </div>
   );
 }
