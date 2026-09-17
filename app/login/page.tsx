@@ -345,18 +345,16 @@ export default function LoginPage() {
                         fontSize: '16px'
                       }}
                       onFocus={(e) => {
-                        const theme = document.documentElement.classList.contains('dark');
                         e.target.style.borderColor = 'rgba(99, 102, 241, 0.6)';
-                        e.target.style.background = theme ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.95)';
+                        e.target.style.background = isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.95)';
                         e.target.style.boxShadow = '0 0 0 4px rgba(99, 102, 241, 0.1)';
-                        e.target.style.color = theme ? '#e2e8f0' : '#1e293b';
+                        e.target.style.color = '#1e293b';
                       }}
                       onBlur={(e) => {
-                        const theme = document.documentElement.classList.contains('dark');
                         e.target.style.borderColor = 'rgba(99, 102, 241, 0.2)';
-                        e.target.style.background = theme ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255, 255, 255, 0.8)';
+                        e.target.style.background = isDark ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255, 255, 255, 0.8)';
                         e.target.style.boxShadow = 'none';
-                        e.target.style.color = theme ? '#e2e8f0' : '#1e293b';
+                        e.target.style.color = isDark ? '#e2e8f0' : '#1e293b';
                       }}
                       placeholder="example@email.com"
                       required
@@ -388,18 +386,16 @@ export default function LoginPage() {
                         fontSize: '16px'
                       }}
                       onFocus={(e) => {
-                        const theme = document.documentElement.classList.contains('dark');
                         e.target.style.borderColor = 'rgba(99, 102, 241, 0.6)';
-                        e.target.style.background = theme ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.95)';
+                        e.target.style.background = isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.95)';
                         e.target.style.boxShadow = '0 0 0 4px rgba(99, 102, 241, 0.1)';
-                        e.target.style.color = theme ? '#e2e8f0' : '#1e293b';
+                        e.target.style.color = '#1e293b';
                       }}
                       onBlur={(e) => {
-                        const theme = document.documentElement.classList.contains('dark');
                         e.target.style.borderColor = 'rgba(99, 102, 241, 0.2)';
-                        e.target.style.background = theme ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255, 255, 255, 0.8)';
+                        e.target.style.background = isDark ? 'rgba(15, 23, 42, 0.5)' : 'rgba(255, 255, 255, 0.8)';
                         e.target.style.boxShadow = 'none';
-                        e.target.style.color = theme ? '#e2e8f0' : '#1e293b';
+                        e.target.style.color = isDark ? '#e2e8f0' : '#1e293b';
                       }}
                       placeholder="••••••••"
                       required
