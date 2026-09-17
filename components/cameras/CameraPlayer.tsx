@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Camera } from "@/lib/types/camera";
 import { useCameraStream } from "@/lib/cameras/hooks/useCameraStream";
 import { useReconnect } from "@/lib/cameras/hooks/useReconnect";
@@ -15,12 +15,35 @@ interface CameraPlayerProps {
 export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const captureFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isCaptureFlashVisible, setIsCaptureFlashVisible] = useState(false);
 
   const { isPlaying, isConnecting, error, startStream, stopStream, reconnect } =
     useCameraStream(camera);
 
   const { isReconnecting, reconnectAttempt, startMonitoring, manualReconnect } =
     useReconnect(camera);
+
+  const showCaptureFlash = useCallback(() => {
+    setIsCaptureFlashVisible(true);
+
+    if (captureFlashTimeoutRef.current) {
+      clearTimeout(captureFlashTimeoutRef.current);
+    }
+
+    captureFlashTimeoutRef.current = setTimeout(() => {
+      setIsCaptureFlashVisible(false);
+      captureFlashTimeoutRef.current = null;
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (captureFlashTimeoutRef.current) {
+        clearTimeout(captureFlashTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Start stream on mount
   useEffect(() => {
@@ -70,6 +93,7 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
             element,
             Number(camera.id),
             true,
+            showCaptureFlash,
           );
         } catch (error) {
         }
@@ -101,7 +125,7 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
         }
       };
     }
-  }, [camera, autoStart, startStream, stopStream, startMonitoring, reconnect]);
+  }, [camera, autoStart, startStream, stopStream, startMonitoring, reconnect, showCaptureFlash]);
 
   /**
    * HEARTBEAT controls camera status
@@ -181,6 +205,13 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
           className="w-full h-full object-contain"
           alt={camera.name}
           onDoubleClick={handleDoubleClick}
+        />
+      )}
+
+      {isCaptureFlashVisible && (
+        <div
+          className="pointer-events-none absolute inset-0 z-20 bg-red-600/40"
+          aria-hidden="true"
         />
       )}
 

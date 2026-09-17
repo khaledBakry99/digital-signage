@@ -20,6 +20,7 @@ export class CameraScreenshotService {
     cameraId: number,
     onSuccess?: (result: GenderAiResponse) => void,
     onError?: (error: Error) => void,
+    onScreenshotSent?: () => void,
   ): Promise<void> {
     const startTime = new Date();
     console.log('🎬 [SCREENSHOT TAKEN]', {
@@ -91,6 +92,8 @@ export class CameraScreenshotService {
         timeLocal: new Date().toLocaleTimeString('ar-SA')
       });
 
+      onScreenshotSent?.();
+
       // Send the image to the AI service
       const result = await genderAiApi.detectGender(cameraId, file);
 
@@ -130,6 +133,7 @@ export class CameraScreenshotService {
     videoElement: HTMLVideoElement,
     cameraId: number,
     sendToAi: boolean = true,
+    onScreenshotSent?: () => void,
   ): () => void {
     let stopped = false;
     let animationFrame: number | null = null;
@@ -200,7 +204,13 @@ export class CameraScreenshotService {
               time: captureTime.toISOString(),
               timeLocal: captureTime.toLocaleTimeString('ar-SA')
             });
-            await this.captureAndSendToAi(videoElement, cameraId);
+            await this.captureAndSendToAi(
+              videoElement,
+              cameraId,
+              undefined,
+              undefined,
+              onScreenshotSent,
+            );
           } else if (currentPersonCount > 0) {
           } else {
           }
