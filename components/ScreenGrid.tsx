@@ -5,7 +5,11 @@ import { useTheme } from "@/lib/context/ThemeContext";
 import { cameraApi } from "@/lib/api/camera.api";
 import { useFloatingCamera } from "@/lib/context/FloatingCameraContext";
 import { mapBackendToFrontendCamera } from "@/lib/cameras/hooks/useCameras";
-import { getCurrentDisplay } from "@/lib/browser/windowManagement";
+import {
+  getAvailableDisplays,
+  getCurrentDisplay,
+  requestWindowManagementPermission,
+} from "@/lib/browser/windowManagement";
 import MirrorPlayer from "@/components/MirrorPlayer";
 import type { Screen } from "@/lib/types/screen";
 
@@ -60,6 +64,11 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
   const { openFloatingCamera, closeFloatingCamera, isCameraFloating } = useFloatingCamera();
   const [openScreenTabs, setOpenScreenTabs] = useState<Set<number>>(initialOpenScreenTabs);
   const [openingScreenIds, setOpeningScreenIds] = useState<Set<number>>(new Set());
+
+  // Ask for monitor access as soon as the screens page opens.
+  useEffect(() => {
+    void requestWindowManagementPermission();
+  }, []);
 
   // Track opened screen tabs via localStorage
   useEffect(() => {
@@ -125,7 +134,7 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
     return () => clearInterval(interval);
   }, [screens]);
 
-  const openScreen = useCallback((screenId: number, e: React.MouseEvent) => {
+  const openScreen = useCallback(async (screenId: number, e: React.MouseEvent) => {
     e.stopPropagation();
 
     if (!screenId || openScreenTabs.has(screenId)) {
@@ -142,7 +151,7 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
     const top = currentDisplay.top + Math.round((currentDisplay.height - height) / 2);
 
     const newWindow = window.open(
-      `/screens/${screenId}?selectDisplay=1`,
+      "",
       "_blank",
       `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
     );
@@ -156,6 +165,24 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
     }
 
     registerOpenScreenTab(screenId);
+
+    newWindow.document.documentElement.lang = "ar";
+    newWindow.document.documentElement.dir = "rtl";
+    newWindow.document.title = "طلب صلاحية الشاشات";
+    newWindow.document.body.style.cssText =
+      "margin:0;min-height:100vh;display:grid;place-items:center;background:#020617;color:#e2e8f0;font-family:Arial,sans-serif";
+    newWindow.document.body.textContent = "جارٍ طلب صلاحية الوصول إلى الشاشات المتصلة...";
+
+    try {
+      // This call triggers Chrome/Edge's Window Management permission prompt.
+      await getAvailableDisplays();
+    } catch (error) {
+      console.warn("Window Management permission was not granted:", error);
+    }
+
+    if (!newWindow.closed) {
+      newWindow.location.replace(`/screens/${screenId}?selectDisplay=1`);
+    }
 
     // Check if window is closed every second
     const checkClosed = setInterval(() => {

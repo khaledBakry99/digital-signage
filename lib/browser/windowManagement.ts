@@ -23,6 +23,8 @@ interface ScreenDetails {
   screens: readonly DetailedScreen[];
 }
 
+let pendingPermissionRequest: Promise<boolean> | null = null;
+
 declare global {
   interface Window {
     getScreenDetails?: () => Promise<ScreenDetails>;
@@ -51,6 +53,23 @@ function toDisplayTarget(screen: DetailedScreen, index: number): DisplayTarget {
 
 export function supportsWindowManagement(): boolean {
   return typeof window !== "undefined" && typeof window.getScreenDetails === "function";
+}
+
+export function requestWindowManagementPermission(): Promise<boolean> {
+  if (!supportsWindowManagement()) {
+    return Promise.resolve(false);
+  }
+
+  if (!pendingPermissionRequest) {
+    pendingPermissionRequest = window.getScreenDetails!()
+      .then(() => true)
+      .catch(() => false)
+      .finally(() => {
+        pendingPermissionRequest = null;
+      });
+  }
+
+  return pendingPermissionRequest;
 }
 
 export async function getAvailableDisplays(): Promise<DisplayTarget[]> {
