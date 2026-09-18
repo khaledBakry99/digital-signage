@@ -53,10 +53,13 @@ class ScreenSyncService {
     try {
       const lastState = this.lastBroadcastState.get(state.screenId);
 
-      // Debounce: only broadcast if mediaAssetId changed
+      // Debounce: allow broadcast every 2 seconds minimum even if mediaAssetId unchanged
       if (lastState && lastState.mediaAssetId === state.mediaAssetId) {
-        console.log('⏭️ SKIPPED BROADCAST - Same mediaAssetId:', state.mediaAssetId);
-        return;
+        const timeSinceLastBroadcast = Date.now() - (lastState.timestamp || 0);
+        if (timeSinceLastBroadcast < 2000) {
+          console.log('⏭️ SKIPPED BROADCAST - Same mediaAssetId, too soon:', state.mediaAssetId);
+          return;
+        }
       }
 
       const stateWithTimestamp = {
@@ -66,7 +69,7 @@ class ScreenSyncService {
 
       this.lastBroadcastState.set(state.screenId, stateWithTimestamp);
       this.channel.postMessage(stateWithTimestamp);
-      console.log('📡 BROADCAST SENT - mediaAssetId changed:', state.mediaAssetId);
+      console.log('📡 BROADCAST SENT:', state.mediaAssetId);
     } catch (e) {
       console.error("Failed to broadcast state:", e);
     }
@@ -80,14 +83,10 @@ class ScreenSyncService {
 
     this.listeners.get(screenId)!.add(callback);
 
-    // Send last known state immediately for instant load
+    // Send last known state immediately for instant load (no time restriction)
     const lastState = this.lastBroadcastState.get(screenId);
     if (lastState) {
-      // Check if state is recent (within last 2 seconds)
-      const isRecent = Date.now() - lastState.timestamp < 2000;
-      if (isRecent) {
-        setTimeout(() => callback(lastState), 0);
-      }
+      setTimeout(() => callback(lastState), 0);
     }
 
     // Return unsubscribe function
