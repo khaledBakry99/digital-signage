@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent, useEffect, useRef } from "react";
+import { useState, FormEvent, useEffect, useRef, useCallback } from "react";
 import type { Campaign, CampaignStatus, CreateCampaignInput, DayOfWeek } from "@/lib/types/campaign";
 import { useMediaAssets } from "@/lib/hooks/useMediaAssets";
 import { useTheme } from "@/lib/context/ThemeContext";
@@ -32,7 +32,7 @@ interface CampaignFormProps {
 }
 
 export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }: CampaignFormProps) {
-  const { mediaAssets, loading: mediaAssetsLoading } = useMediaAssets();
+  const { mediaAssets, loading: mediaAssetsLoading } = useMediaAssets({ clientId });
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
 
@@ -371,6 +371,7 @@ export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }:
         setDefaultMediaAssetId={setDefaultMediaAssetId}
         mediaAssets={mediaAssets}
         mediaAssetsLoading={mediaAssetsLoading}
+        clientId={clientId}
       />
 
       {/* Actions */}
@@ -479,6 +480,7 @@ interface MediaSlotSelectorProps {
   setDefaultMediaAssetId: (id: number) => void;
   mediaAssets: MediaAsset[];
   mediaAssetsLoading: boolean;
+  clientId: number;
 }
 
 function MediaSlotSelector({
@@ -494,6 +496,7 @@ function MediaSlotSelector({
   setDefaultMediaAssetId,
   mediaAssets,
   mediaAssetsLoading,
+  clientId,
 }: MediaSlotSelectorProps) {
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
@@ -503,20 +506,10 @@ function MediaSlotSelector({
   const [filteredAssets, setFilteredAssets] = useState<MediaAsset[]>(mediaAssets);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Get clientId from first media asset
-  const clientId = mediaAssets.length > 0 ? mediaAssets[0].clientId : undefined;
-
   // Search function using API only
-  const searchMediaAssets = async (query: string) => {
+  const searchMediaAssets = useCallback(async (query: string) => {
     if (!query.trim()) {
-      setFilteredAssets(mediaAssets);
       setIsSearching(false);
-      return;
-    }
-
-    if (!clientId) {
-      console.warn("Cannot search: clientId not available");
-      setFilteredAssets([]);
       return;
     }
 
@@ -533,31 +526,31 @@ function MediaSlotSelector({
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [clientId]);
 
   // Handle search with debounce
   useEffect(() => {
+    if (!editingSlot) return;
+
     const timeoutId = setTimeout(() => {
       searchMediaAssets(searchQuery);
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [searchQuery, editingSlot, searchMediaAssets]);
 
-  // Reset filtered assets when mediaAssets changes
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredAssets(mediaAssets);
-    }
-  }, [mediaAssets, searchQuery]);
+  const displayedAssets = searchQuery.trim() ? filteredAssets : mediaAssets;
 
   const handleEditSlot = (slot: MediaSlot) => {
+    setSearchQuery("");
+    setFilteredAssets(mediaAssets);
     setEditingSlot(slot);
   };
 
   const handleCloseModal = () => {
     setEditingSlot(null);
     setSearchQuery("");
+    setFilteredAssets(mediaAssets);
   };
 
   const handleAssignMedia = (mediaAssetId: number) => {
@@ -953,7 +946,7 @@ function MediaSlotSelector({
                     <div key={i} className={`h-20 rounded-xl ${isLightTheme ? "bg-slate-200/60" : "bg-white/5"} animate-pulse`} />
                   ))}
                 </div>
-              ) : filteredAssets.length === 0 ? (
+              ) : displayedAssets.length === 0 ? (
                 <div className="text-center py-12">
                   <p className={isLightTheme ? "text-slate-500" : "text-white/40"}>
                     {searchQuery ? "لا توجد نتائج مطابقة" : "لا توجد إعلانات متاحة"}
@@ -961,7 +954,7 @@ function MediaSlotSelector({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredAssets.map((asset) => (
+                  {displayedAssets.map((asset) => (
                     <button
                       key={asset.id}
                       type="button"
