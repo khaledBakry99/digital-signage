@@ -32,7 +32,7 @@ interface CampaignFormProps {
 }
 
 export default function CampaignForm({ campaign, onSubmit, onCancel, clientId }: CampaignFormProps) {
-  const { mediaAssets, loading: mediaAssetsLoading } = useMediaAssets();
+  const { mediaAssets, loading: mediaAssetsLoading } = useMediaAssets({ clientId });
   const { theme } = useTheme();
   const isLightTheme = theme === "light";
 
@@ -946,7 +946,7 @@ function MediaSlotSelector({
               />
             </div>
 
-            <div className="flex-1 overflow-y-auto mb-6">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden mb-6 pr-2 custom-scrollbar-modal">
               {isSearching ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((i) => (
@@ -967,7 +967,7 @@ function MediaSlotSelector({
                       type="button"
                       onClick={() => handleAssignMedia(asset.id)}
                       disabled={assigning}
-                      className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:scale-[1.02] ${isLightTheme
+                      className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${isLightTheme
                         ? "bg-white/80 border-slate-200 hover:border-indigo-300 hover:shadow-md"
                         : "bg-white/5 border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/10"
                         } ${assigning ? "opacity-50 cursor-not-allowed" : ""}`}
@@ -991,9 +991,9 @@ function MediaSlotSelector({
                           <img src={asset.url} alt={asset.name} className="w-full h-full object-cover" />
                         )}
                       </div>
-                      <div className="flex-1 text-right">
-                        <p className={`font-semibold ${isLightTheme ? "text-slate-900" : "text-white"}`}>{asset.name}</p>
-                        <p className={`text-sm ${isLightTheme ? "text-slate-500" : "text-white/60"}`}>
+                      <div className="flex-1 min-w-0 text-right">
+                        <p className={`font-semibold truncate ${isLightTheme ? "text-slate-900" : "text-white"}`}>{asset.name}</p>
+                        <p className={`text-sm truncate ${isLightTheme ? "text-slate-500" : "text-white/60"}`}>
                           {asset.description || "بدون وصف"}
                         </p>
                       </div>
@@ -1024,6 +1024,52 @@ function MediaSlotSelector({
                 </div>
               )}
             </div>
+            
+            {/* Custom Scrollbar Styles */}
+            <style jsx>{`
+              .custom-scrollbar-modal::-webkit-scrollbar {
+                width: 8px;
+              }
+              
+              .custom-scrollbar-modal::-webkit-scrollbar-track {
+                background: ${isLightTheme ? 'rgba(226, 232, 240, 0.3)' : 'rgba(255, 255, 255, 0.03)'};
+                border-radius: 10px;
+                margin: 4px 0;
+              }
+              
+              .custom-scrollbar-modal::-webkit-scrollbar-thumb {
+                background: ${isLightTheme 
+                  ? 'linear-gradient(180deg, rgba(99, 102, 241, 0.4), rgba(79, 70, 229, 0.5))' 
+                  : 'linear-gradient(180deg, rgba(99, 102, 241, 0.4), rgba(139, 92, 246, 0.4))'};
+                border-radius: 10px;
+                border: 2px solid transparent;
+                background-clip: padding-box;
+                transition: all 0.3s ease;
+              }
+              
+              .custom-scrollbar-modal::-webkit-scrollbar-thumb:hover {
+                background: ${isLightTheme 
+                  ? 'linear-gradient(180deg, rgba(99, 102, 241, 0.6), rgba(79, 70, 229, 0.7))' 
+                  : 'linear-gradient(180deg, rgba(99, 102, 241, 0.6), rgba(139, 92, 246, 0.6))'};
+                box-shadow: ${isLightTheme 
+                  ? '0 0 10px rgba(99, 102, 241, 0.3)' 
+                  : '0 0 10px rgba(139, 92, 246, 0.4)'};
+              }
+              
+              .custom-scrollbar-modal::-webkit-scrollbar-thumb:active {
+                background: ${isLightTheme 
+                  ? 'linear-gradient(180deg, rgba(79, 70, 229, 0.7), rgba(67, 56, 202, 0.8))' 
+                  : 'linear-gradient(180deg, rgba(139, 92, 246, 0.7), rgba(124, 58, 237, 0.7))'};
+              }
+              
+              /* For Firefox */
+              .custom-scrollbar-modal {
+                scrollbar-width: thin;
+                scrollbar-color: ${isLightTheme 
+                  ? 'rgba(99, 102, 241, 0.4) rgba(226, 232, 240, 0.3)' 
+                  : 'rgba(139, 92, 246, 0.4) rgba(255, 255, 255, 0.03)'};
+              }
+            `}</style>
 
             <div className="flex justify-end">
               <button
