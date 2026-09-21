@@ -125,6 +125,11 @@ export default function ScreenPage() {
   } | null>(null);
 
   const fallbackRequestIdRef = useRef(0);
+  const playbackErrorRef = useRef({
+    mediaKey: "",
+    attempts: 0,
+    lastAttemptAt: 0,
+  });
 
   const isTargetedPlaybackLocked = () => activeTargetedAdRef.current !== null;
 
@@ -753,37 +758,46 @@ export default function ScreenPage() {
     return () => window.clearTimeout(fullscreenRequest);
   }, [enterFullscreen]);
 
-  const lastPlaybackErrorAtRef = useRef(0);
   const handlePlaybackError = useCallback((err: unknown) => {
-    if (activeTargetedAdRef.current) {
-      console.error(
-        "❌ TARGETED AD PLAYBACK ERROR → RETRY"
-      );
-
-      setPlayerNonce((prev: number) => prev + 1);
-
-      return;
-    }
-
     const now = Date.now();
-    if (now - lastPlaybackErrorAtRef.current < 2000) {
+    const currentAd = advertisementRef.current;
+    const mediaKey = `${currentAd?.id ?? "none"}:${currentAd?.url ?? ""}`;
+    const retryState = playbackErrorRef.current;
+
+    if (retryState.mediaKey !== mediaKey) {
+      retryState.mediaKey = mediaKey;
+      retryState.attempts = 0;
+      retryState.lastAttemptAt = 0;
+    }
+
+    if (retryState.lastAttemptAt && now - retryState.lastAttemptAt > 30000) {
+      retryState.attempts = 0;
+    }
+
+    if (now - retryState.lastAttemptAt < 2000) {
       return;
     }
-    lastPlaybackErrorAtRef.current = now;
+    retryState.lastAttemptAt = now;
+    retryState.attempts += 1;
 
-    if (!fallbackAd) {
-      return;
-    }
-
-    if (advertisement?.id && advertisement.id === fallbackAd.id) {
+    if (retryState.attempts <= 2) {
+      console.error("❌ MEDIA PLAYBACK ERROR → RETRY", err);
       setPlayerNonce((prev: number) => prev + 1);
       return;
     }
 
-    setAdvertisement(fallbackAd);
-    setPlayerNonce((prev: number) => prev + 1);
+    console.error("❌ MEDIA PLAYBACK ERROR → RETURN TO FALLBACK", err);
+    retryState.attempts = 0;
+
+    if (activeTargetedAdRef.current) {
+      playbackGenerationRef.current += 1;
+      activeTargetedAdRef.current = null;
+      setIsPlayingTargetedAd(false);
+    }
+
     updateScreenState("DETECTING");
-  }, [advertisement?.id, advertisement?.url, fallbackAd, updateScreenState]);
+    void loadFallbackAdRef.current();
+  }, [updateScreenState]);
 
   const shouldLoopFallbackAd = Boolean(
     screenState === "DETECTING" &&

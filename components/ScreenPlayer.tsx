@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { MediaAsset } from "@/lib/types/mediaAsset";
 import { API_CONFIG } from "@/lib/api/config";
 
@@ -11,6 +11,12 @@ interface ScreenPlayerProps {
   shouldLoop?: boolean;
   onPlaybackError?: (error: unknown) => void;
 }
+
+const VIDEO_STALL_TIMEOUT_MS = 4000;
+const VIDEO_WATCHDOG_INTERVAL_MS = 1000;
+
+const isAbortError = (error: unknown) =>
+  Boolean(error && typeof error === "object" && "name" in error && error.name === "AbortError");
 
 // Helper to normalize media URLs from backend
 function resolveMediaUrl(url: string): string {
@@ -38,72 +44,160 @@ export default function ScreenPlayer({
   const imageTimerRef = useRef<NodeJS.Timeout | null>(null);
   const videoRetryRef = useRef(0);
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reloadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hiddenAtRef = useRef<number | null>(null);
   const endedRef = useRef(false);
   const imageEndedRef = useRef(false);
-  const imageStartedAtRef = useRef<number>(Date.now());
-  const videoAnchorWallAtRef = useRef<number>(Date.now());
+  const imageStartedAtRef = useRef<number>(0);
+  const videoAnchorWallAtRef = useRef<number>(0);
   const videoAnchorMediaAtRef = useRef<number>(0);
+  const lastVideoTimeRef = useRef(0);
+  const lastVideoProgressAtRef = useRef(0);
+  const lastRecoveryAtRef = useRef(0);
+  const stallRecoveryCountRef = useRef(0);
+  const recoveryInFlightRef = useRef(false);
+  const recoveryGenerationRef = useRef(0);
 
   const resolvedUrl = advertisement ? resolveMediaUrl(advertisement.url) : "";
 
-  console.log('🎬 SCREEN PLAYER RECEIVED:', {
-    screenId,
-    advertisement: advertisement ? {
-      id: advertisement.id,
-      name: advertisement.name,
-      type: advertisement.type,
-      url: advertisement.url,
-      durationSeconds: advertisement.durationSeconds,
-    } : null,
-    resolvedUrl,
-    shouldLoop,
-  });
-
   const isVideo = advertisement?.type?.toLowerCase() === "video" || (advertisement?.url ? /\.(mp4|webm|ogg)$/i.test(advertisement.url) : false);
-  const inferredVideoType = (() => {
-    const lower = resolvedUrl.toLowerCase();
-    if (lower.endsWith(".mp4")) return "video/mp4";
-    if (lower.endsWith(".webm")) return "video/webm";
-    if (lower.endsWith(".ogg") || lower.endsWith(".ogv")) return "video/ogg";
-    return undefined;
-  })();
-
-  const clearErrorTimer = () => {
+  const clearErrorTimer = useCallback(() => {
     if (errorTimeoutRef.current) {
       clearTimeout(errorTimeoutRef.current);
       errorTimeoutRef.current = null;
     }
-  };
+  }, []);
 
-  const clearImageTimer = () => {
+  const clearImageTimer = useCallback(() => {
     if (imageTimerRef.current) {
       clearInterval(imageTimerRef.current);
       imageTimerRef.current = null;
     }
-  };
+  }, []);
 
-  const scheduleError = (message: string) => {
+  const clearReloadTimer = useCallback(() => {
+    if (reloadTimeoutRef.current) {
+      clearTimeout(reloadTimeoutRef.current);
+      reloadTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleError = useCallback((message: string) => {
     clearErrorTimer();
     errorTimeoutRef.current = setTimeout(() => {
       setError(message);
     }, 800);
-  };
+  }, [clearErrorTimer]);
 
-  const tryPlay = (videoElement: HTMLVideoElement) => {
+  const tryPlay = useCallback((videoElement: HTMLVideoElement) => {
     return videoElement.play().then(() => {
       clearErrorTimer();
       setError(null);
       videoAnchorWallAtRef.current = Date.now();
       videoAnchorMediaAtRef.current = videoElement.currentTime || 0;
     });
-  };
+  }, [clearErrorTimer]);
+
+  const recordVideoProgress = useCallback((videoElement: HTMLVideoElement) => {
+    const currentTime = videoElement.currentTime || 0;
+    const previousTime = lastVideoTimeRef.current;
+    const advanced = currentTime > previousTime + 0.05;
+    const looped = currentTime + 0.5 < previousTime;
+
+    if (advanced || looped) {
+      lastVideoProgressAtRef.current = Date.now();
+      if (!lastRecoveryAtRef.current || Date.now() - lastRecoveryAtRef.current > 10000) {
+        stallRecoveryCountRef.current = 0;
+      }
+      recoveryInFlightRef.current = false;
+    }
+
+    lastVideoTimeRef.current = currentTime;
+    videoAnchorWallAtRef.current = Date.now();
+    videoAnchorMediaAtRef.current = currentTime;
+  }, []);
+
+  const recoverFrozenVideo = useCallback((videoElement: HTMLVideoElement) => {
+    if (recoveryInFlightRef.current || videoElement.ended) return;
+
+    const recoveryAttempt = stallRecoveryCountRef.current + 1;
+    stallRecoveryCountRef.current = recoveryAttempt;
+    recoveryInFlightRef.current = true;
+    lastRecoveryAtRef.current = Date.now();
+    lastVideoProgressAtRef.current = lastRecoveryAtRef.current;
+
+    const resumeAt = videoElement.currentTime || lastVideoTimeRef.current || 0;
+
+    const resumePlayback = () => {
+      clearReloadTimer();
+
+      try {
+        if (resumeAt > 0 && Number.isFinite(videoElement.duration) && videoElement.duration > 0) {
+          videoElement.currentTime = Math.min(resumeAt, Math.max(0, videoElement.duration - 0.25));
+        }
+      } catch {
+        // Some browsers reject seeks until metadata is available.
+      }
+
+      void tryPlay(videoElement)
+        .catch((error) => {
+          if (!isAbortError(error)) {
+            onPlaybackError?.(error);
+          }
+        })
+        .finally(() => {
+          recoveryInFlightRef.current = false;
+        });
+    };
+
+    if (recoveryAttempt === 1) {
+      try {
+        videoElement.currentTime = Math.max(0, resumeAt - 0.1);
+      } catch {
+        // Continue with play even when a small recovery seek is unavailable.
+      }
+      resumePlayback();
+      return;
+    }
+
+    if (recoveryAttempt === 2) {
+      let resumed = false;
+      const recoveryGeneration = recoveryGenerationRef.current;
+      const resumeOnce = () => {
+        if (resumed) return;
+        resumed = true;
+        videoElement.removeEventListener("loadedmetadata", resumeOnce);
+        if (recoveryGeneration !== recoveryGenerationRef.current) return;
+        resumePlayback();
+      };
+
+      videoElement.addEventListener("loadedmetadata", resumeOnce, { once: true });
+      reloadTimeoutRef.current = setTimeout(resumeOnce, 1200);
+
+      try {
+        videoElement.load();
+      } catch {
+        resumeOnce();
+      }
+      return;
+    }
+
+    recoveryInFlightRef.current = false;
+    onPlaybackError?.(new Error("Video playback stopped advancing"));
+  }, [clearReloadTimer, onPlaybackError, tryPlay]);
 
   useEffect(() => {
-    setError(null);
+    const resetErrorTimer = setTimeout(() => setError(null), 0);
+    recoveryGenerationRef.current += 1;
     videoRetryRef.current = 0;
+    stallRecoveryCountRef.current = 0;
+    lastRecoveryAtRef.current = 0;
+    recoveryInFlightRef.current = false;
+    lastVideoTimeRef.current = 0;
+    lastVideoProgressAtRef.current = Date.now();
     clearErrorTimer();
     clearImageTimer();
+    clearReloadTimer();
     endedRef.current = false;
     imageEndedRef.current = false;
     hiddenAtRef.current = null;
@@ -111,9 +205,11 @@ export default function ScreenPlayer({
     videoAnchorWallAtRef.current = Date.now();
     videoAnchorMediaAtRef.current = 0;
     return () => {
+      clearTimeout(resetErrorTimer);
       clearErrorTimer();
+      clearReloadTimer();
     };
-  }, [advertisement]);
+  }, [advertisement, clearErrorTimer, clearImageTimer, clearReloadTimer]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -177,7 +273,7 @@ export default function ScreenPlayer({
           } catch {
           }
           void tryPlay(videoElement).catch((err) => {
-            if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
+            if (isAbortError(err)) {
               return;
             }
             onPlaybackError?.(err);
@@ -202,7 +298,7 @@ export default function ScreenPlayer({
       }
 
       void tryPlay(videoElement).catch((err) => {
-        if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
+        if (isAbortError(err)) {
           return;
         }
         onPlaybackError?.(err);
@@ -216,10 +312,12 @@ export default function ScreenPlayer({
       document.removeEventListener("visibilitychange", syncOnResume);
       window.removeEventListener("focus", syncOnResume);
     };
-  }, [advertisement, onEnded, onPlaybackError, shouldLoop]);
+  }, [advertisement, clearImageTimer, onEnded, onPlaybackError, shouldLoop, tryPlay]);
 
   // Autoplay video after load
   useEffect(() => {
+    let retryTimeout: NodeJS.Timeout | null = null;
+
     if (isVideo && videoRef.current && resolvedUrl) {
       const videoElement = videoRef.current;
       videoElement.muted = true;
@@ -227,7 +325,7 @@ export default function ScreenPlayer({
       videoElement.currentTime = 0;
 
       tryPlay(videoElement).catch((err) => {
-        if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
+        if (isAbortError(err)) {
           return;
         }
         if (videoRetryRef.current < 1) {
@@ -237,7 +335,7 @@ export default function ScreenPlayer({
           } catch {
             // ignore
           }
-          setTimeout(() => {
+          retryTimeout = setTimeout(() => {
             tryPlay(videoElement).catch(() => {
               scheduleError("فشل تشغيل الفيديو من الخادم");
               onPlaybackError?.(err);
@@ -249,7 +347,38 @@ export default function ScreenPlayer({
         onPlaybackError?.(err);
       });
     }
-  }, [advertisement, resolvedUrl, isVideo, onPlaybackError]);
+
+    return () => {
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
+  }, [resolvedUrl, isVideo, onPlaybackError, scheduleError, tryPlay]);
+
+  // Browsers can remain in a "playing" state even when the media clock freezes.
+  useEffect(() => {
+    if (!isVideo || !resolvedUrl) return;
+
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    lastVideoTimeRef.current = videoElement.currentTime || 0;
+    lastVideoProgressAtRef.current = Date.now();
+
+    const watchdog = setInterval(() => {
+      if (document.hidden || videoElement.ended || videoElement.seeking) return;
+
+      const currentTime = videoElement.currentTime || 0;
+      const previousTime = lastVideoTimeRef.current;
+      if (currentTime > previousTime + 0.05 || currentTime + 0.5 < previousTime) {
+        recordVideoProgress(videoElement);
+        return;
+      }
+
+      if (Date.now() - lastVideoProgressAtRef.current < VIDEO_STALL_TIMEOUT_MS) return;
+      recoverFrozenVideo(videoElement);
+    }, VIDEO_WATCHDOG_INTERVAL_MS);
+
+    return () => clearInterval(watchdog);
+  }, [isVideo, recoverFrozenVideo, recordVideoProgress, resolvedUrl]);
 
   // Video countdown timer
   useEffect(() => {
@@ -260,11 +389,10 @@ export default function ScreenPlayer({
         if (videoElement.duration && !isNaN(videoElement.duration)) {
           const remaining = Math.max(0, videoElement.duration - videoElement.currentTime);
           setRemainingTime(Math.ceil(remaining));
-          console.log(`⏱️ VIDEO TIMER: ${Math.ceil(remaining)}s remaining (current: ${videoElement.currentTime.toFixed(1)}s, duration: ${videoElement.duration.toFixed(1)}s)`);
         }
       };
 
-      const timerInterval = setInterval(updateTimer, 100);
+      const timerInterval = setInterval(updateTimer, 500);
 
       videoElement.addEventListener('timeupdate', updateTimer);
       videoElement.addEventListener('loadedmetadata', updateTimer);
@@ -287,14 +415,14 @@ export default function ScreenPlayer({
     if (videoElement.ended) {
       videoElement.currentTime = 0;
       videoElement.play().catch((err) => {
-        if (err && typeof err === "object" && "name" in err && (err as any).name === "AbortError") {
+        if (isAbortError(err)) {
           return;
         }
         scheduleError("فشل تشغيل الفيديو من الخادم");
         onPlaybackError?.(err);
       });
     }
-  }, [resolvedUrl, shouldLoop, onPlaybackError]);
+  }, [resolvedUrl, shouldLoop, onPlaybackError, scheduleError]);
 
   // Image countdown timer - use ref instead of state to avoid re-renders
   useEffect(() => {
@@ -303,7 +431,7 @@ export default function ScreenPlayer({
 
     if (isImage) {
       imageStartedAtRef.current = Date.now();
-      setRemainingTime(duration);
+      const initialCountdownTimer = setTimeout(() => setRemainingTime(duration), 0);
 
       imageTimerRef.current = setInterval(() => {
         if (imageEndedRef.current) {
@@ -312,8 +440,6 @@ export default function ScreenPlayer({
         const elapsed = Math.floor((Date.now() - imageStartedAtRef.current) / 1000);
         const remaining = Math.max(0, duration - elapsed);
         setRemainingTime(remaining);
-
-        console.log(`⏱️ IMAGE TIMER: ${remaining}s remaining (elapsed: ${elapsed}s, duration: ${duration}s)`);
 
         if (elapsed >= duration) {
           // Image duration ended, trigger callback
@@ -326,12 +452,14 @@ export default function ScreenPlayer({
       }, 1000);
 
       return () => {
+        clearTimeout(initialCountdownTimer);
         clearImageTimer();
       };
     } else {
-      setRemainingTime(0);
+      const clearCountdownTimer = setTimeout(() => setRemainingTime(0), 0);
+      return () => clearTimeout(clearCountdownTimer);
     }
-  }, [advertisement, onEnded]);
+  }, [advertisement, clearImageTimer, onEnded]);
 
   // No advertisement
   if (!advertisement) {
@@ -361,8 +489,6 @@ export default function ScreenPlayer({
   }
 
   const isImage = advertisement.type?.toLowerCase() === "image";
-  const duration = advertisement.durationSeconds || 10;
-
   // Render image
   if (isImage) {
     return (
@@ -398,6 +524,7 @@ export default function ScreenPlayer({
     <div className="w-full h-screen bg-black">
       <video
         ref={videoRef}
+        aria-label={advertisement.name}
         className="w-full h-full object-contain"
         controls={false}
         autoPlay
@@ -405,17 +532,19 @@ export default function ScreenPlayer({
         playsInline
         muted
         preload="auto"
+        src={resolvedUrl}
         onLoadedMetadata={() => {
           const v = videoRef.current;
           if (!v) return;
           videoAnchorWallAtRef.current = Date.now();
           videoAnchorMediaAtRef.current = v.currentTime || 0;
+          lastVideoTimeRef.current = v.currentTime || 0;
+          lastVideoProgressAtRef.current = Date.now();
         }}
         onTimeUpdate={() => {
           const v = videoRef.current;
           if (!v) return;
-          videoAnchorWallAtRef.current = Date.now();
-          videoAnchorMediaAtRef.current = v.currentTime || 0;
+          recordVideoProgress(v);
         }}
         onPlaying={() => {
           clearErrorTimer();
@@ -448,12 +577,18 @@ export default function ScreenPlayer({
           onPlaybackError?.(err);
         }}
         onEnded={() => {
+          if (shouldLoop && videoRef.current) {
+            endedRef.current = false;
+            videoRef.current.currentTime = 0;
+            void tryPlay(videoRef.current).catch((playbackError) => {
+              if (!isAbortError(playbackError)) onPlaybackError?.(playbackError);
+            });
+            return;
+          }
           endedRef.current = true;
           onEnded?.();
         }}
-      >
-        <source src={resolvedUrl} type={inferredVideoType} />
-      </video>
+      />
       {/* Countdown timer overlay */}
       {remainingTime > 0 && (
         <div className="absolute bottom-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-xl font-bold">
