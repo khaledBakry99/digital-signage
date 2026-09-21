@@ -10,6 +10,19 @@ import {
   RECONNECT_DELAY,
   DEFAULT_QUALITY,
 } from "../constants";
+import {
+  DEFAULT_MOTION_DETECTION_SETTINGS,
+  sanitizeMotionDetectionSettings,
+} from "@/lib/services/motionDetection";
+
+const getDefaultSettings = (): CameraSettings => ({
+  autoReconnect: true,
+  reconnectAttempts: RECONNECT_ATTEMPTS,
+  reconnectDelay: RECONNECT_DELAY,
+  streamQuality: DEFAULT_QUALITY,
+  motionDetection: { ...DEFAULT_MOTION_DETECTION_SETTINGS },
+  lastUpdate: new Date(),
+});
 
 /**
  * Camera Storage Service
@@ -130,6 +143,7 @@ class CameraStorageService {
         reconnectAttempts: settings.reconnectAttempts,
         reconnectDelay: settings.reconnectDelay,
         streamQuality: settings.streamQuality,
+        motionDetection: sanitizeMotionDetectionSettings(settings.motionDetection),
         lastUpdate: settings.lastUpdate,
       };
 
@@ -150,31 +164,19 @@ class CameraStorageService {
       const data = localStorage.getItem(STORAGE_KEYS.CAMERA_SETTINGS);
 
       if (!data) {
-        // Return default settings
-        return {
-          autoReconnect: true,
-          reconnectAttempts: RECONNECT_ATTEMPTS,
-          reconnectDelay: RECONNECT_DELAY,
-          streamQuality: DEFAULT_QUALITY,
-          lastUpdate: new Date(),
-        };
+        return getDefaultSettings();
       }
 
       const settings = JSON.parse(data) as CameraSettingsStore;
 
       return {
+        ...getDefaultSettings(),
         ...settings,
+        motionDetection: sanitizeMotionDetectionSettings(settings.motionDetection),
         lastUpdate: new Date(settings.lastUpdate),
       };
     } catch (error) {
-      // Return default settings on error
-      return {
-        autoReconnect: true,
-        reconnectAttempts: RECONNECT_ATTEMPTS,
-        reconnectDelay: RECONNECT_DELAY,
-        streamQuality: DEFAULT_QUALITY,
-        lastUpdate: new Date(),
-      };
+      return getDefaultSettings();
     }
   }
 

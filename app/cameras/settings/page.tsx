@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { cameraStorage } from "@/lib/cameras/storage/cameraStorage";
+import { DEFAULT_MOTION_DETECTION_SETTINGS } from "@/lib/services/motionDetection";
 import type { CameraSettings } from "@/lib/types/camera";
 
 export default function CameraSettingsPage() {
@@ -12,6 +13,7 @@ export default function CameraSettingsPage() {
     reconnectAttempts: 3,
     reconnectDelay: 5000,
     streamQuality: "medium",
+    motionDetection: { ...DEFAULT_MOTION_DETECTION_SETTINGS },
     lastUpdate: new Date(),
   });
   const [loading, setLoading] = useState(true);
@@ -22,18 +24,20 @@ export default function CameraSettingsPage() {
   } | null>(null);
 
   useEffect(() => {
-    loadSettings();
-  }, []);
+    let cancelled = false;
 
-  const loadSettings = async () => {
-    try {
-      const savedSettings = await cameraStorage.getSettings();
-      setSettings(savedSettings);
-    } catch (error) {
-    } finally {
-      setLoading(false);
-    }
-  };
+    cameraStorage.getSettings()
+      .then((savedSettings) => {
+        if (!cancelled) setSettings(savedSettings);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +45,9 @@ export default function CameraSettingsPage() {
     setMessage(null);
 
     try {
-      await cameraStorage.saveSettings(settings);
+      const updatedSettings = { ...settings, lastUpdate: new Date() };
+      await cameraStorage.saveSettings(updatedSettings);
+      setSettings(updatedSettings);
       setMessage({ type: "success", text: "تم حفظ الإعدادات بنجاح" });
     } catch (error) {
       setMessage({
@@ -87,7 +93,7 @@ export default function CameraSettingsPage() {
           <div>
             <h1 className="text-3xl font-bold text-white">إعدادات الكاميرات</h1>
             <p className="text-gray-400 mt-1">
-              تخصيص إعدادات البث وإعادة الاتصال
+              تخصيص إعدادات البث ومعايرة اكتشاف الحركة
             </p>
           </div>
         </div>
@@ -189,6 +195,112 @@ export default function CameraSettingsPage() {
               <p className="text-gray-400 text-sm mt-1">
                 الجودة الافتراضية للكاميرات الجديدة
               </p>
+            </div>
+
+            <div className="border-t border-gray-700 pt-6">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white">
+                    معايرة اكتشاف الحركة
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-400">
+                    القيم المحفوظة تطبق عند فتح الكاميرا أو إعادة تشغيلها
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSettings({
+                    ...settings,
+                    motionDetection: { ...DEFAULT_MOTION_DETECTION_SETTINGS },
+                  })}
+                  className="shrink-0 rounded-md border border-gray-600 px-3 py-2 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-700"
+                >
+                  استعادة الافتراضي
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <div className="mb-2 flex items-center justify-between gap-4">
+                    <label htmlFor="motion-area" className="font-medium text-white">
+                      الحد الأدنى لمساحة الحركة
+                    </label>
+                    <output htmlFor="motion-area" className="min-w-16 text-left font-mono text-emerald-400">
+                      {(settings.motionDetection.motionRatioThreshold * 100).toFixed(1)}%
+                    </output>
+                  </div>
+                  <input
+                    id="motion-area"
+                    type="range"
+                    min="0.5"
+                    max="20"
+                    step="0.5"
+                    value={settings.motionDetection.motionRatioThreshold * 100}
+                    onChange={(event) => setSettings({
+                      ...settings,
+                      motionDetection: {
+                        ...settings.motionDetection,
+                        motionRatioThreshold: Number(event.target.value) / 100,
+                      },
+                    })}
+                    className="w-full accent-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between gap-4">
+                    <label htmlFor="pixel-difference" className="font-medium text-white">
+                      قوة تغير البكسل
+                    </label>
+                    <output htmlFor="pixel-difference" className="min-w-16 text-left font-mono text-emerald-400">
+                      {settings.motionDetection.pixelDifferenceThreshold}
+                    </output>
+                  </div>
+                  <input
+                    id="pixel-difference"
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="1"
+                    value={settings.motionDetection.pixelDifferenceThreshold}
+                    onChange={(event) => setSettings({
+                      ...settings,
+                      motionDetection: {
+                        ...settings.motionDetection,
+                        pixelDifferenceThreshold: Number(event.target.value),
+                      },
+                    })}
+                    className="w-full accent-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between gap-4">
+                    <label htmlFor="movement-density" className="font-medium text-white">
+                      كثافة الحركة داخل المنطقة
+                    </label>
+                    <output htmlFor="movement-density" className="min-w-16 text-left font-mono text-emerald-400">
+                      {(settings.motionDetection.minimumBlockChangedRatio * 100).toFixed(0)}%
+                    </output>
+                  </div>
+                  <input
+                    id="movement-density"
+                    type="range"
+                    min="10"
+                    max="80"
+                    step="5"
+                    value={settings.motionDetection.minimumBlockChangedRatio * 100}
+                    onChange={(event) => setSettings({
+                      ...settings,
+                      motionDetection: {
+                        ...settings.motionDetection,
+                        minimumBlockChangedRatio: Number(event.target.value) / 100,
+                      },
+                    })}
+                    className="w-full accent-emerald-500"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

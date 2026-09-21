@@ -65,7 +65,14 @@ export interface CameraSettings {
   reconnectAttempts: number; // 3
   reconnectDelay: number; // 5000ms
   streamQuality: StreamQuality; // medium
+  motionDetection: MotionDetectionSettings;
   lastUpdate: Date;
+}
+
+export interface MotionDetectionSettings {
+  motionRatioThreshold: number;
+  pixelDifferenceThreshold: number;
+  minimumBlockChangedRatio: number;
 }
 
 export interface CameraHealth {
@@ -91,5 +98,6 @@ export interface CameraSettingsStore {
   reconnectAttempts: number;
   reconnectDelay: number;
   streamQuality: StreamQuality;
+  motionDetection: MotionDetectionSettings;
   lastUpdate: Date;
 }

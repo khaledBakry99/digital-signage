@@ -3,11 +3,111 @@ import {
   isPointInsideDetectionRegion,
   type NormalizedDetectionRegion,
 } from "@/lib/services/personDetection";
+import { STORAGE_KEYS } from "@/lib/cameras/constants";
+import type { MotionDetectionSettings } from "@/lib/types/camera";
 
 export interface MotionDetectionResult {
   motionDetected: boolean;
   motionStarted: boolean;
   motionRatio: number;
+}
+
+export const DEFAULT_MOTION_DETECTION_SETTINGS: MotionDetectionSettings = {
+  motionRatioThreshold: 0.025,
+  pixelDifferenceThreshold: 32,
+  minimumBlockChangedRatio: 0.25,
+};
+
+const clampNumber = (
+  value: unknown,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number => {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(maximum, Math.max(minimum, value))
+    : fallback;
+};
+
+export function sanitizeMotionDetectionSettings(
+  settings: Partial<MotionDetectionSettings> | null | undefined,
+): MotionDetectionSettings {
+  return {
+    motionRatioThreshold: clampNumber(
+      settings?.motionRatioThreshold,
+      DEFAULT_MOTION_DETECTION_SETTINGS.motionRatioThreshold,
+      0.005,
+      0.2,
+    ),
+    pixelDifferenceThreshold: Math.round(clampNumber(
+      settings?.pixelDifferenceThreshold,
+      DEFAULT_MOTION_DETECTION_SETTINGS.pixelDifferenceThreshold,
+      10,
+      100,
+    )),
+    minimumBlockChangedRatio: clampNumber(
+      settings?.minimumBlockChangedRatio,
+      DEFAULT_MOTION_DETECTION_SETTINGS.minimumBlockChangedRatio,
+      0.1,
+      0.8,
+    ),
+  };
+}
+
+export function getStoredMotionDetectionSettings(): MotionDetectionSettings {
+  if (typeof window === "undefined") {
+    return { ...DEFAULT_MOTION_DETECTION_SETTINGS };
+  }
+
+  try {
+    const value = window.localStorage.getItem(STORAGE_KEYS.CAMERA_SETTINGS);
+    if (!value) return { ...DEFAULT_MOTION_DETECTION_SETTINGS };
+    const stored = JSON.parse(value) as {
+      motionDetection?: Partial<MotionDetectionSettings>;
+    };
+    return sanitizeMotionDetectionSettings(stored.motionDetection);
+  } catch {
+    return { ...DEFAULT_MOTION_DETECTION_SETTINGS };
+  }
+}
+
+export function getCoherentMotionRatio(
+  changedPixels: Uint8Array,
+  includedPixels: Uint8Array,
+  width: number,
+  height: number,
+  blockSize = 4,
+  minimumChangedRatio = 0.25,
+): number {
+  let includedTotal = 0;
+  let coherentChangedTotal = 0;
+
+  for (let blockY = 0; blockY < height; blockY += blockSize) {
+    for (let blockX = 0; blockX < width; blockX += blockSize) {
+      let includedInBlock = 0;
+      let changedInBlock = 0;
+
+      for (let y = blockY; y < Math.min(blockY + blockSize, height); y += 1) {
+        for (let x = blockX; x < Math.min(blockX + blockSize, width); x += 1) {
+          const index = y * width + x;
+          if (!includedPixels[index]) continue;
+          includedInBlock += 1;
+          if (changedPixels[index]) changedInBlock += 1;
+        }
+      }
+
+      includedTotal += includedInBlock;
+      const minimumChangedPixels = Math.max(
+        3,
+        Math.ceil(includedInBlock * minimumChangedRatio),
+      );
+      if (changedInBlock >= minimumChangedPixels) {
+        coherentChangedTotal += changedInBlock;
+      }
+    }
+  }
+
+  return includedTotal === 0 ? 0 : coherentChangedTotal / includedTotal;
 }
 
 export class MotionStateTracker {
@@ -16,8 +116,8 @@ export class MotionStateTracker {
   private active = false;
 
   constructor(
-    private readonly motionRatioThreshold = 0.008,
-    private readonly motionFramesRequired = 2,
+    private readonly motionRatioThreshold = DEFAULT_MOTION_DETECTION_SETTINGS.motionRatioThreshold,
+    private readonly motionFramesRequired = 1,
     private readonly quietFramesRequired = 4,
   ) {}
 
@@ -63,14 +163,20 @@ export class MotionDetector {
   private readonly tracker: MotionStateTracker;
   private previousFrame: Uint8Array | null = null;
   private lastRegionKey = "";
-  private readonly pixelDifferenceThreshold = 28;
+  private readonly pixelDifferenceThreshold: number;
+  private readonly minimumBlockChangedRatio: number;
 
-  constructor(tracker = new MotionStateTracker()) {
+  constructor(
+    tracker?: MotionStateTracker,
+    settings = getStoredMotionDetectionSettings(),
+  ) {
     this.canvas = document.createElement("canvas");
     const context = this.canvas.getContext("2d", { willReadFrequently: true });
     if (!context) throw new Error("Failed to create motion detection context");
     this.context = context;
-    this.tracker = tracker;
+    this.tracker = tracker ?? new MotionStateTracker(settings.motionRatioThreshold);
+    this.pixelDifferenceThreshold = settings.pixelDifferenceThreshold;
+    this.minimumBlockChangedRatio = settings.minimumBlockChangedRatio;
   }
 
   detect(
@@ -163,17 +269,24 @@ export class MotionDetector {
     }
 
     const averageBrightnessShift = brightnessShift / includedCount;
-    let changedPixels = 0;
+    const changedPixels = new Uint8Array(currentFrame.length);
     for (let index = 0; index < currentFrame.length; index += 1) {
       if (!includedPixels[index]) continue;
       const difference = Math.abs(
         currentFrame[index] - this.previousFrame[index] - averageBrightnessShift,
       );
-      if (difference >= this.pixelDifferenceThreshold) changedPixels += 1;
+      if (difference >= this.pixelDifferenceThreshold) changedPixels[index] = 1;
     }
 
     this.previousFrame = currentFrame;
-    return this.tracker.update(changedPixels / includedCount);
+    return this.tracker.update(getCoherentMotionRatio(
+      changedPixels,
+      includedPixels,
+      sampleWidth,
+      sampleHeight,
+      4,
+      this.minimumBlockChangedRatio,
+    ));
   }
 
   reset(): void {

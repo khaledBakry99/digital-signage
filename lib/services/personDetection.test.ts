@@ -8,9 +8,16 @@ import {
 } from "@/lib/services/personDetection";
 
 describe("PersonCountSmoother", () => {
+  it("detects a person after two positive frames", () => {
+    const smoother = new PersonCountSmoother();
+
+    expect(smoother.update(1)).toBeNull();
+    expect(smoother.update(1)).toEqual({ previousCount: 0, currentCount: 1 });
+  });
+
   it("accepts intermittent distant-person detections without flickering", () => {
     const smoother = new PersonCountSmoother();
-    const changes = [1, 0, 1, 0, 1, 1]
+    const changes = [1, 0, 1]
       .map((count) => smoother.update(count))
       .filter(Boolean);
 

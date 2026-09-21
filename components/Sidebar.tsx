@@ -50,6 +50,7 @@ const adNavItems = [
 
 const cameraNavItems = [
   { href: "/cameras", label: "كاميرات المراقبة", shortLabel: "كاميرات", icon: CameraIcon },
+  { href: "/cameras/settings", label: "معايرة الكاميرات", shortLabel: "معايرة", icon: ManageIcon },
 ];
 
 export default function Sidebar() {

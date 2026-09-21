@@ -15,7 +15,7 @@ const SUPER_ADMIN_PREFIX = "/super-admin";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isScreenView = pathname?.startsWith(SCREEN_VIEW_PREFIX) && pathname?.split("/").length === 3 && pathname !== "/screens/" && !isNaN(Number(pathname?.split("/")[2])) && !pathname?.includes("/manage");
-  const isCameraView = pathname?.startsWith(CAMERA_VIEW_PREFIX) && pathname?.split("/").length === 3;
+  const isCameraView = pathname?.startsWith(CAMERA_VIEW_PREFIX) && pathname?.split("/").length === 3 && pathname !== "/cameras/settings";
   const isLoginPage = pathname === "/login";
   const isForgotPasswordPage = pathname === "/forgot-password";
   const isResetPasswordPage = pathname === "/reset-password";

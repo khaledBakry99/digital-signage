@@ -29,7 +29,7 @@ export class PersonCountSmoother {
 
   constructor(
     private readonly windowSize = 7,
-    private readonly positiveVotesRequired = 4,
+    private readonly positiveVotesRequired = 2,
     private readonly zeroVotesRequired = 5,
   ) {}
 
