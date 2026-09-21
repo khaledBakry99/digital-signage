@@ -4,20 +4,22 @@
  */
 
 import { ObjectDetector, FilesetResolver } from "@mediapipe/tasks-vision";
+import type { PersonBoundingBox } from "@/lib/services/personDetection";
 
 export interface MediapipeDetectionResult {
   personsDetected: number;
   timestamp: number;
   confidence: number;
+  personBoundingBoxes: PersonBoundingBox[];
 }
 
 class MediapipeService {
   private objectDetector: ObjectDetector | null = null;
   private initialized = false;
   private initializationPromise: Promise<void> | null = null;
-  private readonly MIN_PERSON_CONFIDENCE = 0.8;
-  private readonly MIN_BOX_AREA_RATIO = 0.05;
-  private readonly MAX_BOX_AREA_RATIO = 0.9;
+  private readonly MIN_PERSON_CONFIDENCE = 0.5;
+  private readonly MIN_BOX_AREA_RATIO = 0.002;
+  private readonly MAX_BOX_AREA_RATIO = 0.95;
 
   /** Initialize the Mediapipe Object Detector. */
   async initialize(): Promise<void> {
@@ -30,17 +32,33 @@ class MediapipeService {
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
         );
 
-        this.objectDetector = await ObjectDetector.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          maxResults: 10,
-          scoreThreshold: this.MIN_PERSON_CONFIDENCE,
-          categoryAllowlist: ["person"],
-        });
+        const modelUrls = [
+          "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/float32/1/efficientdet_lite2.tflite",
+          "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float32/1/efficientdet_lite0.tflite",
+        ];
+        let initializationError: unknown;
+
+        for (const modelAssetPath of modelUrls) {
+          try {
+            this.objectDetector = await ObjectDetector.createFromOptions(vision, {
+              baseOptions: {
+                modelAssetPath,
+                delegate: "GPU",
+              },
+              runningMode: "VIDEO",
+              maxResults: 20,
+              scoreThreshold: this.MIN_PERSON_CONFIDENCE,
+              categoryAllowlist: ["person"],
+            });
+            break;
+          } catch (error) {
+            initializationError = error;
+          }
+        }
+
+        if (!this.objectDetector) {
+          throw initializationError ?? new Error("Object detector initialization failed");
+        }
 
         this.initialized = true;
       } catch (error) {
@@ -66,16 +84,16 @@ class MediapipeService {
     try {
       // Ensure the video is ready and playing
       if (!videoElement || videoElement.paused || videoElement.ended) {
-        return { personsDetected: 0, timestamp: Date.now(), confidence: 0 };
+        return { personsDetected: 0, timestamp: Date.now(), confidence: 0, personBoundingBoxes: [] };
       }
 
       if (videoElement.readyState < 2) {
         ;
-        return { personsDetected: 0, timestamp: Date.now(), confidence: 0 };
+        return { personsDetected: 0, timestamp: Date.now(), confidence: 0, personBoundingBoxes: [] };
       }
 
       if (videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
-        return { personsDetected: 0, timestamp: Date.now(), confidence: 0 };
+        return { personsDetected: 0, timestamp: Date.now(), confidence: 0, personBoundingBoxes: [] };
       }
 
       // Analyze the current frame
@@ -108,6 +126,12 @@ class MediapipeService {
         personsDetected,
         timestamp: Date.now(),
         confidence,
+        personBoundingBoxes: personDetections.map((detection) => ({
+          originX: detection.boundingBox!.originX,
+          originY: detection.boundingBox!.originY,
+          width: detection.boundingBox!.width,
+          height: detection.boundingBox!.height,
+        })),
       };
     } catch (error) {
       throw error;
@@ -127,7 +151,6 @@ class MediapipeService {
     }
 
     try {
-      const timestamp = performance.now();
       const detections = this.objectDetector.detect(canvas);
       const canvasArea = canvas.width * canvas.height;
       const personDetections = detections.detections.filter((d) => {
@@ -156,6 +179,12 @@ class MediapipeService {
         personsDetected,
         timestamp: Date.now(),
         confidence,
+        personBoundingBoxes: personDetections.map((detection) => ({
+          originX: detection.boundingBox!.originX,
+          originY: detection.boundingBox!.originY,
+          width: detection.boundingBox!.width,
+          height: detection.boundingBox!.height,
+        })),
       };
     } catch (error) {
       throw error;
@@ -166,8 +195,8 @@ class MediapipeService {
   async captureAndAnalyze(
     videoElement: HTMLVideoElement,
     cameraId: number,
-    sendToApi: (file: File) => Promise<any>
-  ): Promise<{ mediapipe: MediapipeDetectionResult; apiResponse?: any }> {
+    sendToApi: (file: File) => Promise<unknown>
+  ): Promise<{ mediapipe: MediapipeDetectionResult; apiResponse?: unknown }> {
     // 1) Local analysis via Mediapipe
     const mediapipeResult = await this.detectFromVideo(videoElement);
 
@@ -201,7 +230,7 @@ class MediapipeService {
     let apiResponse;
     try {
       apiResponse = await sendToApi(file);
-    } catch (error) {
+    } catch {
     }
 
     return {

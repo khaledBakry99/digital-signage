@@ -160,10 +160,8 @@ class BackgroundCameraService {
       // Store element
       this.activeElements.set(camera.id, element);
 
-      // Start screenshot capture
-      const intervalMs = screenshotInterval * 1000;
-
-      screenshotService.startCapture(camera.id, camera.name, element, intervalMs);
+      // Start person-change detection and screenshot capture.
+      screenshotService.startCapture(camera.id, camera.name, element);
 
     } catch (error) {
     }

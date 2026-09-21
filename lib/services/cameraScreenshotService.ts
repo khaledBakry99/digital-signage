@@ -1,5 +1,10 @@
 import { genderAiApi } from "@/lib/api/genderAi.api";
 import { mediapipeService } from "@/lib/services/mediapipeService";
+import {
+  getPaddedPersonRegion,
+  PersonCountSmoother,
+  type PersonBoundingBox,
+} from "@/lib/services/personDetection";
 import type { GenderAiResponse } from "@/lib/types/genderAi";
 
 /**
@@ -7,7 +12,7 @@ import type { GenderAiResponse } from "@/lib/types/genderAi";
  * Used on camera pages only (not advertisement screens).
  */
 export class CameraScreenshotService {
-  private readonly REQUIRED_STABLE_FRAMES = 3;
+  private readonly DETECTION_INTERVAL_MS = 150;
   /**
    * Capture a frame from the video element and send it to AI.
    * @param videoElement - target video element
@@ -21,6 +26,7 @@ export class CameraScreenshotService {
     onSuccess?: (result: GenderAiResponse) => void,
     onError?: (error: Error) => void,
     onScreenshotSent?: () => void,
+    personBoundingBoxes: PersonBoundingBox[] = [],
   ): Promise<void> {
     const startTime = new Date();
     console.log('🎬 [SCREENSHOT TAKEN]', {
@@ -45,10 +51,31 @@ export class CameraScreenshotService {
         return; // Skip without throwing error
       }
 
-      // Prepare an offscreen canvas sized to the video frame
+      const personRegion = getPaddedPersonRegion(
+        personBoundingBoxes,
+        videoElement.videoWidth,
+        videoElement.videoHeight,
+      );
+      const frameArea = videoElement.videoWidth * videoElement.videoHeight;
+      const shouldCrop = Boolean(
+        personRegion && personRegion.width * personRegion.height < frameArea * 0.85,
+      );
+      const source = shouldCrop && personRegion
+        ? personRegion
+        : {
+          originX: 0,
+          originY: 0,
+          width: videoElement.videoWidth,
+          height: videoElement.videoHeight,
+        };
+      const upscale = shouldCrop
+        ? Math.min(3, Math.max(1, 960 / Math.max(source.width, source.height)))
+        : 1;
+
+      // Crop and enlarge distant people before sending the frame to the server AI.
       const canvas = document.createElement("canvas");
-      canvas.width = videoElement.videoWidth;
-      canvas.height = videoElement.videoHeight;
+      canvas.width = Math.round(source.width * upscale);
+      canvas.height = Math.round(source.height * upscale);
 
       // Draw the current frame onto the canvas
       const ctx = canvas.getContext("2d");
@@ -56,7 +83,17 @@ export class CameraScreenshotService {
         throw new Error("Failed to create Canvas context");
       }
 
-      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(
+        videoElement,
+        source.originX,
+        source.originY,
+        source.width,
+        source.height,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
 
       // Convert the canvas to a JPEG blob
       const blob = await new Promise<Blob>((resolve, reject) => {
@@ -137,10 +174,9 @@ export class CameraScreenshotService {
   ): () => void {
     let stopped = false;
     let animationFrame: number | null = null;
-    let lastStablePersonCount = 0;
-    let candidatePersonCount = 0;
-    let candidateStableFrames = 0;
+    let detectionTimer: ReturnType<typeof setTimeout> | null = null;
     let analyzing = false;
+    const personCountSmoother = new PersonCountSmoother();
 
     const detect = async () => {
       if (stopped || analyzing) return;
@@ -150,27 +186,16 @@ export class CameraScreenshotService {
       try {
         const result = await mediapipeService.detectFromVideo(videoElement);
         const currentPersonCount = result.personsDetected;
+        const countChange = personCountSmoother.update(currentPersonCount);
 
-        if (currentPersonCount === candidatePersonCount) {
-          candidateStableFrames += 1;
-        } else {
-          candidatePersonCount = currentPersonCount;
-          candidateStableFrames = 1;
-        }
-
-        if (
-          candidateStableFrames >= this.REQUIRED_STABLE_FRAMES &&
-          currentPersonCount !== lastStablePersonCount
-        ) {
-          const previousCount = lastStablePersonCount;
-          lastStablePersonCount = currentPersonCount;
+        if (countChange) {
+          const { previousCount, currentCount } = countChange;
 
           const changeTime = new Date();
           console.log('👥 [PERSON COUNT CHANGED]', {
             cameraId,
             previousCount,
-            currentCount: currentPersonCount,
-            stableFrames: candidateStableFrames,
+            currentCount,
             time: changeTime.toISOString(),
             timeLocal: changeTime.toLocaleTimeString('ar-SA')
           });
@@ -179,7 +204,7 @@ export class CameraScreenshotService {
             detail: {
               cameraId,
               previousCount,
-              currentCount: currentPersonCount,
+              currentCount,
               timestamp: new Date(),
             },
           });
@@ -191,13 +216,13 @@ export class CameraScreenshotService {
               type: "person-count-changed",
               cameraId,
               previousCount,
-              currentCount: currentPersonCount,
+              currentCount,
               timestamp: new Date().toISOString(),
             });
             channel.close();
           }
 
-          if (currentPersonCount > 0 && sendToAi) {
+          if (currentCount > 0 && sendToAi) {
             const captureTime = new Date();
             console.log('📸 [SCREENSHOT CAPTURE START]', {
               cameraId,
@@ -210,8 +235,9 @@ export class CameraScreenshotService {
               undefined,
               undefined,
               onScreenshotSent,
+              result.personBoundingBoxes,
             );
-          } else if (currentPersonCount > 0) {
+          } else if (currentCount > 0) {
           } else {
           }
         }
@@ -219,7 +245,9 @@ export class CameraScreenshotService {
       } finally {
         analyzing = false;
         if (!stopped) {
-          animationFrame = window.requestAnimationFrame(detect);
+          detectionTimer = setTimeout(() => {
+            animationFrame = window.requestAnimationFrame(detect);
+          }, this.DETECTION_INTERVAL_MS);
         }
       }
     };
@@ -230,6 +258,9 @@ export class CameraScreenshotService {
       stopped = true;
       if (animationFrame) {
         window.cancelAnimationFrame(animationFrame);
+      }
+      if (detectionTimer) {
+        clearTimeout(detectionTimer);
       }
     };
   }
