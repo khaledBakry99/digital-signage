@@ -116,7 +116,7 @@ export default function ScreenPage() {
     mediaAssetId: number,
     source: PendingMediaUpdate["source"],
     selectedSlot?: string,
-  ) => Promise<void>>(async () => { });
+  ) => Promise<boolean>>(async () => false);
   const loadFallbackAdRef = useRef<(force?: boolean) => Promise<void>>(async () => { });
 
   const activeTargetedAdRef = useRef<{
@@ -298,7 +298,7 @@ export default function ScreenPage() {
   const playMediaAsset = useCallback(async (mediaAssetId: number, source: PendingMediaUpdate["source"], selectedSlot?: string) => {
     if (source !== "signalr" || !isTargetedSlot(selectedSlot)) {
       console.log("⛔ SKIP PLAY: not a targeted slot", { source, selectedSlot });
-      return;
+      return false;
     }
 
     const generation = ++playbackGenerationRef.current;
@@ -326,7 +326,7 @@ export default function ScreenPage() {
 
       if (generation !== playbackGenerationRef.current) {
         console.log("⛔ STALE TARGETED PLAY IGNORED");
-        return;
+        return false;
       }
 
       let url: string | undefined;
@@ -366,19 +366,19 @@ export default function ScreenPage() {
           break;
         default:
           releaseLockIfCurrent();
-          return;
+          return false;
       }
 
       if (!url || !assetId) {
         console.error("❌ NO MEDIA FOUND FOR SLOT:", selectedSlot);
         releaseLockIfCurrent();
-        return;
+        return false;
       }
 
       const targetAd = createMediaAssetFromSlot(assetId, url, duration ?? null, name, type, false);
 
       if (generation !== playbackGenerationRef.current) {
-        return;
+        return false;
       }
 
       activeTargetedAdRef.current = {
@@ -395,9 +395,11 @@ export default function ScreenPage() {
         clearTimeout(fallbackTimeoutRef.current);
         fallbackTimeoutRef.current = null;
       }
+      return true;
     } catch (error) {
       console.error("❌ FAILED TO PLAY TARGETED AD:", error);
       releaseLockIfCurrent();
+      return false;
     }
   }, [updateScreenState, screenId]);
 
@@ -417,8 +419,7 @@ export default function ScreenPage() {
     }
 
     latestDetectionRef.current = null;
-    await playMediaAsset(detection.mediaAssetId, detection.source, detection.selectedSlot);
-    return true;
+    return playMediaAsset(detection.mediaAssetId, detection.source, detection.selectedSlot);
   }, [playMediaAsset]);
 
   useEffect(() => {

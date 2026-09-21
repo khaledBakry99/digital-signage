@@ -13,6 +13,20 @@ export interface ScreenPlaybackState {
 }
 
 const CHANNEL_NAME = "screen-sync-channel";
+const SAME_MEDIA_DEBOUNCE_MS = 2000;
+const RESTART_THRESHOLD_SECONDS = 0.5;
+
+function isSameMediaDuplicate(lastState: ScreenPlaybackState, state: ScreenPlaybackState): boolean {
+  if (lastState.mediaAssetId !== state.mediaAssetId) return false;
+  if (lastState.mediaUrl !== state.mediaUrl) return false;
+  if (lastState.mediaName !== state.mediaName) return false;
+  if (lastState.mediaType !== state.mediaType) return false;
+  if (lastState.isPlaying !== state.isPlaying) return false;
+  if (lastState.duration !== state.duration) return false;
+
+  const restarted = state.currentTime + RESTART_THRESHOLD_SECONDS < lastState.currentTime;
+  return !restarted;
+}
 
 class ScreenSyncService {
   private channel: BroadcastChannel | null = null;
@@ -24,7 +38,7 @@ class ScreenSyncService {
       try {
         this.channel = new BroadcastChannel(CHANNEL_NAME);
         this.setupListener();
-      } catch (e) {
+      } catch {
         console.warn("BroadcastChannel not supported");
       }
     }
@@ -53,10 +67,10 @@ class ScreenSyncService {
     try {
       const lastState = this.lastBroadcastState.get(state.screenId);
 
-      // Debounce: allow broadcast every 2 seconds minimum even if mediaAssetId unchanged
-      if (lastState && lastState.mediaAssetId === state.mediaAssetId) {
+      // Debounce only true duplicates. Restarts/loops of the same media id still need to sync.
+      if (lastState && isSameMediaDuplicate(lastState, state)) {
         const timeSinceLastBroadcast = Date.now() - (lastState.timestamp || 0);
-        if (timeSinceLastBroadcast < 2000) {
+        if (timeSinceLastBroadcast < SAME_MEDIA_DEBOUNCE_MS) {
           console.log('⏭️ SKIPPED BROADCAST - Same mediaAssetId, too soon:', state.mediaAssetId);
           return;
         }

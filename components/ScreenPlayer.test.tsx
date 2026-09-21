@@ -69,4 +69,44 @@ describe("ScreenPlayer", () => {
     expect(onEnded).not.toHaveBeenCalled();
     expect(playSpy).toHaveBeenCalled();
   });
+
+  it("restarts playback when the same media is selected again", async () => {
+    const { rerender } = render(<ScreenPlayer advertisement={videoAd} screenId={1} />);
+
+    const video = screen.getByLabelText("Screen video") as HTMLVideoElement;
+    video.currentTime = 12;
+    const playCallsBeforeReplay = playSpy.mock.calls.length;
+
+    rerender(<ScreenPlayer advertisement={{ ...videoAd }} screenId={1} />);
+    await act(async () => Promise.resolve());
+
+    expect(video.currentTime).toBe(0);
+    expect(playSpy.mock.calls.length).toBeGreaterThan(playCallsBeforeReplay);
+  });
+
+  it("treats a stalled final frame as the end of a non-looping video", async () => {
+    const onEnded = vi.fn();
+    const onPlaybackError = vi.fn();
+    render(
+      <ScreenPlayer
+        advertisement={videoAd}
+        screenId={1}
+        onEnded={onEnded}
+        onPlaybackError={onPlaybackError}
+      />,
+    );
+
+    const video = screen.getByLabelText("Screen video") as HTMLVideoElement;
+    Object.defineProperty(video, "duration", { configurable: true, value: 12 });
+    video.currentTime = 11.75;
+    fireEvent.timeUpdate(video);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(onEnded).toHaveBeenCalledTimes(1);
+    expect(onPlaybackError).not.toHaveBeenCalled();
+    expect(loadSpy).not.toHaveBeenCalled();
+  });
 });

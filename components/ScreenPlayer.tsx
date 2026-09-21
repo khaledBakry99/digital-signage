@@ -14,6 +14,7 @@ interface ScreenPlayerProps {
 
 const VIDEO_STALL_TIMEOUT_MS = 4000;
 const VIDEO_WATCHDOG_INTERVAL_MS = 1000;
+const VIDEO_END_TOLERANCE_SECONDS = 0.5;
 
 const isAbortError = (error: unknown) =>
   Boolean(error && typeof error === "object" && "name" in error && error.name === "AbortError");
@@ -117,8 +118,35 @@ export default function ScreenPlayer({
     videoAnchorMediaAtRef.current = currentTime;
   }, []);
 
+  const finishPlaybackAtEndpoint = useCallback((videoElement: HTMLVideoElement) => {
+    const elementDuration = Number.isFinite(videoElement.duration) && videoElement.duration > 0
+      ? videoElement.duration
+      : null;
+    const duration = elementDuration ?? advertisement?.durationSeconds ?? null;
+
+    if (!duration || videoElement.currentTime < Math.max(0, duration - VIDEO_END_TOLERANCE_SECONDS)) {
+      return false;
+    }
+
+    if (shouldLoop) {
+      endedRef.current = false;
+      videoElement.currentTime = 0;
+      void tryPlay(videoElement).catch((error) => {
+        if (!isAbortError(error)) onPlaybackError?.(error);
+      });
+      return true;
+    }
+
+    if (!endedRef.current) {
+      endedRef.current = true;
+      onEnded?.();
+    }
+    return true;
+  }, [advertisement?.durationSeconds, onEnded, onPlaybackError, shouldLoop, tryPlay]);
+
   const recoverFrozenVideo = useCallback((videoElement: HTMLVideoElement) => {
-    if (recoveryInFlightRef.current || videoElement.ended) return;
+    if (recoveryInFlightRef.current || videoElement.ended || endedRef.current) return;
+    if (finishPlaybackAtEndpoint(videoElement)) return;
 
     const recoveryAttempt = stallRecoveryCountRef.current + 1;
     stallRecoveryCountRef.current = recoveryAttempt;
@@ -184,7 +212,7 @@ export default function ScreenPlayer({
 
     recoveryInFlightRef.current = false;
     onPlaybackError?.(new Error("Video playback stopped advancing"));
-  }, [clearReloadTimer, onPlaybackError, tryPlay]);
+  }, [clearReloadTimer, finishPlaybackAtEndpoint, onPlaybackError, tryPlay]);
 
   useEffect(() => {
     const resetErrorTimer = setTimeout(() => setError(null), 0);
@@ -351,7 +379,7 @@ export default function ScreenPlayer({
     return () => {
       if (retryTimeout) clearTimeout(retryTimeout);
     };
-  }, [resolvedUrl, isVideo, onPlaybackError, scheduleError, tryPlay]);
+  }, [advertisement, resolvedUrl, isVideo, onPlaybackError, scheduleError, tryPlay]);
 
   // Browsers can remain in a "playing" state even when the media clock freezes.
   useEffect(() => {
@@ -364,7 +392,7 @@ export default function ScreenPlayer({
     lastVideoProgressAtRef.current = Date.now();
 
     const watchdog = setInterval(() => {
-      if (document.hidden || videoElement.ended || videoElement.seeking) return;
+      if (document.hidden || videoElement.ended || videoElement.seeking || endedRef.current) return;
 
       const currentTime = videoElement.currentTime || 0;
       const previousTime = lastVideoTimeRef.current;
