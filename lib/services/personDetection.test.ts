@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getPaddedPersonRegion, PersonCountSmoother } from "@/lib/services/personDetection";
+import {
+  getPaddedPersonRegion,
+  getPixelDetectionRegion,
+  isPointInsideDetectionRegion,
+  PersonCountSmoother,
+  sanitizeDetectionRegion,
+} from "@/lib/services/personDetection";
 
 describe("PersonCountSmoother", () => {
   it("accepts intermittent distant-person detections without flickering", () => {
@@ -32,5 +38,60 @@ describe("getPaddedPersonRegion", () => {
       width: 294,
       height: 294,
     });
+  });
+
+  it("keeps screenshot padding inside the selected detection region", () => {
+    expect(getPaddedPersonRegion(
+      [{ originX: 300, originY: 150, width: 80, height: 160 }],
+      640,
+      480,
+      0.2,
+      { originX: 280, originY: 120, width: 180, height: 240 },
+    )).toEqual({
+      originX: 280,
+      originY: 120,
+      width: 124,
+      height: 222,
+    });
+  });
+});
+
+describe("detection regions", () => {
+  it("converts a normalized selection to exact frame coordinates", () => {
+    expect(getPixelDetectionRegion({
+      originX: 0.25,
+      originY: 0.1,
+      width: 0.5,
+      height: 0.75,
+    }, 1920, 1080)).toEqual({
+      originX: 480,
+      originY: 108,
+      width: 960,
+      height: 810,
+    });
+  });
+
+  it("rejects tiny or malformed selections", () => {
+    expect(sanitizeDetectionRegion({ originX: 0, originY: 0, width: 0.005, height: 1 })).toBeNull();
+    expect(sanitizeDetectionRegion({ originX: "0", originY: 0, width: 1, height: 1 })).toBeNull();
+  });
+
+  it("orders four clicked corners and excludes points outside the polygon", () => {
+    const region = sanitizeDetectionRegion({
+      points: [
+        { x: 0.8, y: 0.8 },
+        { x: 0.2, y: 0.2 },
+        { x: 0.7, y: 0.2 },
+        { x: 0.3, y: 0.8 },
+      ],
+    });
+
+    expect(region).not.toBeNull();
+    expect(region?.originX).toBeCloseTo(0.2);
+    expect(region?.originY).toBeCloseTo(0.2);
+    expect(region?.width).toBeCloseTo(0.6);
+    expect(region?.height).toBeCloseTo(0.6);
+    expect(isPointInsideDetectionRegion(0.5, 0.5, region)).toBe(true);
+    expect(isPointInsideDetectionRegion(0.21, 0.75, region)).toBe(false);
   });
 });

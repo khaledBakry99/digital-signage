@@ -2,7 +2,9 @@ import { genderAiApi } from "@/lib/api/genderAi.api";
 import { mediapipeService } from "@/lib/services/mediapipeService";
 import {
   getPaddedPersonRegion,
+  getPixelDetectionRegion,
   PersonCountSmoother,
+  type NormalizedDetectionRegion,
   type PersonBoundingBox,
 } from "@/lib/services/personDetection";
 import type { GenderAiResponse } from "@/lib/types/genderAi";
@@ -27,6 +29,7 @@ export class CameraScreenshotService {
     onError?: (error: Error) => void,
     onScreenshotSent?: () => void,
     personBoundingBoxes: PersonBoundingBox[] = [],
+    detectionRegion?: NormalizedDetectionRegion | null,
   ): Promise<void> {
     const startTime = new Date();
     console.log('🎬 [SCREENSHOT TAKEN]', {
@@ -51,10 +54,17 @@ export class CameraScreenshotService {
         return; // Skip without throwing error
       }
 
+      const detectionBounds = getPixelDetectionRegion(
+        detectionRegion,
+        videoElement.videoWidth,
+        videoElement.videoHeight,
+      );
       const personRegion = getPaddedPersonRegion(
         personBoundingBoxes,
         videoElement.videoWidth,
         videoElement.videoHeight,
+        0.2,
+        detectionBounds,
       );
       const frameArea = videoElement.videoWidth * videoElement.videoHeight;
       const shouldCrop = Boolean(
@@ -83,6 +93,22 @@ export class CameraScreenshotService {
         throw new Error("Failed to create Canvas context");
       }
 
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      if (detectionRegion?.points?.length === 4) {
+        const scaleX = canvas.width / source.width;
+        const scaleY = canvas.height / source.height;
+        ctx.beginPath();
+        detectionRegion.points.forEach((point, index) => {
+          const x = (point.x * videoElement.videoWidth - source.originX) * scaleX;
+          const y = (point.y * videoElement.videoHeight - source.originY) * scaleY;
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.clip();
+      }
       ctx.drawImage(
         videoElement,
         source.originX,
@@ -94,6 +120,7 @@ export class CameraScreenshotService {
         canvas.width,
         canvas.height,
       );
+      ctx.restore();
 
       // Convert the canvas to a JPEG blob
       const blob = await new Promise<Blob>((resolve, reject) => {
@@ -171,12 +198,14 @@ export class CameraScreenshotService {
     cameraId: number,
     sendToAi: boolean = true,
     onScreenshotSent?: () => void,
+    getDetectionRegion?: () => NormalizedDetectionRegion | null,
   ): () => void {
     let stopped = false;
     let animationFrame: number | null = null;
     let detectionTimer: ReturnType<typeof setTimeout> | null = null;
     let analyzing = false;
     const personCountSmoother = new PersonCountSmoother();
+    let lastRegionKey = "";
 
     const detect = async () => {
       if (stopped || analyzing) return;
@@ -184,7 +213,13 @@ export class CameraScreenshotService {
       analyzing = true;
 
       try {
-        const result = await mediapipeService.detectFromVideo(videoElement);
+        const detectionRegion = getDetectionRegion?.() ?? null;
+        const regionKey = detectionRegion ? JSON.stringify(detectionRegion) : "full-frame";
+        if (regionKey !== lastRegionKey) {
+          personCountSmoother.resetEvidence();
+          lastRegionKey = regionKey;
+        }
+        const result = await mediapipeService.detectFromVideo(videoElement, detectionRegion);
         const currentPersonCount = result.personsDetected;
         const countChange = personCountSmoother.update(currentPersonCount);
 
@@ -236,6 +271,7 @@ export class CameraScreenshotService {
               undefined,
               onScreenshotSent,
               result.personBoundingBoxes,
+              detectionRegion,
             );
           } else if (currentCount > 0) {
           } else {

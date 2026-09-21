@@ -4,7 +4,12 @@
  */
 
 import { ObjectDetector, FilesetResolver } from "@mediapipe/tasks-vision";
-import type { PersonBoundingBox } from "@/lib/services/personDetection";
+import {
+  getPixelDetectionRegion,
+  isPointInsideDetectionRegion,
+  type NormalizedDetectionRegion,
+  type PersonBoundingBox,
+} from "@/lib/services/personDetection";
 
 export interface MediapipeDetectionResult {
   personsDetected: number;
@@ -20,6 +25,7 @@ class MediapipeService {
   private readonly MIN_PERSON_CONFIDENCE = 0.5;
   private readonly MIN_BOX_AREA_RATIO = 0.002;
   private readonly MAX_BOX_AREA_RATIO = 0.95;
+  private readonly regionCanvases = new WeakMap<HTMLVideoElement, HTMLCanvasElement>();
 
   /** Initialize the Mediapipe Object Detector. */
   async initialize(): Promise<void> {
@@ -71,7 +77,8 @@ class MediapipeService {
 
   /** Analyze a frame from a video element using Mediapipe. */
   async detectFromVideo(
-    videoElement: HTMLVideoElement
+    videoElement: HTMLVideoElement,
+    detectionRegion?: NormalizedDetectionRegion | null,
   ): Promise<MediapipeDetectionResult> {
     if (!this.initialized || !this.objectDetector) {
       await this.initialize();
@@ -96,20 +103,79 @@ class MediapipeService {
         return { personsDetected: 0, timestamp: Date.now(), confidence: 0, personBoundingBoxes: [] };
       }
 
-      // Analyze the current frame
+      const pixelRegion = getPixelDetectionRegion(
+        detectionRegion,
+        videoElement.videoWidth,
+        videoElement.videoHeight,
+      );
+      let source: HTMLVideoElement | HTMLCanvasElement = videoElement;
+      let sourceOffsetX = 0;
+      let sourceOffsetY = 0;
+      let sourceWidth = videoElement.videoWidth;
+      let sourceHeight = videoElement.videoHeight;
+
+      if (pixelRegion) {
+        let regionCanvas = this.regionCanvases.get(videoElement);
+        if (!regionCanvas) {
+          regionCanvas = document.createElement("canvas");
+          this.regionCanvases.set(videoElement, regionCanvas);
+        }
+        regionCanvas.width = pixelRegion.width;
+        regionCanvas.height = pixelRegion.height;
+        const context = regionCanvas.getContext("2d");
+        if (!context) throw new Error("Failed to create detection region context");
+        context.fillStyle = "#000000";
+        context.fillRect(0, 0, regionCanvas.width, regionCanvas.height);
+        context.save();
+        if (detectionRegion?.points?.length === 4) {
+          context.beginPath();
+          detectionRegion.points.forEach((point, index) => {
+            const x = point.x * videoElement.videoWidth - pixelRegion.originX;
+            const y = point.y * videoElement.videoHeight - pixelRegion.originY;
+            if (index === 0) context.moveTo(x, y);
+            else context.lineTo(x, y);
+          });
+          context.closePath();
+          context.clip();
+        }
+        context.drawImage(
+          videoElement,
+          pixelRegion.originX,
+          pixelRegion.originY,
+          pixelRegion.width,
+          pixelRegion.height,
+          0,
+          0,
+          pixelRegion.width,
+          pixelRegion.height,
+        );
+        context.restore();
+        source = regionCanvas;
+        sourceOffsetX = pixelRegion.originX;
+        sourceOffsetY = pixelRegion.originY;
+        sourceWidth = pixelRegion.width;
+        sourceHeight = pixelRegion.height;
+      }
+
+      // Analyze only the selected region when one is configured.
       const timestamp = performance.now();
-      const detections = this.objectDetector.detectForVideo(videoElement, timestamp);
-      const videoArea = videoElement.videoWidth * videoElement.videoHeight;
+      const detections = this.objectDetector.detectForVideo(source, timestamp);
+      const videoArea = sourceWidth * sourceHeight;
       const personDetections = detections.detections.filter((d) => {
         const category = d.categories[0];
         const box = d.boundingBox;
         if (!category || !box) return false;
         const areaRatio = (box.width * box.height) / videoArea;
+        const centerX = (box.originX + box.width / 2 + sourceOffsetX) /
+          videoElement.videoWidth;
+        const centerY = (box.originY + box.height / 2 + sourceOffsetY) /
+          videoElement.videoHeight;
         return (
           category.categoryName === "person" &&
           (category.score || 0) >= this.MIN_PERSON_CONFIDENCE &&
           areaRatio >= this.MIN_BOX_AREA_RATIO &&
-          areaRatio <= this.MAX_BOX_AREA_RATIO
+          areaRatio <= this.MAX_BOX_AREA_RATIO &&
+          isPointInsideDetectionRegion(centerX, centerY, detectionRegion)
         );
       });
 
@@ -127,8 +193,8 @@ class MediapipeService {
         timestamp: Date.now(),
         confidence,
         personBoundingBoxes: personDetections.map((detection) => ({
-          originX: detection.boundingBox!.originX,
-          originY: detection.boundingBox!.originY,
+          originX: detection.boundingBox!.originX + sourceOffsetX,
+          originY: detection.boundingBox!.originY + sourceOffsetY,
           width: detection.boundingBox!.width,
           height: detection.boundingBox!.height,
         })),

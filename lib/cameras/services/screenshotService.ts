@@ -5,8 +5,11 @@
 import { genderAiApi } from "@/lib/api/genderAi.api";
 import { mediapipeService } from "@/lib/services/mediapipeService";
 import {
+  getStoredCameraDetectionRegion,
   getPaddedPersonRegion,
+  getPixelDetectionRegion,
   PersonCountSmoother,
+  type NormalizedDetectionRegion,
   type PersonBoundingBox,
 } from "@/lib/services/personDetection";
 
@@ -57,11 +60,23 @@ class ScreenshotService {
     this.personCountSmoothers.set(cameraId, new PersonCountSmoother());
     this.lastCaptureAt.set(cameraId, 0);
     this.cooldownUntil.set(cameraId, 0);
+    let lastRegionKey = "";
 
     const detect = async () => {
       if (!this.animationFrames.has(cameraId)) return;
 
-      await this.detectPersonCountChange(cameraId, cameraName, videoElement);
+      const detectionRegion = getStoredCameraDetectionRegion(cameraId);
+      const regionKey = detectionRegion ? JSON.stringify(detectionRegion) : "full-frame";
+      if (regionKey !== lastRegionKey) {
+        this.personCountSmoothers.get(cameraId)?.resetEvidence();
+        lastRegionKey = regionKey;
+      }
+      await this.detectPersonCountChange(
+        cameraId,
+        cameraName,
+        videoElement,
+        detectionRegion,
+      );
 
       if (this.animationFrames.has(cameraId)) {
         const timer = setTimeout(() => {
@@ -101,6 +116,7 @@ class ScreenshotService {
     cameraId: string,
     cameraName: string,
     element: HTMLVideoElement | HTMLImageElement,
+    detectionRegion: NormalizedDetectionRegion | null,
   ): Promise<void> {
     if (this.analyzingCameras.has(cameraId)) return;
     if (!(element instanceof HTMLVideoElement)) return;
@@ -108,7 +124,7 @@ class ScreenshotService {
     this.analyzingCameras.add(cameraId);
 
     try {
-      const result = await mediapipeService.detectFromVideo(element);
+      const result = await mediapipeService.detectFromVideo(element, detectionRegion);
       const currentCount = result.personsDetected;
       const smoother = this.personCountSmoothers.get(cameraId);
       if (!smoother) return;
@@ -175,7 +191,13 @@ class ScreenshotService {
       }
 
       this.lastCaptureAt.set(cameraId, now);
-      this.captureScreenshot(cameraId, cameraName, element, result.personBoundingBoxes);
+      this.captureScreenshot(
+        cameraId,
+        cameraName,
+        element,
+        result.personBoundingBoxes,
+        detectionRegion,
+      );
     } catch {
     } finally {
       this.analyzingCameras.delete(cameraId);
@@ -190,6 +212,7 @@ class ScreenshotService {
     cameraName: string,
     element: HTMLVideoElement | HTMLImageElement,
     personBoundingBoxes: PersonBoundingBox[] = [],
+    detectionRegion: NormalizedDetectionRegion | null = null,
   ): void {
     try {
       const canvas = document.createElement("canvas");
@@ -207,10 +230,17 @@ class ScreenshotService {
       if (element instanceof HTMLVideoElement) {
         sourceWidth = element.videoWidth || 640;
         sourceHeight = element.videoHeight || 480;
+        const detectionBounds = getPixelDetectionRegion(
+          detectionRegion,
+          sourceWidth,
+          sourceHeight,
+        );
         const personRegion = getPaddedPersonRegion(
           personBoundingBoxes,
           sourceWidth,
           sourceHeight,
+          0.2,
+          detectionBounds,
         );
         if (personRegion && personRegion.width * personRegion.height < sourceWidth * sourceHeight * 0.85) {
           sourceX = personRegion.originX;
@@ -226,6 +256,24 @@ class ScreenshotService {
       const upscale = Math.min(3, Math.max(1, 960 / Math.max(sourceWidth, sourceHeight)));
       canvas.width = Math.round(sourceWidth * upscale);
       canvas.height = Math.round(sourceHeight * upscale);
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      if (element instanceof HTMLVideoElement && detectionRegion?.points?.length === 4) {
+        const frameWidth = element.videoWidth || 640;
+        const frameHeight = element.videoHeight || 480;
+        const scaleX = canvas.width / sourceWidth;
+        const scaleY = canvas.height / sourceHeight;
+        ctx.beginPath();
+        detectionRegion.points.forEach((point, index) => {
+          const x = (point.x * frameWidth - sourceX) * scaleX;
+          const y = (point.y * frameHeight - sourceY) * scaleY;
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.clip();
+      }
       ctx.drawImage(
         element,
         sourceX,
@@ -237,6 +285,7 @@ class ScreenshotService {
         canvas.width,
         canvas.height,
       );
+      ctx.restore();
 
       // Convert to data URL
       const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
