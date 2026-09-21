@@ -1,5 +1,13 @@
 import { apiClient } from './client';
-import type { MediaAsset, CreateMediaAssetInput, UpdateMediaAssetInput } from '@/lib/types/mediaAsset';
+import type { MediaAsset, CreateMediaAssetInput, MediaType, UpdateMediaAssetInput } from '@/lib/types/mediaAsset';
+
+interface UpdateMediaAssetWithFileInput {
+  name: string;
+  description?: string;
+  file: File;
+  type: MediaType;
+  durationSeconds?: number;
+}
 
 export const mediaAssetApi = {
   // Get all media assets
@@ -79,7 +87,7 @@ export const mediaAssetApi = {
   },
 
   // Update media asset with file
-  updateWithFile: async (id: number, data: { name: string; description?: string; file: File; type?: 'Image' | 'Video'; durationSeconds?: number }) => {
+  updateWithFile: async (id: number, data: UpdateMediaAssetWithFileInput) => {
     const queryParams = new URLSearchParams();
     queryParams.append('Name', data.name);
     if (data.description) queryParams.append('Description', data.description);
@@ -87,6 +95,10 @@ export const mediaAssetApi = {
     if (data.type) queryParams.append('Type', data.type);
 
     const formData = new FormData();
+    formData.append('Name', data.name);
+    if (data.description !== undefined) formData.append('Description', data.description);
+    if (data.durationSeconds !== undefined) formData.append('DurationInSeconds', data.durationSeconds.toString());
+    formData.append('Type', data.type);
     formData.append('File', data.file);
 
     return apiClient.putFormData<MediaAsset>(`/api/MediaAssets/${id}?${queryParams.toString()}`, formData);

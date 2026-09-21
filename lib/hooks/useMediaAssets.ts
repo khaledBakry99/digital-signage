@@ -1,7 +1,15 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useCallback } from 'react';
 import { mediaAssetApi } from '@/lib/api/mediaAsset.api';
-import type { MediaAsset, UpdateMediaAssetInput } from '@/lib/types/mediaAsset';
+import type { MediaAsset, MediaType, UpdateMediaAssetInput } from '@/lib/types/mediaAsset';
+
+type UpdateMediaAssetWithFileInput = {
+  name: string;
+  description?: string;
+  file: File;
+  type: MediaType;
+  durationSeconds?: number;
+};
 
 export function useMediaAssets(params?: { clientId?: number }) {
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
@@ -23,7 +31,7 @@ export function useMediaAssets(params?: { clientId?: number }) {
 
   const updateMediaAsset = useCallback(async (
     id: number, 
-    data: UpdateMediaAssetInput | { name: string; description?: string; file: File; type?: 'Image' | 'Video'; durationSeconds?: number }
+    data: UpdateMediaAssetInput | UpdateMediaAssetWithFileInput
   ) => {
     try {
       setError(null);
@@ -117,7 +125,7 @@ export function useMediaAssetsPaginated(params?: { clientId?: number; itemsPerPa
 
   const updateMediaAsset = useCallback(async (
     id: number, 
-    data: UpdateMediaAssetInput | { name: string; description?: string; file: File; type?: 'Image' | 'Video'; durationSeconds?: number }
+    data: UpdateMediaAssetInput | UpdateMediaAssetWithFileInput
   ) => {
     try {
       setError(null);

@@ -108,10 +108,14 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
         
         // If file is provided, use updateWithFile endpoint
         if (data.file) {
+          const mediaType = data.file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(data.file.name)
+            ? 'Image'
+            : 'Video';
           const ad = await mediaAssetApi.updateWithFile(id, {
             name: data.name,
             description: data.description,
             file: data.file,
+            type: mediaType,
             durationSeconds: data.durationSeconds,
           });
           await loadAdvertisements();
@@ -119,9 +123,11 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
         }
         
         // Otherwise, use regular update endpoint
+        const existingAdvertisement = advertisements.find((advertisement) => advertisement.id === id);
         const ad = await mediaAssetApi.update(id, {
           name: data.name,
           description: data.description,
+          type: existingAdvertisement?.type,
           isFallback: data.isFallback,
           durationSeconds: data.durationSeconds,
         });
@@ -132,7 +138,7 @@ export function useAdvertisements(clientId?: number): UseAdvertisementsReturn {
         return null;
       }
     },
-    [loadAdvertisements],
+    [advertisements, loadAdvertisements],
   );
 
   /**

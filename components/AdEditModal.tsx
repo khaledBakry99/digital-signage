@@ -3,13 +3,27 @@
 import { useState, useRef, useEffect } from "react";
 import { extractApiError } from "@/lib/api/client";
 import { useTheme } from "@/lib/context/ThemeContext";
-import type { MediaAsset } from "@/lib/types/mediaAsset";
+import type { MediaAsset, MediaType } from "@/lib/types/mediaAsset";
+
+const getFileMediaType = (file: File): MediaType | null => {
+  const fileName = file.name.toLowerCase();
+
+  if (file.type.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp)$/.test(fileName)) {
+    return "Image";
+  }
+
+  if (file.type.startsWith("video/") || /\.(mp4|webm|mov)$/.test(fileName)) {
+    return "Video";
+  }
+
+  return null;
+};
 
 interface AdEditModalProps {
   ad: MediaAsset | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (id: number, data: { name: string; description: string; isFallback: boolean; file?: File; durationSeconds?: number }) => Promise<void>;
+  onSave: (id: number, data: { name: string; description: string; isFallback: boolean; type: MediaType; file?: File; durationSeconds?: number }) => Promise<void>;
 }
 
 export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModalProps) {
@@ -64,13 +78,8 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
     setError(null);
     setFieldErrors(prev => ({ ...prev, file: "" }));
     
-    const fn = selectedFile.name.toLowerCase();
-    const isImage =
-      selectedFile.type.startsWith("image/") ||
-      /\.(jpg|jpeg|png|gif|webp)$/.test(fn);
-    const isVideo =
-      selectedFile.type.startsWith("video/") || /\.(mp4|webm|mov)$/.test(fn);
-    if (!isImage && !isVideo) {
+    const selectedMediaType = getFileMediaType(selectedFile);
+    if (!selectedMediaType) {
       setError(
         "الرجاء اختيار ملف صورة (JPG, PNG, GIF, WebP) أو فيديو (MP4, WebM, MOV)",
       );
@@ -109,8 +118,8 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
       return;
     }
 
-    // Determine if we're dealing with an image (either existing or new file)
-    const isImageContent = file ? file.type.startsWith('image/') : ad.type === 'Image';
+    const mediaType = file ? getFileMediaType(file) ?? ad.type : ad.type;
+    const isImageContent = mediaType === 'Image';
     
     // Validate duration for images
     if (isImageContent && (!durationSeconds || durationSeconds < 1)) {
@@ -126,6 +135,7 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
         name, 
         description, 
         isFallback: ad.isFallback,
+        type: mediaType,
         file: file || undefined,
         durationSeconds: isImageContent ? durationSeconds : undefined
       });
@@ -145,7 +155,7 @@ export default function AdEditModal({ ad, isOpen, onClose, onSave }: AdEditModal
     return `${mb.toFixed(2)} MB`;
   };
 
-  const isImage = ad.type === 'Image' || (file && file.type.startsWith('image/'));
+  const isImage = (file ? getFileMediaType(file) : ad.type) === 'Image';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">

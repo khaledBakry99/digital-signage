@@ -10,7 +10,7 @@ import Pagination from "@/components/Pagination";
 import { useMediaAssetsPaginated } from "@/lib/hooks/useMediaAssets";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useTheme } from "@/lib/context/ThemeContext";
-import type { MediaAsset } from "@/lib/types/mediaAsset";
+import type { MediaAsset, MediaType } from "@/lib/types/mediaAsset";
 import { dashboardApi, MediaStats } from "@/lib/api/dashboard.api";
 
 export default function AdsPage() {
@@ -136,7 +136,7 @@ export default function AdsPage() {
     setEditModalOpen(true);
   };
 
-  const handleSaveEdit = async (id: number, data: { name: string; description: string; isFallback: boolean; file?: File; durationSeconds?: number }) => {
+  const handleSaveEdit = async (id: number, data: { name: string; description: string; isFallback: boolean; type: MediaType; file?: File; durationSeconds?: number }) => {
     await updateMediaAsset(id, data);
   };
 
