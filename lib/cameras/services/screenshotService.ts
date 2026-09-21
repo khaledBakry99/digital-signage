@@ -3,14 +3,11 @@
  * Captures screenshots from camera streams at regular intervals
  */
 import { genderAiApi } from "@/lib/api/genderAi.api";
-import { mediapipeService } from "@/lib/services/mediapipeService";
+import { MotionDetector } from "@/lib/services/motionDetection";
 import {
   getStoredCameraDetectionRegion,
-  getPaddedPersonRegion,
   getPixelDetectionRegion,
-  PersonCountSmoother,
   type NormalizedDetectionRegion,
-  type PersonBoundingBox,
 } from "@/lib/services/personDetection";
 
 // Convert Base64-encoded dataURL to File object for sending via API
@@ -37,7 +34,7 @@ export interface CameraScreenshot {
 class ScreenshotService {
   private animationFrames: Map<string, number> = new Map();
   private detectionTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
-  private personCountSmoothers: Map<string, PersonCountSmoother> = new Map();
+  private motionDetectors: Map<string, MotionDetector> = new Map();
   private analyzingCameras: Set<string> = new Set();
   private screenshots: Map<string, CameraScreenshot[]> = new Map();
   private lastCaptureAt: Map<string, number> = new Map();
@@ -57,21 +54,15 @@ class ScreenshotService {
     videoElement: HTMLVideoElement | HTMLImageElement,
   ): void {
     this.stopCapture(cameraId);
-    this.personCountSmoothers.set(cameraId, new PersonCountSmoother());
+    this.motionDetectors.set(cameraId, new MotionDetector());
     this.lastCaptureAt.set(cameraId, 0);
     this.cooldownUntil.set(cameraId, 0);
-    let lastRegionKey = "";
 
     const detect = async () => {
       if (!this.animationFrames.has(cameraId)) return;
 
       const detectionRegion = getStoredCameraDetectionRegion(cameraId);
-      const regionKey = detectionRegion ? JSON.stringify(detectionRegion) : "full-frame";
-      if (regionKey !== lastRegionKey) {
-        this.personCountSmoothers.get(cameraId)?.resetEvidence();
-        lastRegionKey = regionKey;
-      }
-      await this.detectPersonCountChange(
+      await this.detectMotion(
         cameraId,
         cameraName,
         videoElement,
@@ -106,13 +97,13 @@ class ScreenshotService {
       clearTimeout(timer);
       this.detectionTimers.delete(cameraId);
     }
-    this.personCountSmoothers.delete(cameraId);
+    this.motionDetectors.delete(cameraId);
     this.analyzingCameras.delete(cameraId);
     this.lastCaptureAt.delete(cameraId);
     this.cooldownUntil.delete(cameraId);
   }
 
-  private async detectPersonCountChange(
+  private async detectMotion(
     cameraId: string,
     cameraName: string,
     element: HTMLVideoElement | HTMLImageElement,
@@ -124,54 +115,19 @@ class ScreenshotService {
     this.analyzingCameras.add(cameraId);
 
     try {
-      const result = await mediapipeService.detectFromVideo(element, detectionRegion);
-      const currentCount = result.personsDetected;
-      const smoother = this.personCountSmoothers.get(cameraId);
-      if (!smoother) return;
+      const detector = this.motionDetectors.get(cameraId);
+      if (!detector) return;
+      const result = detector.detect(element, detectionRegion);
+      if (!result.motionDetected) return;
 
-      const countChange = smoother.update(currentCount);
-      if (!countChange) return;
-      const { previousCount: lastStableCount, currentCount: stableCount } = countChange;
-
-      console.log('👥 PERSON COUNT CHANGED:', {
-        cameraId: Number(cameraId),
-        previousCount: lastStableCount,
-        currentCount: stableCount,
-        timestamp: new Date()
-      });
-
-      const event = new CustomEvent("person-count-changed", {
-        detail: {
-          cameraId: Number(cameraId),
-          previousCount: lastStableCount,
-          currentCount: stableCount,
-          timestamp: new Date(),
-        },
-      });
-      window.dispatchEvent(event);
-
-      if (typeof BroadcastChannel !== "undefined") {
-        // Use camera-specific channel to ensure isolation
-        const channel = new BroadcastChannel(`person-count-changed-camera-${cameraId}`);
-
-        console.log("📡 BROADCAST PERSON COUNT:", {
-          channel: `person-count-changed-camera-${cameraId}`,
-          currentCount: stableCount,
-        });
-
-        channel.postMessage({
-          type: "person-count-changed",
-          cameraId: Number(cameraId),
-          previousCount: lastStableCount,
-          currentCount: stableCount,
-          timestamp: new Date().toISOString(),
-        });
-
-        channel.close();
-      }
-
-      if (stableCount === 0) {
-        return;
+      if (result.motionStarted) {
+        window.dispatchEvent(new CustomEvent("motion-detected", {
+          detail: {
+            cameraId: Number(cameraId),
+            motionRatio: result.motionRatio,
+            timestamp: new Date(),
+          },
+        }));
       }
 
       const now = Date.now();
@@ -195,7 +151,6 @@ class ScreenshotService {
         cameraId,
         cameraName,
         element,
-        result.personBoundingBoxes,
         detectionRegion,
       );
     } catch {
@@ -211,7 +166,6 @@ class ScreenshotService {
     cameraId: string,
     cameraName: string,
     element: HTMLVideoElement | HTMLImageElement,
-    personBoundingBoxes: PersonBoundingBox[] = [],
     detectionRegion: NormalizedDetectionRegion | null = null,
   ): void {
     try {
@@ -228,25 +182,20 @@ class ScreenshotService {
       let sourceHeight: number;
 
       if (element instanceof HTMLVideoElement) {
-        sourceWidth = element.videoWidth || 640;
-        sourceHeight = element.videoHeight || 480;
+        const frameWidth = element.videoWidth || 640;
+        const frameHeight = element.videoHeight || 480;
+        sourceWidth = frameWidth;
+        sourceHeight = frameHeight;
         const detectionBounds = getPixelDetectionRegion(
           detectionRegion,
-          sourceWidth,
-          sourceHeight,
+          frameWidth,
+          frameHeight,
         );
-        const personRegion = getPaddedPersonRegion(
-          personBoundingBoxes,
-          sourceWidth,
-          sourceHeight,
-          0.2,
-          detectionBounds,
-        );
-        if (personRegion && personRegion.width * personRegion.height < sourceWidth * sourceHeight * 0.85) {
-          sourceX = personRegion.originX;
-          sourceY = personRegion.originY;
-          sourceWidth = personRegion.width;
-          sourceHeight = personRegion.height;
+        if (detectionBounds) {
+          sourceX = detectionBounds.originX;
+          sourceY = detectionBounds.originY;
+          sourceWidth = detectionBounds.width;
+          sourceHeight = detectionBounds.height;
         }
       } else {
         sourceWidth = element.naturalWidth || 640;
@@ -316,6 +265,7 @@ class ScreenshotService {
         genderAiApi
           .analyze({ cameraId: numericId, image: file })
           .then((response) => {
+            this.publishAiPersonCount(numericId, response.peopleCount);
 
             if (response?.audience) {
               console.log('🤖 AI DETECTION DETAILS:', {
@@ -351,6 +301,23 @@ class ScreenshotService {
       } catch {
       }
     } catch {
+    }
+  }
+
+  private publishAiPersonCount(cameraId: number, currentCount: number): void {
+    window.dispatchEvent(new CustomEvent("person-count-changed", {
+      detail: { cameraId, currentCount, timestamp: new Date() },
+    }));
+
+    if (typeof BroadcastChannel !== "undefined") {
+      const channel = new BroadcastChannel(`person-count-changed-camera-${cameraId}`);
+      channel.postMessage({
+        type: "person-count-changed",
+        cameraId,
+        currentCount,
+        timestamp: new Date().toISOString(),
+      });
+      channel.close();
     }
   }
 
@@ -443,7 +410,7 @@ class ScreenshotService {
     this.animationFrames.clear();
     this.detectionTimers.forEach((timer) => clearTimeout(timer));
     this.detectionTimers.clear();
-    this.personCountSmoothers.clear();
+    this.motionDetectors.clear();
     this.analyzingCameras.clear();
   }
 

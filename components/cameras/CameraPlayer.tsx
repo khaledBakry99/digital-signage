@@ -153,14 +153,14 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
         }
       });
 
-      // Start ObjectDetector and send screenshot only when person count changes
+      // Capture and analyze a screenshot when motion is detected.
       let stopCapture: (() => void) | null = null;
       if (
         element instanceof HTMLVideoElement &&
         (camera.type === "local" || camera.type === "hls" || camera.type === "rtsp")
       ) {
         try {
-          stopCapture = cameraScreenshotService.startObjectDetectionCapture(
+          stopCapture = cameraScreenshotService.startMotionDetectionCapture(
             element,
             Number(camera.id),
             true,

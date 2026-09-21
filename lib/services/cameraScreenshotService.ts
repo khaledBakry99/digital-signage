@@ -1,11 +1,8 @@
 import { genderAiApi } from "@/lib/api/genderAi.api";
-import { mediapipeService } from "@/lib/services/mediapipeService";
+import { MotionDetector } from "@/lib/services/motionDetection";
 import {
-  getPaddedPersonRegion,
   getPixelDetectionRegion,
-  PersonCountSmoother,
   type NormalizedDetectionRegion,
-  type PersonBoundingBox,
 } from "@/lib/services/personDetection";
 import type { GenderAiResponse } from "@/lib/types/genderAi";
 
@@ -15,6 +12,7 @@ import type { GenderAiResponse } from "@/lib/types/genderAi";
  */
 export class CameraScreenshotService {
   private readonly DETECTION_INTERVAL_MS = 150;
+  private readonly MOTION_CAPTURE_INTERVAL_MS = 4000;
   /**
    * Capture a frame from the video element and send it to AI.
    * @param videoElement - target video element
@@ -28,7 +26,6 @@ export class CameraScreenshotService {
     onSuccess?: (result: GenderAiResponse) => void,
     onError?: (error: Error) => void,
     onScreenshotSent?: () => void,
-    personBoundingBoxes: PersonBoundingBox[] = [],
     detectionRegion?: NormalizedDetectionRegion | null,
   ): Promise<void> {
     const startTime = new Date();
@@ -59,30 +56,17 @@ export class CameraScreenshotService {
         videoElement.videoWidth,
         videoElement.videoHeight,
       );
-      const personRegion = getPaddedPersonRegion(
-        personBoundingBoxes,
-        videoElement.videoWidth,
-        videoElement.videoHeight,
-        0.2,
-        detectionBounds,
-      );
-      const frameArea = videoElement.videoWidth * videoElement.videoHeight;
-      const shouldCrop = Boolean(
-        personRegion && personRegion.width * personRegion.height < frameArea * 0.85,
-      );
-      const source = shouldCrop && personRegion
-        ? personRegion
-        : {
+      const source = detectionBounds ?? {
           originX: 0,
           originY: 0,
           width: videoElement.videoWidth,
           height: videoElement.videoHeight,
         };
-      const upscale = shouldCrop
+      const upscale = detectionBounds
         ? Math.min(3, Math.max(1, 960 / Math.max(source.width, source.height)))
         : 1;
 
-      // Crop and enlarge distant people before sending the frame to the server AI.
+      // Crop to the motion area before sending the frame to the server AI.
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(source.width * upscale);
       canvas.height = Math.round(source.height * upscale);
@@ -160,6 +144,7 @@ export class CameraScreenshotService {
 
       // Send the image to the AI service
       const result = await genderAiApi.detectGender(cameraId, file);
+      this.publishAiPersonCount(cameraId, result.peopleCount);
 
       console.log('✅ [AI RESPONSE RECEIVED]', {
         cameraId,
@@ -193,7 +178,24 @@ export class CameraScreenshotService {
     }
   }
 
-  startObjectDetectionCapture(
+  private publishAiPersonCount(cameraId: number, currentCount: number): void {
+    window.dispatchEvent(new CustomEvent("person-count-changed", {
+      detail: { cameraId, currentCount, timestamp: new Date() },
+    }));
+
+    if (typeof BroadcastChannel !== "undefined") {
+      const channel = new BroadcastChannel(`person-count-changed-camera-${cameraId}`);
+      channel.postMessage({
+        type: "person-count-changed",
+        cameraId,
+        currentCount,
+        timestamp: new Date().toISOString(),
+      });
+      channel.close();
+    }
+  }
+
+  startMotionDetectionCapture(
     videoElement: HTMLVideoElement,
     cameraId: number,
     sendToAi: boolean = true,
@@ -204,8 +206,8 @@ export class CameraScreenshotService {
     let animationFrame: number | null = null;
     let detectionTimer: ReturnType<typeof setTimeout> | null = null;
     let analyzing = false;
-    const personCountSmoother = new PersonCountSmoother();
-    let lastRegionKey = "";
+    let lastCaptureAt = 0;
+    const motionDetector = new MotionDetector();
 
     const detect = async () => {
       if (stopped || analyzing) return;
@@ -214,68 +216,33 @@ export class CameraScreenshotService {
 
       try {
         const detectionRegion = getDetectionRegion?.() ?? null;
-        const regionKey = detectionRegion ? JSON.stringify(detectionRegion) : "full-frame";
-        if (regionKey !== lastRegionKey) {
-          personCountSmoother.resetEvidence();
-          lastRegionKey = regionKey;
-        }
-        const result = await mediapipeService.detectFromVideo(videoElement, detectionRegion);
-        const currentPersonCount = result.personsDetected;
-        const countChange = personCountSmoother.update(currentPersonCount);
+        const result = motionDetector.detect(videoElement, detectionRegion);
 
-        if (countChange) {
-          const { previousCount, currentCount } = countChange;
-
-          const changeTime = new Date();
-          console.log('👥 [PERSON COUNT CHANGED]', {
-            cameraId,
-            previousCount,
-            currentCount,
-            time: changeTime.toISOString(),
-            timeLocal: changeTime.toLocaleTimeString('ar-SA')
-          });
-
-          const event = new CustomEvent("person-count-changed", {
+        if (result.motionStarted) {
+          const event = new CustomEvent("motion-detected", {
             detail: {
               cameraId,
-              previousCount,
-              currentCount,
+              motionRatio: result.motionRatio,
               timestamp: new Date(),
             },
           });
           window.dispatchEvent(event);
+        }
 
-          if (typeof BroadcastChannel !== "undefined") {
-            const channel = new BroadcastChannel(`person-count-changed-camera-${cameraId}`);
-            channel.postMessage({
-              type: "person-count-changed",
-              cameraId,
-              previousCount,
-              currentCount,
-              timestamp: new Date().toISOString(),
-            });
-            channel.close();
-          }
-
-          if (currentCount > 0 && sendToAi) {
-            const captureTime = new Date();
-            console.log('📸 [SCREENSHOT CAPTURE START]', {
-              cameraId,
-              time: captureTime.toISOString(),
-              timeLocal: captureTime.toLocaleTimeString('ar-SA')
-            });
-            await this.captureAndSendToAi(
-              videoElement,
-              cameraId,
-              undefined,
-              undefined,
-              onScreenshotSent,
-              result.personBoundingBoxes,
-              detectionRegion,
-            );
-          } else if (currentCount > 0) {
-          } else {
-          }
+        const now = Date.now();
+        const shouldCapture = result.motionDetected && (
+          result.motionStarted || now - lastCaptureAt >= this.MOTION_CAPTURE_INTERVAL_MS
+        );
+        if (shouldCapture && sendToAi) {
+          lastCaptureAt = now;
+          await this.captureAndSendToAi(
+            videoElement,
+            cameraId,
+            undefined,
+            undefined,
+            onScreenshotSent,
+            detectionRegion,
+          );
         }
       } catch {
       } finally {
