@@ -7,6 +7,8 @@ import { useScreensWithHeartbeat } from "@/lib/hooks/useScreensWithHeartbeat";
 import { useTheme } from "@/lib/context/ThemeContext";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { dashboardApi, ScreensStats } from "@/lib/api/dashboard.api";
+import { extractApiError } from "@/lib/api/client";
+import { refreshAllScreensDefaultMedia } from "@/lib/screens/screenControl";
 
 export default function ScreensPage() {
   const { clientId } = useAuth();
@@ -17,6 +19,8 @@ export default function ScreensPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     if (!clientId) return;
@@ -56,6 +60,27 @@ export default function ScreensPage() {
       setShowConfirmDialog(false);
       window.location.reload();
     }, 500);
+  };
+
+  const handleSyncAllScreens = async () => {
+    if (screens.length === 0 || isSyncingAll) return;
+    setIsSyncingAll(true);
+    setSyncMessage(null);
+
+    try {
+      await refreshAllScreensDefaultMedia(screens.map((screen) => screen.id));
+      setSyncMessage({
+        type: "success",
+        text: "تمت مزامنة جميع الشاشات بالمحتوى الافتراضي.",
+      });
+    } catch (error) {
+      setSyncMessage({
+        type: "error",
+        text: extractApiError(error, "فشلت مزامنة جميع الشاشات"),
+      });
+    } finally {
+      setIsSyncingAll(false);
+    }
   };
 
   const heroContainerClass = isLightTheme
@@ -114,7 +139,19 @@ export default function ScreensPage() {
             </h1>
 
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSyncAllScreens}
+              disabled={isSyncingAll || screens.length === 0}
+              className="flex items-center gap-2 rounded-md border border-sky-400/30 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-400 transition-colors hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-45"
+              title="تحديث جميع الشاشات بالمحتوى الافتراضي من الخادم"
+            >
+              <svg className={`h-5 w-5 ${isSyncingAll ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v6h6M20 20v-6h-6M5.1 15a7 7 0 0011.2 2.1L20 14M4 10l3.7-3.1A7 7 0 0118.9 9" />
+              </svg>
+              {isSyncingAll ? "جارٍ المزامنة..." : "مزامنة جميع الشاشات"}
+            </button>
             <button
               onClick={() => setShowConfirmDialog(true)}
               className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-2"
@@ -192,7 +229,7 @@ export default function ScreensPage() {
         </div>
       </div>
 
-      {error && (
+      {(error || statsError) && (
         <div
           className="mb-6 p-4 rounded-xl animate-fade-in"
           style={{
@@ -201,7 +238,20 @@ export default function ScreensPage() {
             color: "#f87171",
           }}
         >
-          {error}
+          {error || statsError}
+        </div>
+      )}
+
+      {syncMessage && (
+        <div
+          className="mb-6 border px-4 py-3 text-sm"
+          style={{
+            borderColor: syncMessage.type === "success" ? "rgba(16,185,129,0.35)" : "rgba(239,68,68,0.35)",
+            background: syncMessage.type === "success" ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
+            color: syncMessage.type === "success" ? "#34d399" : "#f87171",
+          }}
+        >
+          {syncMessage.text}
         </div>
       )}
 
@@ -226,7 +276,7 @@ export default function ScreensPage() {
               </h3>
             </div>
             <p className="mb-6" style={{ color: "var(--text-muted)" }}>
-              سيتم اغلاق جميع الشاشات المفتوحة وإعادة تحميل الصفحة. هذا سيؤدي إلى تفعيل جميع أزرار "فتح الشاشة".
+              سيتم اغلاق جميع الشاشات المفتوحة وإعادة تحميل الصفحة. هذا سيؤدي إلى تفعيل جميع أزرار &quot;فتح الشاشة&quot;.
             </p>
             <div className="flex gap-3 justify-end">
               <button

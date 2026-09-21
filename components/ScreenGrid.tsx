@@ -12,6 +12,11 @@ import {
 } from "@/lib/browser/windowManagement";
 import MirrorPlayer from "@/components/MirrorPlayer";
 import type { Screen } from "@/lib/types/screen";
+import { extractApiError } from "@/lib/api/client";
+import {
+  closeScreen as closeScreenWindow,
+  refreshScreenDefaultMedia,
+} from "@/lib/screens/screenControl";
 
 /**
  * Helper: Register open screen tab
@@ -64,6 +69,8 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
   const { openFloatingCamera, closeFloatingCamera, isCameraFloating } = useFloatingCamera();
   const [openScreenTabs, setOpenScreenTabs] = useState<Set<number>>(initialOpenScreenTabs);
   const [openingScreenIds, setOpeningScreenIds] = useState<Set<number>>(new Set());
+  const [screenActions, setScreenActions] = useState<Record<number, "refreshing" | "closing">>({});
+  const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Ask for monitor access as soon as the screens page opens.
   useEffect(() => {
@@ -221,22 +228,86 @@ export default function ScreenGrid({ screens, openScreenTabs: initialOpenScreenT
     }
   }, [isCameraFloating, closeFloatingCamera, openFloatingCamera]);
 
+  const updateScreenMedia = useCallback(async (screen: Screen, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setScreenActions((current) => ({ ...current, [screen.id]: "refreshing" }));
+    setActionMessage(null);
+
+    try {
+      await refreshScreenDefaultMedia(screen.id);
+      setActionMessage({
+        type: "success",
+        text: `تم تحديث محتوى ${screen.name} إلى المحتوى الافتراضي.`,
+      });
+    } catch (error) {
+      setActionMessage({ type: "error", text: extractApiError(error, "فشل تحديث محتوى الشاشة") });
+    } finally {
+      setScreenActions((current) => {
+        const next = { ...current };
+        delete next[screen.id];
+        return next;
+      });
+    }
+  }, []);
+
+  const closeScreen = useCallback(async (screen: Screen, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setScreenActions((current) => ({ ...current, [screen.id]: "closing" }));
+    setActionMessage(null);
+
+    try {
+      await closeScreenWindow(screen.id);
+      unregisterOpenScreenTab(screen.id);
+      setOpenScreenTabs((current) => {
+        const next = new Set(current);
+        next.delete(screen.id);
+        return next;
+      });
+      setActionMessage({ type: "success", text: `تم إغلاق ${screen.name}.` });
+    } catch (error) {
+      setActionMessage({ type: "error", text: extractApiError(error, "فشل إغلاق الشاشة") });
+    } finally {
+      setScreenActions((current) => {
+        const next = { ...current };
+        delete next[screen.id];
+        return next;
+      });
+    }
+  }, []);
+
   const sortedScreens = useMemo(() => screens.map((screen, order) => ({ screen, order })), [screens]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5 stagger">
-      {sortedScreens.map(({ screen, order }) => (
-        <ScreenCard
-          key={screen.id}
-          screen={screen}
-          order={order}
-          onOpenCamera={openCamera}
-          onOpenScreen={openScreen}
-          openScreenTabs={openScreenTabs}
-          openingScreenIds={openingScreenIds}
-        />
-      ))}
-    </div>
+    <>
+      {actionMessage && (
+        <div
+          className="mb-4 border px-4 py-3 text-sm"
+          style={{
+            borderColor: actionMessage.type === "success" ? "rgba(16,185,129,0.35)" : "rgba(239,68,68,0.35)",
+            background: actionMessage.type === "success" ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
+            color: actionMessage.type === "success" ? "#34d399" : "#f87171",
+          }}
+        >
+          {actionMessage.text}
+        </div>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5 stagger">
+        {sortedScreens.map(({ screen, order }) => (
+          <ScreenCard
+            key={screen.id}
+            screen={screen}
+            order={order}
+            onOpenCamera={openCamera}
+            onOpenScreen={openScreen}
+            onUpdateMedia={updateScreenMedia}
+            onCloseScreen={closeScreen}
+            action={screenActions[screen.id]}
+            openScreenTabs={openScreenTabs}
+            openingScreenIds={openingScreenIds}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -245,6 +316,9 @@ interface ScreenCardProps {
   order: number;
   onOpenCamera: (cameraId: number, e: React.MouseEvent) => void;
   onOpenScreen: (screenId: number, e: React.MouseEvent) => void;
+  onUpdateMedia: (screen: Screen, e: React.MouseEvent) => void;
+  onCloseScreen: (screen: Screen, e: React.MouseEvent) => void;
+  action?: "refreshing" | "closing";
   openScreenTabs?: Set<number>;
   openingScreenIds?: Set<number>;
 }
@@ -254,6 +328,9 @@ function ScreenCard({
   order,
   onOpenCamera,
   onOpenScreen,
+  onUpdateMedia,
+  onCloseScreen,
+  action,
   openScreenTabs = new Set(),
   openingScreenIds = new Set(),
 }: ScreenCardProps) {
@@ -396,6 +473,27 @@ function ScreenCard({
             </svg>
           </button>
         )}
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={(event) => onUpdateMedia(screen, event)}
+          disabled={Boolean(action)}
+          className="rounded-md border border-sky-400/30 bg-sky-500/10 px-3 py-2.5 text-sm font-semibold text-sky-400 transition-colors hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-45"
+          title="تحديث الشاشة بالمحتوى الافتراضي من الخادم"
+        >
+          {action === "refreshing" ? "جارٍ التحديث..." : "تحديث المحتوى"}
+        </button>
+        <button
+          type="button"
+          onClick={(event) => onCloseScreen(screen, event)}
+          disabled={Boolean(action)}
+          className="rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2.5 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-45"
+          title="إغلاق هذه الشاشة وتعطيلها على الخادم"
+        >
+          {action === "closing" ? "جارٍ الإغلاق..." : "إغلاق الشاشة"}
+        </button>
       </div>
     </div>
   );

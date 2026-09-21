@@ -117,7 +117,7 @@ export default function ScreenPage() {
     source: PendingMediaUpdate["source"],
     selectedSlot?: string,
   ) => Promise<void>>(async () => { });
-  const loadFallbackAdRef = useRef<() => Promise<void>>(async () => { });
+  const loadFallbackAdRef = useRef<(force?: boolean) => Promise<void>>(async () => { });
 
   const activeTargetedAdRef = useRef<{
     mediaAssetId: number;
@@ -224,8 +224,16 @@ export default function ScreenPage() {
     persistPlaybackMode(state);
   }, []);
 
-  const loadFallbackAd = useCallback(async () => {
-    if (isTargetedPlaybackLocked()) {
+  const loadFallbackAd = useCallback(async (force = false) => {
+    if (force) {
+      playbackGenerationRef.current += 1;
+      activeTargetedAdRef.current = null;
+      latestDetectionRef.current = null;
+      setIsPlayingTargetedAd(false);
+      updateScreenState("DETECTING");
+    }
+
+    if (!force && isTargetedPlaybackLocked()) {
       console.log("⛔ FALLBACK BLOCKED → TARGETED AD LOCKED");
       return;
     }
@@ -245,7 +253,7 @@ export default function ScreenPage() {
         return;
       }
 
-      if (isTargetedPlaybackLocked()) {
+      if (!force && isTargetedPlaybackLocked()) {
         console.log("⛔ FALLBACK IGNORED → TARGETED AD LOCKED AFTER FETCH");
         return;
       }
@@ -263,7 +271,7 @@ export default function ScreenPage() {
         );
       }
 
-      if (isTargetedPlaybackLocked()) {
+      if (!force && isTargetedPlaybackLocked()) {
         return;
       }
 
@@ -280,7 +288,7 @@ export default function ScreenPage() {
       }
     } catch (err) {
       console.error("❌ ERROR LOADING FALLBACK AD:", err);
-      if (!isTargetedPlaybackLocked()) {
+      if (!force && !isTargetedPlaybackLocked()) {
         setFallbackAd(null);
         setAdvertisement(null);
       }
@@ -661,7 +669,7 @@ export default function ScreenPage() {
 
   // Cleanup handled by beforeunload event and deactivate call
 
-  // Listen for close-all-tabs message via BroadcastChannel
+  // Receive dashboard commands for media refresh and window closing.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -670,6 +678,23 @@ export default function ScreenPage() {
     const handleMessage = (event: MessageEvent) => {
       if (event.data === 'close-all-tabs') {
         window.close();
+        return;
+      }
+
+      if (
+        event.data?.type === "close-screen" &&
+        Number(event.data.screenId) === screenId
+      ) {
+        window.close();
+        return;
+      }
+
+      if (
+        event.data?.type === "refresh-default-media" &&
+        Array.isArray(event.data.screenIds) &&
+        event.data.screenIds.map(Number).includes(screenId)
+      ) {
+        void loadFallbackAdRef.current(true);
       }
     };
 
@@ -679,7 +704,7 @@ export default function ScreenPage() {
       channel.removeEventListener('message', handleMessage);
       channel.close();
     };
-  }, []);
+  }, [screenId]);
 
   useEffect(() => {
     if (!shouldSelectDisplay) return;
