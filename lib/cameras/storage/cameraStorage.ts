@@ -14,7 +14,11 @@ import {
   DEFAULT_MOTION_DETECTION_SETTINGS,
   sanitizeMotionDetectionSettings,
 } from "@/lib/services/motionDetection";
-import { DEFAULT_CAPTURE_FULL_FRAME } from "@/lib/services/screenshotRegion";
+import {
+  DEFAULT_CAPTURE_COOLDOWN_SECONDS,
+  DEFAULT_CAPTURE_FULL_FRAME,
+  DEFAULT_SHOW_PERSON_DETECTION_DEBUG,
+} from "@/lib/services/screenshotRegion";
 
 const getDefaultSettings = (): CameraSettings => ({
   autoReconnect: true,
@@ -24,6 +28,8 @@ const getDefaultSettings = (): CameraSettings => ({
   motionDetection: { ...DEFAULT_MOTION_DETECTION_SETTINGS },
   captureFullFrame: DEFAULT_CAPTURE_FULL_FRAME,
   detectionMode: "motion",
+  captureCooldownSeconds: DEFAULT_CAPTURE_COOLDOWN_SECONDS,
+  showPersonDetectionDebug: DEFAULT_SHOW_PERSON_DETECTION_DEBUG,
   lastUpdate: new Date(),
 });
 
@@ -149,6 +155,8 @@ class CameraStorageService {
         motionDetection: sanitizeMotionDetectionSettings(settings.motionDetection),
         captureFullFrame: settings.captureFullFrame === true,
         detectionMode: settings.detectionMode === "person" ? "person" : "motion",
+        captureCooldownSeconds: Math.min(60, Math.max(1, settings.captureCooldownSeconds || DEFAULT_CAPTURE_COOLDOWN_SECONDS)),
+        showPersonDetectionDebug: settings.showPersonDetectionDebug === true,
         lastUpdate: settings.lastUpdate,
       };
 
@@ -156,6 +164,7 @@ class CameraStorageService {
         STORAGE_KEYS.CAMERA_SETTINGS,
         JSON.stringify(settingsData),
       );
+      window.dispatchEvent(new Event("camera-settings-changed"));
     } catch (error) {
       throw new Error("فشل حفظ الإعدادات");
     }
@@ -180,6 +189,8 @@ class CameraStorageService {
         motionDetection: sanitizeMotionDetectionSettings(settings.motionDetection),
         captureFullFrame: settings.captureFullFrame === true,
         detectionMode: settings.detectionMode === "person" ? "person" : "motion",
+        captureCooldownSeconds: Math.min(60, Math.max(1, settings.captureCooldownSeconds || DEFAULT_CAPTURE_COOLDOWN_SECONDS)),
+        showPersonDetectionDebug: settings.showPersonDetectionDebug === true,
         lastUpdate: new Date(settings.lastUpdate),
       };
     } catch (error) {

@@ -1,6 +1,9 @@
 import { genderAiApi } from "@/lib/api/genderAi.api";
 import { CameraCaptureDetector } from "@/lib/services/cameraCaptureDetector";
-import { getScreenshotRegion } from "@/lib/services/screenshotRegion";
+import {
+  getScreenshotRegion,
+  getStoredCaptureCooldownMs,
+} from "@/lib/services/screenshotRegion";
 import {
   getPixelDetectionRegion,
   type NormalizedDetectionRegion,
@@ -13,7 +16,6 @@ import type { GenderAiResponse } from "@/lib/types/genderAi";
  */
 export class CameraScreenshotService {
   private readonly DETECTION_INTERVAL_MS = 150;
-  private readonly MOTION_CAPTURE_INTERVAL_MS = 4000;
   /**
    * Capture a frame from the video element and send it to AI.
    * @param videoElement - target video element
@@ -221,6 +223,14 @@ export class CameraScreenshotService {
         const result = await detector.detect(videoElement, detectionRegion);
         if (stopped) return;
 
+        window.dispatchEvent(new CustomEvent("person-detected", {
+          detail: {
+            cameraId,
+            boxes: result.personBoundingBoxes,
+            timestamp: new Date(),
+          },
+        }));
+
         if (result.mode === "motion" && result.started) {
           const event = new CustomEvent("motion-detected", {
             detail: {
@@ -233,9 +243,8 @@ export class CameraScreenshotService {
         }
 
         const now = Date.now();
-        const shouldCapture = result.active && (
-          result.started || now - lastCaptureAt >= this.MOTION_CAPTURE_INTERVAL_MS
-        );
+        const shouldCapture = result.active &&
+          now - lastCaptureAt >= getStoredCaptureCooldownMs();
         if (shouldCapture && sendToAi) {
           lastCaptureAt = now;
           await this.captureAndSendToAi(

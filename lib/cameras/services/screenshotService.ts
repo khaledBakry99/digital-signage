@@ -4,7 +4,10 @@
  */
 import { genderAiApi } from "@/lib/api/genderAi.api";
 import { CameraCaptureDetector } from "@/lib/services/cameraCaptureDetector";
-import { getScreenshotRegion } from "@/lib/services/screenshotRegion";
+import {
+  getScreenshotRegion,
+  getStoredCaptureCooldownMs,
+} from "@/lib/services/screenshotRegion";
 import {
   getStoredCameraDetectionRegion,
   getPixelDetectionRegion,
@@ -41,8 +44,6 @@ class ScreenshotService {
   private lastCaptureAt: Map<string, number> = new Map();
   private cooldownUntil: Map<string, number> = new Map();
   private readonly MAX_SCREENSHOTS_PER_CAMERA = 100;
-  private readonly MIN_CAPTURE_INTERVAL_MS = 4000;
-  private readonly PLAYING_CAPTURE_INTERVAL_MS = 8000;
   private readonly ERROR_COOLDOWN_MS = 15000;
   private readonly DETECTION_INTERVAL_MS = 150;
 
@@ -119,7 +120,17 @@ class ScreenshotService {
       const detector = this.motionDetectors.get(cameraId);
       if (!detector) return;
       const result = await detector.detect(element, detectionRegion);
-      if (this.motionDetectors.get(cameraId) !== detector || !result.active) return;
+      if (this.motionDetectors.get(cameraId) !== detector) return;
+
+      window.dispatchEvent(new CustomEvent("person-detected", {
+        detail: {
+          cameraId: Number(cameraId),
+          boxes: result.personBoundingBoxes,
+          timestamp: new Date(),
+        },
+      }));
+
+      if (!result.active) return;
 
       if (result.mode === "motion" && result.started) {
         window.dispatchEvent(new CustomEvent("motion-detected", {
@@ -138,12 +149,9 @@ class ScreenshotService {
       }
 
       const lastCapture = this.lastCaptureAt.get(cameraId) ?? 0;
-      const screenState = this.getScreenState(cameraId);
-      const dynamicInterval = screenState === "PLAYING"
-        ? this.PLAYING_CAPTURE_INTERVAL_MS
-        : this.MIN_CAPTURE_INTERVAL_MS;
+      const captureCooldown = getStoredCaptureCooldownMs();
 
-      if (now - lastCapture < dynamicInterval) {
+      if (now - lastCapture < captureCooldown) {
         return;
       }
 
@@ -421,13 +429,6 @@ class ScreenshotService {
    */
   getActiveCaptures(): string[] {
     return Array.from(this.animationFrames.keys());
-  }
-
-  private getScreenState(cameraId: string): "DETECTING" | "PLAYING" {
-    if (typeof window === "undefined") return "DETECTING";
-    const key = `screen_state_${cameraId}`;
-    const value = window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key);
-    return value === "PLAYING" ? "PLAYING" : "DETECTING";
   }
 
   private shouldThrottleAfterError(error: unknown): boolean {

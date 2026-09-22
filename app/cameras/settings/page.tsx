@@ -4,7 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { cameraStorage } from "@/lib/cameras/storage/cameraStorage";
 import { DEFAULT_MOTION_DETECTION_SETTINGS } from "@/lib/services/motionDetection";
-import { DEFAULT_CAPTURE_FULL_FRAME } from "@/lib/services/screenshotRegion";
+import {
+  DEFAULT_CAPTURE_COOLDOWN_SECONDS,
+  DEFAULT_CAPTURE_FULL_FRAME,
+  DEFAULT_SHOW_PERSON_DETECTION_DEBUG,
+} from "@/lib/services/screenshotRegion";
 import type { CameraSettings } from "@/lib/types/camera";
 
 export default function CameraSettingsPage() {
@@ -17,6 +21,8 @@ export default function CameraSettingsPage() {
     motionDetection: { ...DEFAULT_MOTION_DETECTION_SETTINGS },
     captureFullFrame: DEFAULT_CAPTURE_FULL_FRAME,
     detectionMode: "motion",
+    captureCooldownSeconds: DEFAULT_CAPTURE_COOLDOWN_SECONDS,
+    showPersonDetectionDebug: DEFAULT_SHOW_PERSON_DETECTION_DEBUG,
     lastUpdate: new Date(),
   });
   const [loading, setLoading] = useState(true);
@@ -121,6 +127,8 @@ export default function CameraSettingsPage() {
                     motionDetection: { ...DEFAULT_MOTION_DETECTION_SETTINGS },
                     captureFullFrame: DEFAULT_CAPTURE_FULL_FRAME,
                     detectionMode: "motion",
+                    captureCooldownSeconds: DEFAULT_CAPTURE_COOLDOWN_SECONDS,
+                    showPersonDetectionDebug: DEFAULT_SHOW_PERSON_DETECTION_DEBUG,
                   })}
                   className="shrink-0 rounded-md border border-gray-600 px-3 py-2 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-700"
                 >
@@ -170,6 +178,48 @@ export default function CameraSettingsPage() {
                     <span className="pointer-events-none absolute left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
                   </span>
                 </label>
+                <label className="flex cursor-pointer items-center justify-between gap-4 border-b border-gray-700 pb-6">
+                  <span>
+                    <span className="block font-medium text-white">إظهار مربعات الأشخاص للتصحيح</span>
+                    <span className="mt-1 block text-sm text-gray-400">
+                      عرض حدود الشخص المكتشف فوق صورة الكاميرا
+                    </span>
+                  </span>
+                  <span className="relative inline-flex shrink-0 items-center">
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={settings.showPersonDetectionDebug}
+                      onChange={(event) => setSettings({ ...settings, showPersonDetectionDebug: event.target.checked })}
+                      className="peer sr-only"
+                    />
+                    <span className="h-6 w-11 rounded-full bg-gray-600 transition-colors peer-checked:bg-emerald-600 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-400" />
+                    <span className="pointer-events-none absolute left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
+                  </span>
+                </label>
+                <div className="border-b border-gray-700 pb-6">
+                  <div className="mb-2 flex items-center justify-between gap-4">
+                    <label htmlFor="capture-cooldown" className="font-medium text-white">
+                      مدة الانتظار بين اللقطات (بالثواني)
+                    </label>
+                    <output htmlFor="capture-cooldown" className="min-w-16 text-left font-mono text-emerald-400">
+                      {settings.captureCooldownSeconds}s
+                    </output>
+                  </div>
+                  <input
+                    id="capture-cooldown"
+                    type="range"
+                    min="1"
+                    max="60"
+                    step="1"
+                    value={settings.captureCooldownSeconds}
+                    onChange={(event) => setSettings({
+                      ...settings,
+                      captureCooldownSeconds: Number(event.target.value),
+                    })}
+                    className="w-full accent-emerald-500"
+                  />
+                </div>
                 <div>
                   <div className="mb-2 flex items-center justify-between gap-4">
                     <label htmlFor="motion-area" className="font-medium text-white">

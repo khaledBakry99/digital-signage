@@ -1,6 +1,10 @@
 import { STORAGE_KEYS } from "@/lib/cameras/constants";
 import { MotionDetector } from "./motionDetection";
-import { PersonCountSmoother, type NormalizedDetectionRegion } from "./personDetection";
+import {
+  PersonCountSmoother,
+  type NormalizedDetectionRegion,
+  type PersonBoundingBox,
+} from "./personDetection";
 
 export type CaptureDetectionMode = "motion" | "person";
 
@@ -29,7 +33,13 @@ export class CameraCaptureDetector {
       this.personCount = 0;
       this.contextKey = key;
     }
-    const quiet = { mode, active: false, started: false, motionRatio: 0 };
+    const quiet = {
+      mode,
+      active: false,
+      started: false,
+      motionRatio: 0,
+      personBoundingBoxes: [] as PersonBoundingBox[],
+    };
     if (video.paused || video.ended || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
       return quiet;
     }
@@ -37,7 +47,13 @@ export class CameraCaptureDetector {
     if (mode === "motion") {
       this.motion ??= new MotionDetector();
       const result = this.motion.detect(video, region);
-      return { mode, active: result.motionDetected, started: result.motionStarted, motionRatio: result.motionRatio };
+      return {
+        mode,
+        active: result.motionDetected,
+        started: result.motionStarted,
+        motionRatio: result.motionRatio,
+        personBoundingBoxes: [],
+      };
     }
 
     try {
@@ -53,6 +69,7 @@ export class CameraCaptureDetector {
         active: this.personCount > 0 && result.personsDetected > 0,
         started: !!change && change.currentCount > 0,
         motionRatio: 0,
+        personBoundingBoxes: result.personBoundingBoxes,
       };
     } catch (error) {
       if (!this.reportedError) console.error("Person detection unavailable", error);

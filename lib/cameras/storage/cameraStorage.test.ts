@@ -36,6 +36,8 @@ describe("cameraStorage motion calibration", () => {
       },
       captureFullFrame: true,
       detectionMode: "person",
+      captureCooldownSeconds: 12,
+      showPersonDetectionDebug: true,
       lastUpdate: new Date("2026-01-01T00:00:00.000Z"),
     });
 
@@ -49,5 +51,7 @@ describe("cameraStorage motion calibration", () => {
     });
     expect(stored.captureFullFrame).toBe(true);
     expect(stored.detectionMode).toBe("person");
+    expect(stored.captureCooldownSeconds).toBe(12);
+    expect(stored.showPersonDetectionDebug).toBe(true);
   });
 });

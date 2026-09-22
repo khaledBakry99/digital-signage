@@ -68,6 +68,8 @@ export interface CameraSettings {
   motionDetection: MotionDetectionSettings;
   captureFullFrame: boolean;
   detectionMode: "motion" | "person";
+  captureCooldownSeconds: number;
+  showPersonDetectionDebug: boolean;
   lastUpdate: Date;
 }
 
@@ -103,5 +105,7 @@ export interface CameraSettingsStore {
   motionDetection: MotionDetectionSettings;
   captureFullFrame: boolean;
   detectionMode: "motion" | "person";
+  captureCooldownSeconds: number;
+  showPersonDetectionDebug: boolean;
   lastUpdate: Date;
 }

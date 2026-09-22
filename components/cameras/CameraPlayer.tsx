@@ -6,6 +6,7 @@ import { useCameraStream } from "@/lib/cameras/hooks/useCameraStream";
 import { useReconnect } from "@/lib/cameras/hooks/useReconnect";
 import { cameraScreenshotService } from "@/lib/services/cameraScreenshotService";
 import { cameraApi } from "@/lib/api";
+import { getStoredPersonDetectionDebug } from "@/lib/services/screenshotRegion";
 import {
   getDetectionRegionPoints,
   getStoredCameraDetectionRegion,
@@ -13,6 +14,7 @@ import {
   storeCameraDetectionRegion,
   type NormalizedDetectionRegion,
   type NormalizedPoint,
+  type PersonBoundingBox,
 } from "@/lib/services/personDetection";
 
 interface CameraPlayerProps {
@@ -30,7 +32,10 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
   const [detectionRegion, setDetectionRegion] = useState<NormalizedDetectionRegion | null>(null);
   const detectionRegionRef = useRef<NormalizedDetectionRegion | null>(detectionRegion);
   const [selectionPoints, setSelectionPoints] = useState<NormalizedPoint[]>([]);
+  const [personBoundingBoxes, setPersonBoundingBoxes] = useState<PersonBoundingBox[]>([]);
   const [mediaRect, setMediaRect] = useState({ left: 0, top: 0, width: 0, height: 0 });
+  const [videoSize, setVideoSize] = useState({ width: 0, height: 0 });
+  const [showPersonDetectionDebug, setShowPersonDetectionDebug] = useState(false);
 
   const { isPlaying, isConnecting, error, startStream, stopStream, reconnect } =
     useCameraStream(camera);
@@ -59,9 +64,12 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
     if (!video?.videoWidth || !video.videoHeight) {
+      setVideoSize({ width: 0, height: 0 });
       setMediaRect({ left: 0, top: 0, width: containerWidth, height: containerHeight });
       return;
     }
+
+    setVideoSize({ width: video.videoWidth, height: video.videoHeight });
 
     const scale = Math.min(
       containerWidth / video.videoWidth,
@@ -87,6 +95,37 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
     });
 
     return () => window.cancelAnimationFrame(frame);
+  }, [camera.id]);
+
+  useEffect(() => {
+    const updateDebugVisibility = () => {
+      setShowPersonDetectionDebug(getStoredPersonDetectionDebug());
+    };
+
+    updateDebugVisibility();
+    window.addEventListener("storage", updateDebugVisibility);
+    window.addEventListener("camera-settings-changed", updateDebugVisibility);
+    return () => {
+      window.removeEventListener("storage", updateDebugVisibility);
+      window.removeEventListener("camera-settings-changed", updateDebugVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handlePersonDetection = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        cameraId?: number;
+        boxes?: PersonBoundingBox[];
+      }>).detail;
+      if (detail?.cameraId !== Number(camera.id)) return;
+      setPersonBoundingBoxes(detail.boxes ?? []);
+    };
+
+    window.addEventListener("person-detected", handlePersonDetection);
+    return () => {
+      window.removeEventListener("person-detected", handlePersonDetection);
+      setPersonBoundingBoxes([]);
+    };
   }, [camera.id]);
 
   useEffect(() => {
@@ -336,6 +375,31 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
           className="pointer-events-none absolute inset-0 z-20 bg-red-600/40"
           aria-hidden="true"
         />
+      )}
+
+      {showVideo && isPlaying && mediaRect.width > 0 && mediaRect.height > 0 && (
+        <div className="pointer-events-none absolute inset-0 z-[25]" aria-label="Person detection boxes">
+      {showPersonDetectionDebug && personBoundingBoxes.map((box, index) => {
+            if (!videoSize.width || !videoSize.height) return null;
+
+            const left = mediaRect.left + (box.originX / videoSize.width) * mediaRect.width;
+            const top = mediaRect.top + (box.originY / videoSize.height) * mediaRect.height;
+            const width = (box.width / videoSize.width) * mediaRect.width;
+            const height = (box.height / videoSize.height) * mediaRect.height;
+
+            return (
+              <div
+                key={`${box.originX}-${box.originY}-${box.width}-${box.height}-${index}`}
+                className="absolute border-2 border-emerald-400 bg-emerald-400/10 shadow-[0_0_0_1px_rgba(6,78,59,0.45)]"
+                style={{ left, top, width, height }}
+              >
+                <span className="absolute -top-6 left-0 bg-emerald-500 px-1.5 py-0.5 text-[10px] font-bold text-black">
+                  person
+                </span>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {showVideo && isPlaying && mediaRect.width > 0 && mediaRect.height > 0 && (

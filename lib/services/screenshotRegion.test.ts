@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getScreenshotRegion } from "./screenshotRegion";
+import {
+  DEFAULT_CAPTURE_COOLDOWN_SECONDS,
+  getScreenshotRegion,
+  getStoredCaptureCooldownMs,
+  getStoredPersonDetectionDebug,
+} from "./screenshotRegion";
 import type { NormalizedDetectionRegion } from "./personDetection";
 
 const region: NormalizedDetectionRegion = {
@@ -38,5 +43,17 @@ describe("getScreenshotRegion", () => {
 
   it("uses the whole view when no box has been selected", () => {
     expect(getScreenshotRegion(null)).toBeNull();
+  });
+
+  it("loads the debug toggle and capture cooldown with defaults", () => {
+    expect(getStoredPersonDetectionDebug()).toBe(false);
+    expect(getStoredCaptureCooldownMs()).toBe(DEFAULT_CAPTURE_COOLDOWN_SECONDS * 1000);
+
+    window.localStorage.setItem("camera_settings", JSON.stringify({
+      showPersonDetectionDebug: true,
+      captureCooldownSeconds: 12,
+    }));
+    expect(getStoredPersonDetectionDebug()).toBe(true);
+    expect(getStoredCaptureCooldownMs()).toBe(12000);
   });
 });
