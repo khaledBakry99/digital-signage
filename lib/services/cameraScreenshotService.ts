@@ -1,5 +1,6 @@
 import { genderAiApi } from "@/lib/api/genderAi.api";
 import { MotionDetector } from "@/lib/services/motionDetection";
+import { getScreenshotRegion } from "@/lib/services/screenshotRegion";
 import {
   getPixelDetectionRegion,
   type NormalizedDetectionRegion,
@@ -51,8 +52,9 @@ export class CameraScreenshotService {
         return; // Skip without throwing error
       }
 
+      const screenshotRegion = getScreenshotRegion(detectionRegion);
       const detectionBounds = getPixelDetectionRegion(
-        detectionRegion,
+        screenshotRegion,
         videoElement.videoWidth,
         videoElement.videoHeight,
       );
@@ -66,7 +68,7 @@ export class CameraScreenshotService {
         ? Math.min(3, Math.max(1, 960 / Math.max(source.width, source.height)))
         : 1;
 
-      // Crop to the motion area before sending the frame to the server AI.
+      // Compose the image sent to AI independently of the motion detection region.
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(source.width * upscale);
       canvas.height = Math.round(source.height * upscale);
@@ -80,11 +82,11 @@ export class CameraScreenshotService {
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.save();
-      if (detectionRegion?.points?.length === 4) {
+      if (screenshotRegion?.points?.length === 4) {
         const scaleX = canvas.width / source.width;
         const scaleY = canvas.height / source.height;
         ctx.beginPath();
-        detectionRegion.points.forEach((point, index) => {
+        screenshotRegion.points.forEach((point, index) => {
           const x = (point.x * videoElement.videoWidth - source.originX) * scaleX;
           const y = (point.y * videoElement.videoHeight - source.originY) * scaleY;
           if (index === 0) ctx.moveTo(x, y);

@@ -66,6 +66,7 @@ export interface CameraSettings {
   reconnectDelay: number; // 5000ms
   streamQuality: StreamQuality; // medium
   motionDetection: MotionDetectionSettings;
+  captureFullFrame: boolean;
   lastUpdate: Date;
 }
 
@@ -99,5 +100,6 @@ export interface CameraSettingsStore {
   reconnectDelay: number;
   streamQuality: StreamQuality;
   motionDetection: MotionDetectionSettings;
+  captureFullFrame: boolean;
   lastUpdate: Date;
 }

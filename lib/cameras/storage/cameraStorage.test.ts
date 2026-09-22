@@ -20,6 +20,7 @@ describe("cameraStorage motion calibration", () => {
 
     expect(settings.motionDetection).toEqual(DEFAULT_MOTION_DETECTION_SETTINGS);
     expect(settings.autoReconnect).toBe(false);
+    expect(settings.captureFullFrame).toBe(false);
   });
 
   it("saves motion calibration in browser storage", async () => {
@@ -33,6 +34,7 @@ describe("cameraStorage motion calibration", () => {
         pixelDifferenceThreshold: 40,
         minimumBlockChangedRatio: 0.35,
       },
+      captureFullFrame: true,
       lastUpdate: new Date("2026-01-01T00:00:00.000Z"),
     });
 
@@ -44,5 +46,6 @@ describe("cameraStorage motion calibration", () => {
       pixelDifferenceThreshold: 40,
       minimumBlockChangedRatio: 0.35,
     });
+    expect(stored.captureFullFrame).toBe(true);
   });
 });

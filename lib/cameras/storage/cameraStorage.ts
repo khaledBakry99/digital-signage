@@ -14,6 +14,7 @@ import {
   DEFAULT_MOTION_DETECTION_SETTINGS,
   sanitizeMotionDetectionSettings,
 } from "@/lib/services/motionDetection";
+import { DEFAULT_CAPTURE_FULL_FRAME } from "@/lib/services/screenshotRegion";
 
 const getDefaultSettings = (): CameraSettings => ({
   autoReconnect: true,
@@ -21,6 +22,7 @@ const getDefaultSettings = (): CameraSettings => ({
   reconnectDelay: RECONNECT_DELAY,
   streamQuality: DEFAULT_QUALITY,
   motionDetection: { ...DEFAULT_MOTION_DETECTION_SETTINGS },
+  captureFullFrame: DEFAULT_CAPTURE_FULL_FRAME,
   lastUpdate: new Date(),
 });
 
@@ -144,6 +146,7 @@ class CameraStorageService {
         reconnectDelay: settings.reconnectDelay,
         streamQuality: settings.streamQuality,
         motionDetection: sanitizeMotionDetectionSettings(settings.motionDetection),
+        captureFullFrame: settings.captureFullFrame === true,
         lastUpdate: settings.lastUpdate,
       };
 
@@ -173,6 +176,7 @@ class CameraStorageService {
         ...getDefaultSettings(),
         ...settings,
         motionDetection: sanitizeMotionDetectionSettings(settings.motionDetection),
+        captureFullFrame: settings.captureFullFrame === true,
         lastUpdate: new Date(settings.lastUpdate),
       };
     } catch (error) {

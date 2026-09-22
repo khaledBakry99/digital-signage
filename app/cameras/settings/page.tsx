@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { cameraStorage } from "@/lib/cameras/storage/cameraStorage";
 import { DEFAULT_MOTION_DETECTION_SETTINGS } from "@/lib/services/motionDetection";
+import { DEFAULT_CAPTURE_FULL_FRAME } from "@/lib/services/screenshotRegion";
 import type { CameraSettings } from "@/lib/types/camera";
 
 export default function CameraSettingsPage() {
@@ -14,6 +15,7 @@ export default function CameraSettingsPage() {
     reconnectDelay: 5000,
     streamQuality: "medium",
     motionDetection: { ...DEFAULT_MOTION_DETECTION_SETTINGS },
+    captureFullFrame: DEFAULT_CAPTURE_FULL_FRAME,
     lastUpdate: new Date(),
   });
   const [loading, setLoading] = useState(true);
@@ -91,113 +93,17 @@ export default function CameraSettingsPage() {
             </svg>
           </button>
           <div>
-            <h1 className="text-3xl font-bold text-white">إعدادات الكاميرات</h1>
+            <h1 className="text-3xl font-bold text-white">معايرة الكاميرات</h1>
             <p className="text-gray-400 mt-1">
-              تخصيص إعدادات البث ومعايرة اكتشاف الحركة
+              ضبط حساسية الحركة وتقليل التنبيهات الخاطئة
             </p>
           </div>
         </div>
 
         {/* Settings Form */}
         <form onSubmit={handleSave} className="bg-gray-800 rounded-lg p-6">
-          <div className="space-y-6">
-            {/* Auto Reconnect */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-white font-medium">
-                  إعادة الاتصال التلقائي
-                </label>
-                <p className="text-gray-400 text-sm mt-1">
-                  محاولة إعادة الاتصال تلقائياً عند انقطاع البث
-                </p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.autoReconnect}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      autoReconnect: e.target.checked,
-                    })
-                  }
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
-
-            {/* Reconnect Attempts */}
+          <div>
             <div>
-              <label className="block text-white font-medium mb-2">
-                عدد محاولات إعادة الاتصال
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="10"
-                value={settings.reconnectAttempts}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    reconnectAttempts: parseInt(e.target.value),
-                  })
-                }
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
-              />
-              <p className="text-gray-400 text-sm mt-1">
-                عدد المحاولات قبل الاستسلام (1-10)
-              </p>
-            </div>
-
-            {/* Reconnect Delay */}
-            <div>
-              <label className="block text-white font-medium mb-2">
-                التأخير بين المحاولات (بالثواني)
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="60"
-                value={settings.reconnectDelay / 1000}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    reconnectDelay: parseInt(e.target.value) * 1000,
-                  })
-                }
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
-              />
-              <p className="text-gray-400 text-sm mt-1">
-                الوقت بين كل محاولة إعادة اتصال (1-60 ثانية)
-              </p>
-            </div>
-
-            {/* Stream Quality */}
-            <div>
-              <label className="block text-white font-medium mb-2">
-                جودة البث الافتراضية
-              </label>
-              <select
-                value={settings.streamQuality}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    streamQuality: e.target.value as "low" | "medium" | "high",
-                  })
-                }
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
-              >
-                <option value="low">منخفضة (توفير البيانات)</option>
-                <option value="medium">متوسطة (موصى بها)</option>
-                <option value="high">عالية (جودة أفضل)</option>
-              </select>
-              <p className="text-gray-400 text-sm mt-1">
-                الجودة الافتراضية للكاميرات الجديدة
-              </p>
-            </div>
-
-            <div className="border-t border-gray-700 pt-6">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-white">
@@ -212,6 +118,7 @@ export default function CameraSettingsPage() {
                   onClick={() => setSettings({
                     ...settings,
                     motionDetection: { ...DEFAULT_MOTION_DETECTION_SETTINGS },
+                    captureFullFrame: DEFAULT_CAPTURE_FULL_FRAME,
                   })}
                   className="shrink-0 rounded-md border border-gray-600 px-3 py-2 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-700"
                 >
@@ -220,6 +127,28 @@ export default function CameraSettingsPage() {
               </div>
 
               <div className="space-y-6">
+                <label className="flex cursor-pointer items-center justify-between gap-4 border-b border-gray-700 pb-6">
+                  <span>
+                    <span className="block font-medium text-white">التقاط صورة الكاميرا كاملة</span>
+                    <span className="mt-1 block text-sm text-gray-400">
+                      عند إيقافه ترسل صورة المنطقة المحددة فقط؛ يبقى كشف الحركة داخل المنطقة في الحالتين
+                    </span>
+                  </span>
+                  <span className="relative inline-flex shrink-0 items-center">
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={settings.captureFullFrame}
+                      onChange={(event) => setSettings({
+                        ...settings,
+                        captureFullFrame: event.target.checked,
+                      })}
+                      className="peer sr-only"
+                    />
+                    <span className="h-6 w-11 rounded-full bg-gray-600 transition-colors peer-checked:bg-emerald-600 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-400 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-gray-800" />
+                    <span className="pointer-events-none absolute left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
+                  </span>
+                </label>
                 <div>
                   <div className="mb-2 flex items-center justify-between gap-4">
                     <label htmlFor="motion-area" className="font-medium text-white">
