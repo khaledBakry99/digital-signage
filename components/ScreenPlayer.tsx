@@ -408,33 +408,6 @@ export default function ScreenPlayer({
     return () => clearInterval(watchdog);
   }, [isVideo, recoverFrozenVideo, recordVideoProgress, resolvedUrl]);
 
-  // Video countdown timer
-  useEffect(() => {
-    if (isVideo && videoRef.current) {
-      const videoElement = videoRef.current;
-
-      const updateTimer = () => {
-        if (videoElement.duration && !isNaN(videoElement.duration)) {
-          const remaining = Math.max(0, videoElement.duration - videoElement.currentTime);
-          setRemainingTime(Math.ceil(remaining));
-        }
-      };
-
-      const timerInterval = setInterval(updateTimer, 500);
-
-      videoElement.addEventListener('timeupdate', updateTimer);
-      videoElement.addEventListener('loadedmetadata', updateTimer);
-
-      return () => {
-        clearInterval(timerInterval);
-        videoElement.removeEventListener('timeupdate', updateTimer);
-        videoElement.removeEventListener('loadedmetadata', updateTimer);
-      };
-    } else {
-      setRemainingTime(0);
-    }
-  }, [isVideo]);
-
   useEffect(() => {
     if (!shouldLoop) return;
     const videoElement = videoRef.current;
@@ -617,12 +590,6 @@ export default function ScreenPlayer({
           onEnded?.();
         }}
       />
-      {/* Countdown timer overlay */}
-      {remainingTime > 0 && (
-        <div className="absolute bottom-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg text-xl font-bold">
-          {remainingTime}s
-        </div>
-      )}
     </div>
   );
 }
