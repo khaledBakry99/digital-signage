@@ -35,6 +35,7 @@ describe("cameraStorage motion calibration", () => {
         minimumBlockChangedRatio: 0.35,
       },
       captureFullFrame: true,
+      detectionMode: "person",
       lastUpdate: new Date("2026-01-01T00:00:00.000Z"),
     });
 
@@ -47,5 +48,6 @@ describe("cameraStorage motion calibration", () => {
       minimumBlockChangedRatio: 0.35,
     });
     expect(stored.captureFullFrame).toBe(true);
+    expect(stored.detectionMode).toBe("person");
   });
 });

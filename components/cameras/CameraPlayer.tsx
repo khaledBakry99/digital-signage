@@ -153,14 +153,14 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
         }
       });
 
-      // Capture and analyze a screenshot when motion is detected.
+      // Capture using the saved motion or person detection mode.
       let stopCapture: (() => void) | null = null;
       if (
         element instanceof HTMLVideoElement &&
         (camera.type === "local" || camera.type === "hls" || camera.type === "rtsp")
       ) {
         try {
-          stopCapture = cameraScreenshotService.startMotionDetectionCapture(
+          stopCapture = cameraScreenshotService.startDetectionCapture(
             element,
             Number(camera.id),
             true,

@@ -16,6 +16,7 @@ export default function CameraSettingsPage() {
     streamQuality: "medium",
     motionDetection: { ...DEFAULT_MOTION_DETECTION_SETTINGS },
     captureFullFrame: DEFAULT_CAPTURE_FULL_FRAME,
+    detectionMode: "motion",
     lastUpdate: new Date(),
   });
   const [loading, setLoading] = useState(true);
@@ -119,6 +120,7 @@ export default function CameraSettingsPage() {
                     ...settings,
                     motionDetection: { ...DEFAULT_MOTION_DETECTION_SETTINGS },
                     captureFullFrame: DEFAULT_CAPTURE_FULL_FRAME,
+                    detectionMode: "motion",
                   })}
                   className="shrink-0 rounded-md border border-gray-600 px-3 py-2 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-700"
                 >
@@ -129,9 +131,28 @@ export default function CameraSettingsPage() {
               <div className="space-y-6">
                 <label className="flex cursor-pointer items-center justify-between gap-4 border-b border-gray-700 pb-6">
                   <span>
+                    <span className="block font-medium text-white">كشف الأشخاص داخل المنطقة</span>
+                    <span className="mt-1 block text-sm text-gray-400">
+                      {settings.detectionMode === "person" ? "الوضع الحالي: كشف الأشخاص" : "الوضع الحالي: التقاط عند الحركة"}
+                    </span>
+                  </span>
+                  <span className="relative inline-flex shrink-0 items-center">
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={settings.detectionMode === "person"}
+                      onChange={(event) => setSettings({ ...settings, detectionMode: event.target.checked ? "person" : "motion" })}
+                      className="peer sr-only"
+                    />
+                    <span className="h-6 w-11 rounded-full bg-gray-600 transition-colors peer-checked:bg-emerald-600 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-400" />
+                    <span className="pointer-events-none absolute left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-center justify-between gap-4 border-b border-gray-700 pb-6">
+                  <span>
                     <span className="block font-medium text-white">التقاط صورة الكاميرا كاملة</span>
                     <span className="mt-1 block text-sm text-gray-400">
-                      عند إيقافه ترسل صورة المنطقة المحددة فقط؛ يبقى كشف الحركة داخل المنطقة في الحالتين
+                      عند إيقافه ترسل صورة المنطقة المحددة فقط؛ يبقى الكشف داخل المنطقة في الحالتين
                     </span>
                   </span>
                   <span className="relative inline-flex shrink-0 items-center">
@@ -160,6 +181,7 @@ export default function CameraSettingsPage() {
                   </div>
                   <input
                     id="motion-area"
+                    disabled={settings.detectionMode === "person"}
                     type="range"
                     min="0.5"
                     max="20"
@@ -187,6 +209,7 @@ export default function CameraSettingsPage() {
                   </div>
                   <input
                     id="pixel-difference"
+                    disabled={settings.detectionMode === "person"}
                     type="range"
                     min="10"
                     max="100"
@@ -214,6 +237,7 @@ export default function CameraSettingsPage() {
                   </div>
                   <input
                     id="movement-density"
+                    disabled={settings.detectionMode === "person"}
                     type="range"
                     min="10"
                     max="80"

@@ -1,5 +1,5 @@
 import { genderAiApi } from "@/lib/api/genderAi.api";
-import { MotionDetector } from "@/lib/services/motionDetection";
+import { CameraCaptureDetector } from "@/lib/services/cameraCaptureDetector";
 import { getScreenshotRegion } from "@/lib/services/screenshotRegion";
 import {
   getPixelDetectionRegion,
@@ -197,7 +197,7 @@ export class CameraScreenshotService {
     }
   }
 
-  startMotionDetectionCapture(
+  startDetectionCapture(
     videoElement: HTMLVideoElement,
     cameraId: number,
     sendToAi: boolean = true,
@@ -209,7 +209,7 @@ export class CameraScreenshotService {
     let detectionTimer: ReturnType<typeof setTimeout> | null = null;
     let analyzing = false;
     let lastCaptureAt = 0;
-    const motionDetector = new MotionDetector();
+    const detector = new CameraCaptureDetector();
 
     const detect = async () => {
       if (stopped || analyzing) return;
@@ -218,9 +218,10 @@ export class CameraScreenshotService {
 
       try {
         const detectionRegion = getDetectionRegion?.() ?? null;
-        const result = motionDetector.detect(videoElement, detectionRegion);
+        const result = await detector.detect(videoElement, detectionRegion);
+        if (stopped) return;
 
-        if (result.motionStarted) {
+        if (result.mode === "motion" && result.started) {
           const event = new CustomEvent("motion-detected", {
             detail: {
               cameraId,
@@ -232,8 +233,8 @@ export class CameraScreenshotService {
         }
 
         const now = Date.now();
-        const shouldCapture = result.motionDetected && (
-          result.motionStarted || now - lastCaptureAt >= this.MOTION_CAPTURE_INTERVAL_MS
+        const shouldCapture = result.active && (
+          result.started || now - lastCaptureAt >= this.MOTION_CAPTURE_INTERVAL_MS
         );
         if (shouldCapture && sendToAi) {
           lastCaptureAt = now;

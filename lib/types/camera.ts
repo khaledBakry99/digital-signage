@@ -67,6 +67,7 @@ export interface CameraSettings {
   streamQuality: StreamQuality; // medium
   motionDetection: MotionDetectionSettings;
   captureFullFrame: boolean;
+  detectionMode: "motion" | "person";
   lastUpdate: Date;
 }
 
@@ -101,5 +102,6 @@ export interface CameraSettingsStore {
   streamQuality: StreamQuality;
   motionDetection: MotionDetectionSettings;
   captureFullFrame: boolean;
+  detectionMode: "motion" | "person";
   lastUpdate: Date;
 }

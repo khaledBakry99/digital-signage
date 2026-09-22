@@ -3,7 +3,7 @@
  * Captures screenshots from camera streams at regular intervals
  */
 import { genderAiApi } from "@/lib/api/genderAi.api";
-import { MotionDetector } from "@/lib/services/motionDetection";
+import { CameraCaptureDetector } from "@/lib/services/cameraCaptureDetector";
 import { getScreenshotRegion } from "@/lib/services/screenshotRegion";
 import {
   getStoredCameraDetectionRegion,
@@ -35,7 +35,7 @@ export interface CameraScreenshot {
 class ScreenshotService {
   private animationFrames: Map<string, number> = new Map();
   private detectionTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
-  private motionDetectors: Map<string, MotionDetector> = new Map();
+  private motionDetectors: Map<string, CameraCaptureDetector> = new Map();
   private analyzingCameras: Set<string> = new Set();
   private screenshots: Map<string, CameraScreenshot[]> = new Map();
   private lastCaptureAt: Map<string, number> = new Map();
@@ -55,7 +55,7 @@ class ScreenshotService {
     videoElement: HTMLVideoElement | HTMLImageElement,
   ): void {
     this.stopCapture(cameraId);
-    this.motionDetectors.set(cameraId, new MotionDetector());
+    this.motionDetectors.set(cameraId, new CameraCaptureDetector());
     this.lastCaptureAt.set(cameraId, 0);
     this.cooldownUntil.set(cameraId, 0);
 
@@ -118,10 +118,10 @@ class ScreenshotService {
     try {
       const detector = this.motionDetectors.get(cameraId);
       if (!detector) return;
-      const result = detector.detect(element, detectionRegion);
-      if (!result.motionDetected) return;
+      const result = await detector.detect(element, detectionRegion);
+      if (this.motionDetectors.get(cameraId) !== detector || !result.active) return;
 
-      if (result.motionStarted) {
+      if (result.mode === "motion" && result.started) {
         window.dispatchEvent(new CustomEvent("motion-detected", {
           detail: {
             cameraId: Number(cameraId),

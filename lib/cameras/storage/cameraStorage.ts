@@ -23,6 +23,7 @@ const getDefaultSettings = (): CameraSettings => ({
   streamQuality: DEFAULT_QUALITY,
   motionDetection: { ...DEFAULT_MOTION_DETECTION_SETTINGS },
   captureFullFrame: DEFAULT_CAPTURE_FULL_FRAME,
+  detectionMode: "motion",
   lastUpdate: new Date(),
 });
 
@@ -147,6 +148,7 @@ class CameraStorageService {
         streamQuality: settings.streamQuality,
         motionDetection: sanitizeMotionDetectionSettings(settings.motionDetection),
         captureFullFrame: settings.captureFullFrame === true,
+        detectionMode: settings.detectionMode === "person" ? "person" : "motion",
         lastUpdate: settings.lastUpdate,
       };
 
@@ -177,6 +179,7 @@ class CameraStorageService {
         ...settings,
         motionDetection: sanitizeMotionDetectionSettings(settings.motionDetection),
         captureFullFrame: settings.captureFullFrame === true,
+        detectionMode: settings.detectionMode === "person" ? "person" : "motion",
         lastUpdate: new Date(settings.lastUpdate),
       };
     } catch (error) {
