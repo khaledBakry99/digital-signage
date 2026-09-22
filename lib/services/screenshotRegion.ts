@@ -4,6 +4,7 @@ import type { NormalizedDetectionRegion } from "@/lib/services/personDetection";
 export const DEFAULT_CAPTURE_FULL_FRAME = false;
 export const DEFAULT_CAPTURE_COOLDOWN_SECONDS = 4;
 export const DEFAULT_SHOW_PERSON_DETECTION_DEBUG = false;
+export const DEFAULT_SHOW_MOTION_DETECTION_DEBUG = false;
 
 function getStoredCameraSettings(): Record<string, unknown> {
   try {
@@ -36,4 +37,9 @@ export function getStoredCaptureCooldownMs(): number {
 export function getStoredPersonDetectionDebug(): boolean {
   if (typeof window === "undefined") return DEFAULT_SHOW_PERSON_DETECTION_DEBUG;
   return getStoredCameraSettings().showPersonDetectionDebug === true;
+}
+
+export function getStoredMotionDetectionDebug(): boolean {
+  if (typeof window === "undefined") return DEFAULT_SHOW_MOTION_DETECTION_DEBUG;
+  return getStoredCameraSettings().showMotionDetectionDebug === true;
 }

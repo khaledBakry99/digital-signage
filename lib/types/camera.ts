@@ -70,6 +70,8 @@ export interface CameraSettings {
   detectionMode: "motion" | "person";
   captureCooldownSeconds: number;
   showPersonDetectionDebug: boolean;
+  showMotionDetectionDebug: boolean;
+  personDetection: PersonDetectionSettings;
   lastUpdate: Date;
 }
 
@@ -77,6 +79,15 @@ export interface MotionDetectionSettings {
   motionRatioThreshold: number;
   pixelDifferenceThreshold: number;
   minimumBlockChangedRatio: number;
+}
+
+export interface PersonDetectionSettings {
+  minimumConfidence: number;
+  minimumBoxAreaRatio: number;
+  maximumBoxAreaRatio: number;
+  positiveVotesRequired: number;
+  zeroVotesRequired: number;
+  detectionIntervalMs: number;
 }
 
 export interface CameraHealth {
@@ -107,5 +118,7 @@ export interface CameraSettingsStore {
   detectionMode: "motion" | "person";
   captureCooldownSeconds: number;
   showPersonDetectionDebug: boolean;
+  showMotionDetectionDebug: boolean;
+  personDetection: PersonDetectionSettings;
   lastUpdate: Date;
 }

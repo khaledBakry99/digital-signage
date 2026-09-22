@@ -1,5 +1,6 @@
 import { genderAiApi } from "@/lib/api/genderAi.api";
 import { CameraCaptureDetector } from "@/lib/services/cameraCaptureDetector";
+import { getStoredPersonDetectionIntervalMs } from "@/lib/services/personDetection";
 import {
   getScreenshotRegion,
   getStoredCaptureCooldownMs,
@@ -15,7 +16,6 @@ import type { GenderAiResponse } from "@/lib/types/genderAi";
  * Used on camera pages only (not advertisement screens).
  */
 export class CameraScreenshotService {
-  private readonly DETECTION_INTERVAL_MS = 150;
   /**
    * Capture a frame from the video element and send it to AI.
    * @param videoElement - target video element
@@ -219,6 +219,17 @@ export class CameraScreenshotService {
       analyzing = true;
 
       try {
+        const cooldownCheckTime = Date.now();
+        if (lastCaptureAt > 0 && cooldownCheckTime - lastCaptureAt < getStoredCaptureCooldownMs()) {
+          window.dispatchEvent(new CustomEvent("person-detected", {
+            detail: { cameraId, boxes: [], timestamp: new Date() },
+          }));
+          window.dispatchEvent(new CustomEvent("motion-debug", {
+            detail: { cameraId, motionRatio: 0, active: false, started: false, paused: true },
+          }));
+          return;
+        }
+
         const detectionRegion = getDetectionRegion?.() ?? null;
         const result = await detector.detect(videoElement, detectionRegion);
         if (stopped) return;
@@ -230,6 +241,18 @@ export class CameraScreenshotService {
             timestamp: new Date(),
           },
         }));
+
+        if (result.mode === "motion") {
+          window.dispatchEvent(new CustomEvent("motion-debug", {
+            detail: {
+              cameraId,
+              motionRatio: result.motionRatio,
+              active: result.active,
+              started: result.started,
+              paused: false,
+            },
+          }));
+        }
 
         if (result.mode === "motion" && result.started) {
           const event = new CustomEvent("motion-detected", {
@@ -247,6 +270,7 @@ export class CameraScreenshotService {
           now - lastCaptureAt >= getStoredCaptureCooldownMs();
         if (shouldCapture && sendToAi) {
           lastCaptureAt = now;
+          if (result.mode === "motion") detector.resetMotion();
           await this.captureAndSendToAi(
             videoElement,
             cameraId,
@@ -262,7 +286,7 @@ export class CameraScreenshotService {
         if (!stopped) {
           detectionTimer = setTimeout(() => {
             animationFrame = window.requestAnimationFrame(detect);
-          }, this.DETECTION_INTERVAL_MS);
+          }, getStoredPersonDetectionIntervalMs());
         }
       }
     };

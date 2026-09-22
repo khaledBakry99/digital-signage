@@ -6,7 +6,12 @@ import { useCameraStream } from "@/lib/cameras/hooks/useCameraStream";
 import { useReconnect } from "@/lib/cameras/hooks/useReconnect";
 import { cameraScreenshotService } from "@/lib/services/cameraScreenshotService";
 import { cameraApi } from "@/lib/api";
-import { getStoredPersonDetectionDebug } from "@/lib/services/screenshotRegion";
+import {
+  getStoredCaptureCooldownMs,
+  getStoredMotionDetectionDebug,
+  getStoredPersonDetectionDebug,
+} from "@/lib/services/screenshotRegion";
+import { getStoredDetectionMode } from "@/lib/services/cameraCaptureDetector";
 import {
   getDetectionRegionPoints,
   getStoredCameraDetectionRegion,
@@ -27,7 +32,9 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const captureFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isCaptureFlashVisible, setIsCaptureFlashVisible] = useState(false);
+  const [cooldownRemainingSeconds, setCooldownRemainingSeconds] = useState(0);
   const [isSelectingRegion, setIsSelectingRegion] = useState(false);
   const [detectionRegion, setDetectionRegion] = useState<NormalizedDetectionRegion | null>(null);
   const detectionRegionRef = useRef<NormalizedDetectionRegion | null>(detectionRegion);
@@ -36,6 +43,14 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
   const [mediaRect, setMediaRect] = useState({ left: 0, top: 0, width: 0, height: 0 });
   const [videoSize, setVideoSize] = useState({ width: 0, height: 0 });
   const [showPersonDetectionDebug, setShowPersonDetectionDebug] = useState(false);
+  const [showMotionDetectionDebug, setShowMotionDetectionDebug] = useState(false);
+  const [detectionMode, setDetectionMode] = useState<"motion" | "person">("motion");
+  const [motionDebug, setMotionDebug] = useState({
+    motionRatio: 0,
+    active: false,
+    started: false,
+    paused: false,
+  });
 
   const { isPlaying, isConnecting, error, startStream, stopStream, reconnect } =
     useCameraStream(camera);
@@ -54,6 +69,27 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
       setIsCaptureFlashVisible(false);
       captureFlashTimeoutRef.current = null;
     }, 1000);
+  }, []);
+
+  const startCooldownIndicator = useCallback(() => {
+    const endsAt = Date.now() + getStoredCaptureCooldownMs();
+
+    if (cooldownIntervalRef.current) {
+      clearInterval(cooldownIntervalRef.current);
+    }
+
+    const updateRemaining = () => {
+      const remainingMs = Math.max(0, endsAt - Date.now());
+      setCooldownRemainingSeconds(Math.ceil(remainingMs / 1000));
+
+      if (remainingMs === 0 && cooldownIntervalRef.current) {
+        clearInterval(cooldownIntervalRef.current);
+        cooldownIntervalRef.current = null;
+      }
+    };
+
+    updateRemaining();
+    cooldownIntervalRef.current = setInterval(updateRemaining, 250);
   }, []);
 
   const updateMediaRect = useCallback(() => {
@@ -100,6 +136,8 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
   useEffect(() => {
     const updateDebugVisibility = () => {
       setShowPersonDetectionDebug(getStoredPersonDetectionDebug());
+      setShowMotionDetectionDebug(getStoredMotionDetectionDebug());
+      setDetectionMode(getStoredDetectionMode());
     };
 
     updateDebugVisibility();
@@ -110,6 +148,28 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
       window.removeEventListener("camera-settings-changed", updateDebugVisibility);
     };
   }, []);
+
+  useEffect(() => {
+    const handleMotionDebug = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        cameraId?: number;
+        motionRatio?: number;
+        active?: boolean;
+        started?: boolean;
+        paused?: boolean;
+      }>).detail;
+      if (detail?.cameraId !== Number(camera.id)) return;
+      setMotionDebug({
+        motionRatio: detail.motionRatio ?? 0,
+        active: detail.active === true,
+        started: detail.started === true,
+        paused: detail.paused === true,
+      });
+    };
+
+    window.addEventListener("motion-debug", handleMotionDebug);
+    return () => window.removeEventListener("motion-debug", handleMotionDebug);
+  }, [camera.id]);
 
   useEffect(() => {
     const handlePersonDetection = (event: Event) => {
@@ -151,6 +211,9 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
     return () => {
       if (captureFlashTimeoutRef.current) {
         clearTimeout(captureFlashTimeoutRef.current);
+      }
+      if (cooldownIntervalRef.current) {
+        clearInterval(cooldownIntervalRef.current);
       }
     };
   }, []);
@@ -203,7 +266,10 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
             element,
             Number(camera.id),
             true,
-            showCaptureFlash,
+            () => {
+              showCaptureFlash();
+              startCooldownIndicator();
+            },
             () => detectionRegionRef.current,
           );
         } catch {
@@ -236,7 +302,7 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
         }
       };
     }
-  }, [camera, autoStart, startStream, stopStream, startMonitoring, reconnect, showCaptureFlash]);
+  }, [camera, autoStart, startStream, stopStream, startMonitoring, reconnect, showCaptureFlash, startCooldownIndicator]);
 
   /**
    * HEARTBEAT controls camera status
@@ -402,6 +468,31 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
         </div>
       )}
 
+      {showVideo && isPlaying && showMotionDetectionDebug && detectionMode === "motion" && (
+        <div
+          className={`pointer-events-none absolute bottom-3 left-3 z-30 rounded-md border px-3 py-2 text-xs font-medium shadow-sm ${
+            motionDebug.paused
+              ? "border-amber-300/60 bg-black/75 text-amber-200"
+              : motionDebug.active
+                ? "border-red-300/70 bg-red-950/80 text-red-100"
+                : "border-emerald-300/60 bg-black/75 text-emerald-100"
+          }`}
+          dir="rtl"
+          aria-live="polite"
+        >
+          <div>الحركة: {(motionDebug.motionRatio * 100).toFixed(1)}%</div>
+          <div>
+            {motionDebug.paused
+              ? "متوقف مؤقتا أثناء التهدئة"
+              : motionDebug.started
+                ? "تم بدء الالتقاط"
+                : motionDebug.active
+                  ? "حركة مكتشفة"
+                  : "لا توجد حركة كافية"}
+          </div>
+        </div>
+      )}
+
       {showVideo && isPlaying && mediaRect.width > 0 && mediaRect.height > 0 && (
         <div
           className={`absolute z-10 touch-none ${isSelectingRegion ? "cursor-crosshair pointer-events-auto" : "pointer-events-none"}`}
@@ -483,6 +574,16 @@ export function CameraPlayer({ camera, autoStart = true }: CameraPlayerProps) {
               مسح المنطقة
             </button>
           )}
+        </div>
+      )}
+
+      {showVideo && cooldownRemainingSeconds > 0 && (
+        <div
+          className="pointer-events-none absolute left-3 top-3 z-30 rounded-md border border-amber-300/60 bg-black/75 px-3 py-2 text-sm font-medium text-amber-200 shadow-sm"
+          dir="rtl"
+          aria-live="polite"
+        >
+          التهدئة: {cooldownRemainingSeconds}ث
         </div>
       )}
 

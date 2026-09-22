@@ -11,6 +11,7 @@ import {
 import {
   getStoredCameraDetectionRegion,
   getPixelDetectionRegion,
+  getStoredPersonDetectionIntervalMs,
   type NormalizedDetectionRegion,
 } from "@/lib/services/personDetection";
 
@@ -45,7 +46,6 @@ class ScreenshotService {
   private cooldownUntil: Map<string, number> = new Map();
   private readonly MAX_SCREENSHOTS_PER_CAMERA = 100;
   private readonly ERROR_COOLDOWN_MS = 15000;
-  private readonly DETECTION_INTERVAL_MS = 150;
 
   /**
    * Start capturing screenshots for a camera
@@ -76,7 +76,7 @@ class ScreenshotService {
           if (!this.animationFrames.has(cameraId)) return;
           const frame = window.requestAnimationFrame(detect);
           this.animationFrames.set(cameraId, frame);
-        }, this.DETECTION_INTERVAL_MS);
+        }, getStoredPersonDetectionIntervalMs());
         this.detectionTimers.set(cameraId, timer);
       }
     };
@@ -114,6 +114,30 @@ class ScreenshotService {
     if (this.analyzingCameras.has(cameraId)) return;
     if (!(element instanceof HTMLVideoElement)) return;
 
+    const now = Date.now();
+    const cooldownUntil = this.cooldownUntil.get(cameraId) ?? 0;
+    const lastCapture = this.lastCaptureAt.get(cameraId) ?? 0;
+    const captureCooldown = getStoredCaptureCooldownMs();
+    if (cooldownUntil > now || (lastCapture > 0 && now - lastCapture < captureCooldown)) {
+      window.dispatchEvent(new CustomEvent("person-detected", {
+        detail: {
+          cameraId: Number(cameraId),
+          boxes: [],
+          timestamp: new Date(),
+        },
+      }));
+      window.dispatchEvent(new CustomEvent("motion-debug", {
+        detail: {
+          cameraId: Number(cameraId),
+          motionRatio: 0,
+          active: false,
+          started: false,
+          paused: true,
+        },
+      }));
+      return;
+    }
+
     this.analyzingCameras.add(cameraId);
 
     try {
@@ -130,6 +154,18 @@ class ScreenshotService {
         },
       }));
 
+      if (result.mode === "motion") {
+        window.dispatchEvent(new CustomEvent("motion-debug", {
+          detail: {
+            cameraId: Number(cameraId),
+            motionRatio: result.motionRatio,
+            active: result.active,
+            started: result.started,
+            paused: false,
+          },
+        }));
+      }
+
       if (!result.active) return;
 
       if (result.mode === "motion" && result.started) {
@@ -142,20 +178,8 @@ class ScreenshotService {
         }));
       }
 
-      const now = Date.now();
-      const cooldownUntil = this.cooldownUntil.get(cameraId) ?? 0;
-      if (cooldownUntil > now) {
-        return;
-      }
-
-      const lastCapture = this.lastCaptureAt.get(cameraId) ?? 0;
-      const captureCooldown = getStoredCaptureCooldownMs();
-
-      if (now - lastCapture < captureCooldown) {
-        return;
-      }
-
       this.lastCaptureAt.set(cameraId, now);
+      if (result.mode === "motion") detector.resetMotion();
       this.captureScreenshot(
         cameraId,
         cameraName,

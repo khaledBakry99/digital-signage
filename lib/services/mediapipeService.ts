@@ -9,6 +9,7 @@ import {
   isPointInsideDetectionRegion,
   type NormalizedDetectionRegion,
   type PersonBoundingBox,
+  getStoredPersonDetectionSettings,
 } from "@/lib/services/personDetection";
 
 export interface MediapipeDetectionResult {
@@ -22,9 +23,6 @@ class MediapipeService {
   private objectDetector: ObjectDetector | null = null;
   private initialized = false;
   private initializationPromise: Promise<void> | null = null;
-  private readonly MIN_PERSON_CONFIDENCE = 0.5;
-  private readonly MIN_BOX_AREA_RATIO = 0.002;
-  private readonly MAX_BOX_AREA_RATIO = 0.95;
   private readonly regionCanvases = new WeakMap<HTMLVideoElement, HTMLCanvasElement>();
 
   /** Initialize the Mediapipe Object Detector. */
@@ -53,7 +51,7 @@ class MediapipeService {
               },
               runningMode: "VIDEO",
               maxResults: 20,
-              scoreThreshold: this.MIN_PERSON_CONFIDENCE,
+              scoreThreshold: 0.1,
               categoryAllowlist: ["person"],
             });
             break;
@@ -89,6 +87,7 @@ class MediapipeService {
     }
 
     try {
+      const settings = getStoredPersonDetectionSettings();
       // Ensure the video is ready and playing
       if (!videoElement || videoElement.paused || videoElement.ended) {
         return { personsDetected: 0, timestamp: Date.now(), confidence: 0, personBoundingBoxes: [] };
@@ -172,9 +171,9 @@ class MediapipeService {
           videoElement.videoHeight;
         return (
           category.categoryName === "person" &&
-          (category.score || 0) >= this.MIN_PERSON_CONFIDENCE &&
-          areaRatio >= this.MIN_BOX_AREA_RATIO &&
-          areaRatio <= this.MAX_BOX_AREA_RATIO &&
+          (category.score || 0) >= settings.minimumConfidence &&
+          areaRatio >= settings.minimumBoxAreaRatio &&
+          areaRatio <= settings.maximumBoxAreaRatio &&
           isPointInsideDetectionRegion(centerX, centerY, detectionRegion)
         );
       });
@@ -217,6 +216,7 @@ class MediapipeService {
     }
 
     try {
+      const settings = getStoredPersonDetectionSettings();
       const detections = this.objectDetector.detect(canvas);
       const canvasArea = canvas.width * canvas.height;
       const personDetections = detections.detections.filter((d) => {
@@ -226,9 +226,9 @@ class MediapipeService {
         const areaRatio = (box.width * box.height) / canvasArea;
         return (
           category.categoryName === "person" &&
-          (category.score || 0) >= this.MIN_PERSON_CONFIDENCE &&
-          areaRatio >= this.MIN_BOX_AREA_RATIO &&
-          areaRatio <= this.MAX_BOX_AREA_RATIO
+          (category.score || 0) >= settings.minimumConfidence &&
+          areaRatio >= settings.minimumBoxAreaRatio &&
+          areaRatio <= settings.maximumBoxAreaRatio
         );
       });
 

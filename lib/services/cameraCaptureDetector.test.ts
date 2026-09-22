@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CameraCaptureDetector } from "./cameraCaptureDetector";
 
-const mocks = vi.hoisted(() => ({ motion: vi.fn(), person: vi.fn() }));
+const mocks = vi.hoisted(() => ({ motion: vi.fn(), resetMotion: vi.fn(), person: vi.fn() }));
 vi.mock("./motionDetection", () => ({
   MotionDetector: class {
     detect = mocks.motion;
+    reset = mocks.resetMotion;
   },
 }));
 vi.mock("./mediapipeService", () => ({
@@ -28,6 +29,15 @@ describe("CameraCaptureDetector", () => {
     expect(result).toMatchObject({ mode: "motion", active: true, started: true });
     expect(mocks.motion).toHaveBeenCalledWith(video, region);
     expect(mocks.person).not.toHaveBeenCalled();
+  });
+
+  it("clears motion history after a capture", async () => {
+    const detector = new CameraCaptureDetector();
+    await detector.detect(video, region);
+
+    detector.resetMotion();
+
+    expect(mocks.resetMotion).toHaveBeenCalledOnce();
   });
 
   it("confirms people within the region without requiring movement", async () => {

@@ -1,8 +1,55 @@
+import { STORAGE_KEYS } from "@/lib/cameras/constants";
+import type { PersonDetectionSettings } from "@/lib/types/camera";
+
 export interface PersonBoundingBox {
   originX: number;
   originY: number;
   width: number;
   height: number;
+}
+
+export const DEFAULT_PERSON_DETECTION_SETTINGS: PersonDetectionSettings = {
+  minimumConfidence: 0.5,
+  minimumBoxAreaRatio: 0.002,
+  maximumBoxAreaRatio: 0.95,
+  positiveVotesRequired: 2,
+  zeroVotesRequired: 5,
+  detectionIntervalMs: 150,
+};
+
+const clampPersonSetting = (value: unknown, fallback: number, minimum: number, maximum: number) => (
+  typeof value === "number" && Number.isFinite(value)
+    ? Math.min(maximum, Math.max(minimum, value))
+    : fallback
+);
+
+export function sanitizePersonDetectionSettings(
+  settings: Partial<PersonDetectionSettings> | null | undefined,
+): PersonDetectionSettings {
+  return {
+    minimumConfidence: clampPersonSetting(settings?.minimumConfidence, 0.5, 0.3, 0.95),
+    minimumBoxAreaRatio: clampPersonSetting(settings?.minimumBoxAreaRatio, 0.002, 0.0005, 0.2),
+    maximumBoxAreaRatio: clampPersonSetting(settings?.maximumBoxAreaRatio, 0.95, 0.2, 0.99),
+    positiveVotesRequired: Math.round(clampPersonSetting(settings?.positiveVotesRequired, 2, 1, 7)),
+    zeroVotesRequired: Math.round(clampPersonSetting(settings?.zeroVotesRequired, 5, 1, 15)),
+    detectionIntervalMs: Math.round(clampPersonSetting(settings?.detectionIntervalMs, 150, 50, 1000)),
+  };
+}
+
+export function getStoredPersonDetectionSettings(): PersonDetectionSettings {
+  if (typeof window === "undefined") return { ...DEFAULT_PERSON_DETECTION_SETTINGS };
+
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEYS.CAMERA_SETTINGS);
+    const value = stored ? JSON.parse(stored) : {};
+    return sanitizePersonDetectionSettings(value.personDetection);
+  } catch {
+    return { ...DEFAULT_PERSON_DETECTION_SETTINGS };
+  }
+}
+
+export function getStoredPersonDetectionIntervalMs(): number {
+  return getStoredPersonDetectionSettings().detectionIntervalMs;
 }
 
 export interface NormalizedPoint {

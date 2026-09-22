@@ -2,6 +2,7 @@ import { STORAGE_KEYS } from "@/lib/cameras/constants";
 import { MotionDetector } from "./motionDetection";
 import {
   PersonCountSmoother,
+  getStoredPersonDetectionSettings,
   type NormalizedDetectionRegion,
   type PersonBoundingBox,
 } from "./personDetection";
@@ -24,12 +25,21 @@ export class CameraCaptureDetector {
   private contextKey = "";
   private reportedError = false;
 
+  resetMotion(): void {
+    this.motion?.reset();
+  }
+
   async detect(video: HTMLVideoElement, region: NormalizedDetectionRegion | null) {
     const mode = getStoredDetectionMode();
-    const key = JSON.stringify([mode, region]);
+    const personSettings = mode === "person" ? getStoredPersonDetectionSettings() : null;
+    const key = JSON.stringify([mode, region, personSettings]);
     if (key !== this.contextKey || video.paused || video.ended || video.readyState < 2) {
       this.motion = null;
-      this.people = new PersonCountSmoother();
+      this.people = new PersonCountSmoother(
+        7,
+        personSettings?.positiveVotesRequired,
+        personSettings?.zeroVotesRequired,
+      );
       this.personCount = 0;
       this.contextKey = key;
     }

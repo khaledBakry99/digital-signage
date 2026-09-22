@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cameraStorage } from "./cameraStorage";
 import { DEFAULT_MOTION_DETECTION_SETTINGS } from "@/lib/services/motionDetection";
+import { DEFAULT_PERSON_DETECTION_SETTINGS } from "@/lib/services/personDetection";
 
 afterEach(() => {
   window.localStorage.clear();
@@ -21,6 +22,7 @@ describe("cameraStorage motion calibration", () => {
     expect(settings.motionDetection).toEqual(DEFAULT_MOTION_DETECTION_SETTINGS);
     expect(settings.autoReconnect).toBe(false);
     expect(settings.captureFullFrame).toBe(false);
+    expect(settings.personDetection).toEqual(DEFAULT_PERSON_DETECTION_SETTINGS);
   });
 
   it("saves motion calibration in browser storage", async () => {
@@ -38,6 +40,15 @@ describe("cameraStorage motion calibration", () => {
       detectionMode: "person",
       captureCooldownSeconds: 12,
       showPersonDetectionDebug: true,
+      showMotionDetectionDebug: false,
+      personDetection: {
+        minimumConfidence: 0.7,
+        minimumBoxAreaRatio: 0.01,
+        maximumBoxAreaRatio: 0.9,
+        positiveVotesRequired: 3,
+        zeroVotesRequired: 6,
+        detectionIntervalMs: 250,
+      },
       lastUpdate: new Date("2026-01-01T00:00:00.000Z"),
     });
 
@@ -53,5 +64,14 @@ describe("cameraStorage motion calibration", () => {
     expect(stored.detectionMode).toBe("person");
     expect(stored.captureCooldownSeconds).toBe(12);
     expect(stored.showPersonDetectionDebug).toBe(true);
+    expect(stored.showMotionDetectionDebug).toBe(false);
+    expect(stored.personDetection).toEqual({
+      minimumConfidence: 0.7,
+      minimumBoxAreaRatio: 0.01,
+      maximumBoxAreaRatio: 0.9,
+      positiveVotesRequired: 3,
+      zeroVotesRequired: 6,
+      detectionIntervalMs: 250,
+    });
   });
 });

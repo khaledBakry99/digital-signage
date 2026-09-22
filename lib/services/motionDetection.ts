@@ -144,7 +144,7 @@ export class MotionStateTracker {
     }
 
     return {
-      motionDetected: this.active,
+      motionDetected: this.active && hasMotion,
       motionStarted,
       motionRatio,
     };

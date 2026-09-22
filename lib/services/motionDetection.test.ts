@@ -71,9 +71,9 @@ describe("MotionStateTracker", () => {
     tracker.update(0.03);
     tracker.update(0.03);
 
-    expect(tracker.update(0)).toMatchObject({ motionDetected: true });
-    expect(tracker.update(0)).toMatchObject({ motionDetected: true });
-    expect(tracker.update(0)).toMatchObject({ motionDetected: true });
+    expect(tracker.update(0)).toMatchObject({ motionDetected: false, motionRatio: 0 });
+    expect(tracker.update(0)).toMatchObject({ motionDetected: false, motionRatio: 0 });
+    expect(tracker.update(0)).toMatchObject({ motionDetected: false, motionRatio: 0 });
     expect(tracker.update(0)).toMatchObject({ motionDetected: false });
 
     expect(tracker.update(0.03)).toMatchObject({ motionStarted: true });
