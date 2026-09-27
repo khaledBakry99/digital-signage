@@ -342,7 +342,30 @@ export default function ScreenPlayer({
     };
   }, [advertisement, clearImageTimer, onEnded, onPlaybackError, shouldLoop, tryPlay]);
 
-  // Autoplay video after load
+  // Document-level fullscreen events - register once
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const videoElement = videoRef.current;
+      if (videoElement) {
+        videoElement.muted = true;
+        videoElement.volume = 0;
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  // Video-specific events and playback logic
   useEffect(() => {
     let retryTimeout: NodeJS.Timeout | null = null;
 
@@ -351,6 +374,26 @@ export default function ScreenPlayer({
       videoElement.muted = true;
       videoElement.volume = 0;
       videoElement.currentTime = 0;
+
+      const enforceMute = () => {
+        if (videoElement) {
+          videoElement.muted = true;
+          videoElement.volume = 0;
+        }
+      };
+
+      const handleMouseInteraction = () => {
+        enforceMute();
+      };
+
+      const handleVolumeChange = () => {
+        enforceMute();
+      };
+
+      videoElement.addEventListener('mouseenter', handleMouseInteraction);
+      videoElement.addEventListener('mouseleave', handleMouseInteraction);
+      videoElement.addEventListener('click', handleMouseInteraction);
+      videoElement.addEventListener('volumechange', handleVolumeChange);
 
       tryPlay(videoElement).catch((err) => {
         if (isAbortError(err)) {
@@ -374,6 +417,14 @@ export default function ScreenPlayer({
         scheduleError("فشل تشغيل الفيديو من الخادم");
         onPlaybackError?.(err);
       });
+
+      return () => {
+        videoElement.removeEventListener('mouseenter', handleMouseInteraction);
+        videoElement.removeEventListener('mouseleave', handleMouseInteraction);
+        videoElement.removeEventListener('click', handleMouseInteraction);
+        videoElement.removeEventListener('volumechange', handleVolumeChange);
+        if (retryTimeout) clearTimeout(retryTimeout);
+      };
     }
 
     return () => {
@@ -537,6 +588,8 @@ export default function ScreenPlayer({
         onLoadedMetadata={() => {
           const v = videoRef.current;
           if (!v) return;
+          v.muted = true;
+          v.volume = 0;
           videoAnchorWallAtRef.current = Date.now();
           videoAnchorMediaAtRef.current = v.currentTime || 0;
           lastVideoTimeRef.current = v.currentTime || 0;

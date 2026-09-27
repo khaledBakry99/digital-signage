@@ -219,8 +219,10 @@ export class CameraScreenshotService {
       analyzing = true;
 
       try {
+        // Capture cooldown once to avoid race conditions if settings change during execution
+        const captureCooldownMs = getStoredCaptureCooldownMs();
         const cooldownCheckTime = Date.now();
-        if (lastCaptureAt > 0 && cooldownCheckTime - lastCaptureAt < getStoredCaptureCooldownMs()) {
+        if (lastCaptureAt > 0 && cooldownCheckTime - lastCaptureAt < captureCooldownMs) {
           window.dispatchEvent(new CustomEvent("person-detected", {
             detail: { cameraId, boxes: [], timestamp: new Date() },
           }));
@@ -267,7 +269,7 @@ export class CameraScreenshotService {
 
         const now = Date.now();
         const shouldCapture = result.active &&
-          now - lastCaptureAt >= getStoredCaptureCooldownMs();
+          now - lastCaptureAt >= captureCooldownMs;
         if (shouldCapture && sendToAi) {
           lastCaptureAt = now;
           if (result.mode === "motion") detector.resetMotion();

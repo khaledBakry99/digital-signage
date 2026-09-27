@@ -620,15 +620,6 @@ export default function ScreenPage() {
       return;
     }
 
-    // Check if latest detection has peopleCount > 0 before playing
-    const detection = latestDetectionRef.current;
-    if (detection && detection.peopleCount !== undefined && detection.peopleCount <= 0) {
-      console.log("🧹 CLEARED DETECTION: peopleCount is 0");
-      latestDetectionRef.current = null;
-      await loadFallbackAd();
-      return;
-    }
-
     const applied = await playLatestDetectionIfPossible();
     if (applied) {
       return;

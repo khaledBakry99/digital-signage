@@ -250,11 +250,10 @@ export class MotionDetector {
       if (!isPointInsideDetectionRegion(frameX, frameY, detectionRegion)) continue;
 
       const pixelIndex = index * 4;
-      const luminance = Math.round(
-        pixels[pixelIndex] * 0.299 +
-        pixels[pixelIndex + 1] * 0.587 +
-        pixels[pixelIndex + 2] * 0.114,
-      );
+      const r = pixels[pixelIndex];
+      const g = pixels[pixelIndex + 1];
+      const b = pixels[pixelIndex + 2];
+      const luminance = ((r * 77 + g * 150 + b * 29) >> 8);
       currentFrame[index] = luminance;
       includedPixels[index] = 1;
       includedCount += 1;

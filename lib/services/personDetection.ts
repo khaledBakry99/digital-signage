@@ -108,7 +108,6 @@ export class PersonCountSmoother {
 
     if (
       candidateState.votes < requiredVotes ||
-      candidateCount !== count ||
       candidateCount === this.stableCount
     ) {
       return null;
